@@ -32,8 +32,8 @@ PHASE 3: WASI INTEGRATION
 [ ] Support wasi:cli for command-line programs
 [ ] Support wasi:filesystem for file I/O
 [ ] Support wasi:sockets for networking
-[ ] Support wasi:random for random number generation
-[ ] Support wasi:clocks for time operations
+[x] Support wasi:random for random number generation
+[x] Support wasi:clocks for time operations
 [ ] Support wasi:http for HTTP client/server
 
 PHASE 4: LANGUAGE FEATURES

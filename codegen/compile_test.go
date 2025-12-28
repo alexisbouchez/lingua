@@ -197,6 +197,7 @@ fn double(x: i32): i32 { add(x, x) }`
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
 
 	mod, err := r.Instantiate(ctx, m.Bytes())
 	if err != nil {
@@ -226,6 +227,7 @@ func TestCompileMemory(t *testing.T) {
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
 
 	mod, err := r.Instantiate(ctx, m.Bytes())
 	if err != nil {
@@ -256,6 +258,7 @@ func TestCompileData(t *testing.T) {
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
 
 	mod, err := r.Instantiate(ctx, m.Bytes())
 	if err != nil {
@@ -506,6 +509,7 @@ func TestAbs(t *testing.T) {
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
 
 	mod, err := r.Instantiate(ctx, m.Bytes())
 	if err != nil {
@@ -542,6 +546,7 @@ func TestMinMax(t *testing.T) {
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
 
 	mod, err := r.Instantiate(ctx, m.Bytes())
 	if err != nil {
@@ -575,6 +580,7 @@ func TestSqrt(t *testing.T) {
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
 
 	mod, err := r.Instantiate(ctx, m.Bytes())
 	if err != nil {
@@ -649,6 +655,7 @@ func TestPow(t *testing.T) {
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
 
 	mod, err := r.Instantiate(ctx, m.Bytes())
 	if err != nil {
@@ -723,6 +730,7 @@ func TestMod(t *testing.T) {
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
 
 	mod, err := r.Instantiate(ctx, m.Bytes())
 	if err != nil {
@@ -825,6 +833,7 @@ func TestBitwiseBuiltins(t *testing.T) {
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
 
 	mod, err := r.Instantiate(ctx, m.Bytes())
 	if err != nil {
@@ -966,6 +975,7 @@ func TestBitwiseLogicalBuiltins(t *testing.T) {
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
 
 	mod, err := r.Instantiate(ctx, m.Bytes())
 	if err != nil {
@@ -1227,6 +1237,7 @@ fn test_shr(a: i32, b: i32): i32 { a >> b }`
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
 
 	mod, err := r.Instantiate(ctx, m.Bytes())
 	if err != nil {
@@ -1285,6 +1296,7 @@ func TestReturn(t *testing.T) {
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
 
 	mod, err := r.Instantiate(ctx, m.Bytes())
 	if err != nil {
@@ -1369,6 +1381,7 @@ fn get_counter(): i32 {
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
 
 	mod, err := r.Instantiate(ctx, m.Bytes())
 	if err != nil {
@@ -1419,6 +1432,7 @@ func TestArrayLiteral(t *testing.T) {
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
 
 	mod, err := r.Instantiate(ctx, m.Bytes())
 	if err != nil {
@@ -1453,6 +1467,7 @@ func TestArrayIndexAssign(t *testing.T) {
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
 
 	mod, err := r.Instantiate(ctx, m.Bytes())
 	if err != nil {
@@ -1492,6 +1507,7 @@ func TestArraySum(t *testing.T) {
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
 
 	mod, err := r.Instantiate(ctx, m.Bytes())
 	if err != nil {
@@ -1534,6 +1550,7 @@ func TestStrEq(t *testing.T) {
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
 
 	mod, err := r.Instantiate(ctx, m.Bytes())
 	if err != nil {
@@ -1580,6 +1597,7 @@ func TestStrCopy(t *testing.T) {
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
 
 	mod, err := r.Instantiate(ctx, m.Bytes())
 	if err != nil {
@@ -1792,6 +1810,7 @@ func TestMalloc(t *testing.T) {
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
 
 	mod, err := r.Instantiate(ctx, m.Bytes())
 	if err != nil {
@@ -1831,6 +1850,7 @@ func TestMallocSequential(t *testing.T) {
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
 
 	mod, err := r.Instantiate(ctx, m.Bytes())
 	if err != nil {
@@ -1869,6 +1889,7 @@ func TestMallocMemoryOperations(t *testing.T) {
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
 
 	mod, err := r.Instantiate(ctx, m.Bytes())
 	if err != nil {
@@ -1907,6 +1928,7 @@ func TestMemcpy(t *testing.T) {
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
 
 	mod, err := r.Instantiate(ctx, m.Bytes())
 	if err != nil {
@@ -1943,6 +1965,7 @@ func TestMemcpyLargeBlock(t *testing.T) {
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
 
 	mod, err := r.Instantiate(ctx, m.Bytes())
 	if err != nil {
@@ -1978,6 +2001,7 @@ func TestMemcpyReturnValue(t *testing.T) {
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
 
 	mod, err := r.Instantiate(ctx, m.Bytes())
 	if err != nil {
@@ -2283,5 +2307,44 @@ func TestWASIAdvancedFileBuiltins(t *testing.T) {
 	if len(results) > 0 {
 		t.Logf("datasync(999) result: %d", results[0])
 	}
+}
+
+func TestTimeBuiltin(t *testing.T) {
+	src := `fn _start(): i32 { time() }`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	wasi, err := wasi_snapshot_preview1.Instantiate(ctx, r)
+	if err != nil {
+		t.Fatalf("wasi instantiate: %v", err)
+	}
+	defer wasi.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	fn := mod.ExportedFunction("_start")
+	results, err := fn.Call(ctx)
+	if err != nil {
+		t.Fatalf("call error: %v", err)
+	}
+
+	// time() should return current time in seconds since epoch
+	// Should be a reasonable value (after year 2020 = 1577836800)
+	timestamp := int32(results[0])
+	if timestamp < 1577836800 {
+		t.Errorf("time() returned unexpectedly low value: %d", timestamp)
+	}
+	t.Logf("time() returned: %d seconds since epoch", timestamp)
 }
 

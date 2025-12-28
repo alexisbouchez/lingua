@@ -29,16 +29,19 @@ const (
 )
 
 type FuncDef struct {
-	Name      string
-	NumParams int
-	NumLocals int
-	Code      []byte
+	Name       string
+	NumParams  int
+	NumLocals  int
+	Code       []byte
+	ResultType byte // I32, I64, or 0 for void
 }
 
 type ImportDef struct {
-	Module    string
-	Name      string
-	NumParams int
+	Module     string
+	Name       string
+	NumParams  int
+	ParamTypes []byte // nil means all i32, otherwise specifies each param type
+	HasResult  bool   // false for void functions like proc_exit
 }
 
 type DataSeg struct {
@@ -79,12 +82,18 @@ func NewModule() *Module {
 	}
 }
 
-func (m *Module) AddImport(module, name string, numParams int) {
+func (m *Module) AddImport(module, name string, numParams int, hasResult bool) {
+	m.AddImportWithTypes(module, name, numParams, nil, hasResult)
+}
+
+func (m *Module) AddImportWithTypes(module, name string, numParams int, paramTypes []byte, hasResult bool) {
 	m.funcIdx[name] = len(m.imports) + len(m.funcs)
 	m.imports = append(m.imports, ImportDef{
-		Module:    module,
-		Name:      name,
-		NumParams: numParams,
+		Module:     module,
+		Name:       name,
+		NumParams:  numParams,
+		ParamTypes: paramTypes,
+		HasResult:  hasResult,
 	})
 	// Re-index: imports come first, then local funcs
 	for i := range m.funcs {
@@ -93,12 +102,17 @@ func (m *Module) AddImport(module, name string, numParams int) {
 }
 
 func (m *Module) AddFunction(name string, numParams int, code []byte, numLocals int) {
+	m.AddFunctionWithResult(name, numParams, code, numLocals, I32)
+}
+
+func (m *Module) AddFunctionWithResult(name string, numParams int, code []byte, numLocals int, resultType byte) {
 	m.funcIdx[name] = len(m.imports) + len(m.funcs)
 	m.funcs = append(m.funcs, FuncDef{
-		Name:      name,
-		NumParams: numParams,
-		NumLocals: numLocals,
-		Code:      code,
+		Name:       name,
+		NumParams:  numParams,
+		NumLocals:  numLocals,
+		Code:       code,
+		ResultType: resultType,
 	})
 }
 
@@ -144,32 +158,64 @@ func (m *Module) Bytes() []byte {
 	buf.Write(magic)
 	buf.Write(version)
 
-	// Type section - one type per function based on param count
-	typeMap := make(map[int]int) // numParams -> typeIdx
-	var types []int
+	// Type section - types are keyed by full signature string
+	type funcType struct {
+		paramTypes []byte
+		resultType byte // 0 for void, I32, I64, etc.
+	}
+	typeMap := make(map[string]int)
+	var types []funcType
+
+	makeKey := func(paramTypes []byte, resultType byte) string {
+		key := string(paramTypes) + "|" + string(resultType)
+		return key
+	}
+
 	for _, imp := range m.imports {
-		if _, ok := typeMap[imp.NumParams]; !ok {
-			typeMap[imp.NumParams] = len(types)
-			types = append(types, imp.NumParams)
+		resultType := byte(0)
+		if imp.HasResult {
+			resultType = I32
+		}
+		paramTypes := imp.ParamTypes
+		if paramTypes == nil {
+			// Default all params to i32
+			paramTypes = make([]byte, imp.NumParams)
+			for i := range paramTypes {
+				paramTypes[i] = I32
+			}
+		}
+		key := makeKey(paramTypes, resultType)
+		if _, ok := typeMap[key]; !ok {
+			typeMap[key] = len(types)
+			types = append(types, funcType{paramTypes, resultType})
 		}
 	}
 	for _, f := range m.funcs {
-		if _, ok := typeMap[f.NumParams]; !ok {
-			typeMap[f.NumParams] = len(types)
-			types = append(types, f.NumParams)
+		paramTypes := make([]byte, f.NumParams)
+		for i := range paramTypes {
+			paramTypes[i] = I32
+		}
+		key := makeKey(paramTypes, f.ResultType)
+		if _, ok := typeMap[key]; !ok {
+			typeMap[key] = len(types)
+			types = append(types, funcType{paramTypes, f.ResultType})
 		}
 	}
 
 	var typeSec bytes.Buffer
 	typeSec.Write(uleb128(uint64(len(types))))
-	for _, numParams := range types {
+	for _, t := range types {
 		typeSec.WriteByte(0x60) // func type
-		typeSec.Write(uleb128(uint64(numParams)))
-		for i := 0; i < numParams; i++ {
-			typeSec.WriteByte(I32)
+		typeSec.Write(uleb128(uint64(len(t.paramTypes))))
+		for _, pt := range t.paramTypes {
+			typeSec.WriteByte(pt)
 		}
-		typeSec.WriteByte(1)   // 1 result
-		typeSec.WriteByte(I32) // i32
+		if t.resultType != 0 {
+			typeSec.WriteByte(1)           // 1 result
+			typeSec.WriteByte(t.resultType) // result type
+		} else {
+			typeSec.WriteByte(0) // 0 results (void)
+		}
 	}
 	writeSection(&buf, SectionType, typeSec.Bytes())
 
@@ -183,7 +229,19 @@ func (m *Module) Bytes() []byte {
 			impSec.Write(uleb128(uint64(len(imp.Name))))
 			impSec.WriteString(imp.Name)
 			impSec.WriteByte(0x00) // func import
-			impSec.Write(uleb128(uint64(typeMap[imp.NumParams])))
+			resultType := byte(0)
+			if imp.HasResult {
+				resultType = I32
+			}
+			paramTypes := imp.ParamTypes
+			if paramTypes == nil {
+				paramTypes = make([]byte, imp.NumParams)
+				for i := range paramTypes {
+					paramTypes[i] = I32
+				}
+			}
+			key := makeKey(paramTypes, resultType)
+			impSec.Write(uleb128(uint64(typeMap[key])))
 		}
 		writeSection(&buf, SectionImport, impSec.Bytes())
 	}
@@ -192,7 +250,12 @@ func (m *Module) Bytes() []byte {
 	var funcSec bytes.Buffer
 	funcSec.Write(uleb128(uint64(len(m.funcs))))
 	for _, f := range m.funcs {
-		funcSec.Write(uleb128(uint64(typeMap[f.NumParams])))
+		paramTypes := make([]byte, f.NumParams)
+		for i := range paramTypes {
+			paramTypes[i] = I32
+		}
+		key := makeKey(paramTypes, f.ResultType)
+		funcSec.Write(uleb128(uint64(typeMap[key])))
 	}
 	writeSection(&buf, SectionFunction, funcSec.Bytes())
 

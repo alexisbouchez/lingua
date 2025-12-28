@@ -42,6 +42,7 @@ const (
 	OpI32Popcnt = 0x69
 
 	OpI32Load  = 0x28
+	OpI64Load  = 0x29
 	OpI32Store = 0x36
 )
 
@@ -1150,6 +1151,33 @@ func generateLinkHelper(pathLinkIdx int) []byte {
 	return code
 }
 
+// generateTimeHelper generates the time() helper function bytecode
+// Returns the current wall clock time in seconds as i32
+// Uses memory at address 904 for the 8-byte timestamp buffer
+func generateTimeHelper(clockTimeGetIdx int) []byte {
+	var code []byte
+
+	// clock_time_get(0, 0, 904) - get realtime clock with best precision, store at 904
+	code = append(code, 0x41, 0)           // i32.const 0 (CLOCK_REALTIME)
+	code = append(code, 0x42, 0)           // i64.const 0 (precision - best available)
+	code = append(code, 0x41, 0x88, 0x07)  // i32.const 904 (LEB128)
+	code = append(code, OpCall, byte(clockTimeGetIdx))
+	code = append(code, 0x1a)              // drop result (errno)
+
+	// Load the timestamp as i64
+	code = append(code, 0x41, 0x88, 0x07)  // i32.const 904
+	code = append(code, OpI64Load, 3, 0)   // i64.load (align=3 for 8 bytes)
+
+	// Divide by 1,000,000,000 to convert nanoseconds to seconds
+	code = append(code, 0x42, 0x80, 0x94, 0xeb, 0xdc, 0x03) // i64.const 1000000000 (LEB128)
+	code = append(code, 0x7f)                               // i64.div_s
+
+	// Wrap to i32
+	code = append(code, 0xa7) // i32.wrap_i64
+
+	return code
+}
+
 // generateWriteCharHelper generates the write_char(c) helper function bytecode
 // Writes a single character to stdout
 // Params: c (i32) - the character to write
@@ -1352,45 +1380,50 @@ func CompileFile(file *parser.File, m *Module) {
 	}
 
 	// First pass: collect all function calls to detect WASI imports
-	wasiImports := map[string]int{
-		"fd_write":                4,
-		"fd_read":                 4,
-		"args_get":                2,
-		"args_sizes_get":          2,
-		"environ_get":             2,
-		"environ_sizes_get":       2,
-		"proc_exit":               1,
-		"random_get":              2,
-		"path_open":               8,
-		"fd_close":                1,
-		"fd_prestat_get":          2,
-		"fd_prestat_dir_name":     3,
-		"fd_seek":                 4,
-		"fd_tell":                 1,
-		"fd_fdstat_get":           2,
-		"fd_fdstat_set_flags":     2,
-		"fd_filestat_get":         2,
-		"path_create_directory":   3,
-		"path_remove_directory":   3,
-		"path_unlink_file":        3,
-		"path_rename":             5,
-		"path_filestat_get":       4,
-		"fd_readdir":              4,
-		"fd_sync":                 1,
-		"fd_datasync":             1,
-		"fd_allocate":             3,
-		"fd_advise":               4,
-		"path_link":               6,
-		"path_symlink":            4,
-		"path_readlink":           5,
-		"sched_yield":             0,
-		"clock_res_get":           2,
-		"clock_time_get":          3,
-		"poll_oneoff":             4,
-		"proc_raise":              1,
-		"sock_recv":               5,
-		"sock_send":               5,
-		"sock_shutdown":           2,
+	// wasiImportInfo contains numParams and whether the function has a return value
+	type wasiImportInfo struct {
+		numParams int
+		hasResult bool
+	}
+	wasiImports := map[string]wasiImportInfo{
+		"fd_write":              {4, true},
+		"fd_read":               {4, true},
+		"args_get":              {2, true},
+		"args_sizes_get":        {2, true},
+		"environ_get":           {2, true},
+		"environ_sizes_get":     {2, true},
+		"proc_exit":             {1, false}, // void - terminates process
+		"random_get":            {2, true},
+		"path_open":             {8, true},
+		"fd_close":              {1, true},
+		"fd_prestat_get":        {2, true},
+		"fd_prestat_dir_name":   {3, true},
+		"fd_seek":               {4, true},
+		"fd_tell":               {1, true},
+		"fd_fdstat_get":         {2, true},
+		"fd_fdstat_set_flags":   {2, true},
+		"fd_filestat_get":       {2, true},
+		"path_create_directory": {3, true},
+		"path_remove_directory": {3, true},
+		"path_unlink_file":      {3, true},
+		"path_rename":           {5, true},
+		"path_filestat_get":     {4, true},
+		"fd_readdir":            {4, true},
+		"fd_sync":               {1, true},
+		"fd_datasync":           {1, true},
+		"fd_allocate":           {3, true},
+		"fd_advise":             {4, true},
+		"path_link":             {6, true},
+		"path_symlink":          {4, true},
+		"path_readlink":         {5, true},
+		"sched_yield":           {0, true},
+		"clock_res_get":         {2, true},
+		"clock_time_get":        {3, true},
+		"poll_oneoff":           {4, true},
+		"proc_raise":            {1, true},
+		"sock_recv":             {5, true},
+		"sock_send":             {5, true},
+		"sock_shutdown":         {2, true},
 	}
 
 	usedImports := make(map[string]bool)
@@ -1746,10 +1779,31 @@ func CompileFile(file *parser.File, m *Module) {
 		usedImports["path_link"] = true
 	}
 
+	// Ensure clock_time_get is imported if time is used
+	needsTimeEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "time") {
+			needsTimeEarly = true
+			break
+		}
+	}
+	if needsTimeEarly {
+		usedImports["clock_time_get"] = true
+	}
+
+	// Always include proc_exit for WASI runtime compatibility (e.g., Bun, wasmtime)
+	// WASI runtimes require at least one import from wasi_snapshot_preview1
+	usedImports["proc_exit"] = true
+
 	// Add WASI imports first
 	for name := range usedImports {
-		if numParams, ok := wasiImports[name]; ok {
-			m.AddImport("wasi_snapshot_preview1", name, numParams)
+		if info, ok := wasiImports[name]; ok {
+			// clock_time_get has special param types: (i32, i64, i32)
+			if name == "clock_time_get" {
+				m.AddImportWithTypes("wasi_snapshot_preview1", name, info.numParams, []byte{I32, I64, I32}, info.hasResult)
+			} else {
+				m.AddImport("wasi_snapshot_preview1", name, info.numParams, info.hasResult)
+			}
 		}
 	}
 
@@ -2026,6 +2080,9 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsLinkEarly {
 		helperCount++
 	}
+	if needsTimeEarly {
+		helperCount++
+	}
 
 	// Adjust function indices for helpers
 	helperIdx := 0
@@ -2231,6 +2288,10 @@ func CompileFile(file *parser.File, m *Module) {
 	}
 	if needsLinkEarly {
 		funcIdx["link"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsTimeEarly {
+		funcIdx["time"] = len(m.imports) + helperIdx
 		helperIdx++
 	}
 	for i, fn := range file.Fns {
@@ -2441,6 +2502,10 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsLinkEarly {
 		code := generateLinkHelper(funcIdx["path_link"])
 		m.AddFunction("link", 7, code, 0) // 7 params (old_fd, old_flags, old_path, old_path_len, new_fd, new_path, new_path_len), 0 locals
+	}
+	if needsTimeEarly {
+		code := generateTimeHelper(funcIdx["clock_time_get"])
+		m.AddFunction("time", 0, code, 0) // 0 params, 0 locals, returns i32 (seconds)
 	}
 
 	for _, fn := range file.Fns {
