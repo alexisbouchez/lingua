@@ -25,6 +25,7 @@ A WASM/WASI native programming language written in Go.
 - `loop` with condition
 - `break` and `continue`
 - `return` for early returns
+- `async` functions and `await` expressions
 
 ### Global Variables
 Global variables can be declared at module level:
@@ -68,6 +69,10 @@ arr[1] = 100;
 #### System Functions
 - `exit(code)` - exit program
 
+#### Async Functions
+- `async_sleep(ms)` - async sleep for milliseconds
+- `async_read(fd, buf, len)` - async file read
+
 ## Example
 
 ```
@@ -86,6 +91,22 @@ fn _start(): i32 {
 }
 ```
 
+### Async/Await Example
+
+```
+async fn sleep_and_print(ms: i32): i32 {
+    println(1); // Before sleep
+    await async_sleep(ms);
+    println(2); // After sleep
+    0
+}
+
+fn _start(): i32 {
+    sleep_and_print(100);
+    0
+}
+```
+
 ## Building
 
 ```bash
@@ -100,6 +121,9 @@ go build -o lingua ./cmd/lingua
 
 # Compile to WAT (text format) for debugging
 ./lingua input.lingua output.wat
+
+# Compile and run directly
+./lingua run input.lingua
 ```
 
 Run with a WASM runtime:
@@ -107,6 +131,8 @@ Run with a WASM runtime:
 ```bash
 wasmtime output.wasm
 ```
+
+The `run` command compiles the Lingua file to a temporary WASM file and executes it using `wasmtime` or `wasmedge` (whichever is available).
 
 ## Testing
 

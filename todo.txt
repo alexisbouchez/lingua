@@ -73,7 +73,7 @@ PHASE 7: STANDARD LIBRARY
 [x] Implement string utilities
 [x] Implement math functions (abs, min, max, sign, negate, clamp, square, cube, is_even, is_odd, log2)
 [x] Implement collections (list, map, set)
-[ ] Implement async/await primitives (WASI 0.3)
+[~] Implement async/await primitives (basic support added)
 
 PHASE 8: TESTING & DOCUMENTATION
 --------------------------------
