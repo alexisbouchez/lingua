@@ -823,6 +823,96 @@ func generateOpenHelper(pathOpenIdx int) []byte {
 	return code
 }
 
+// generateMkdirHelper generates the mkdir(dirfd, path, path_len) helper function bytecode
+// Creates a directory using WASI path_create_directory
+// Params: dirfd (i32), path (i32), path_len (i32)
+// Returns: errno (0 on success)
+func generateMkdirHelper(pathCreateDirIdx int) []byte {
+	var code []byte
+
+	// path_create_directory(dirfd, path, path_len)
+	code = append(code, OpLocalGet, 0)     // get dirfd param
+	code = append(code, OpLocalGet, 1)     // get path param
+	code = append(code, OpLocalGet, 2)     // get path_len param
+	code = append(code, OpCall, byte(pathCreateDirIdx))
+
+	// Return the errno
+	return code
+}
+
+// generateRmdirHelper generates the rmdir(dirfd, path, path_len) helper function bytecode
+// Removes a directory using WASI path_remove_directory
+// Params: dirfd (i32), path (i32), path_len (i32)
+// Returns: errno (0 on success)
+func generateRmdirHelper(pathRemoveDirIdx int) []byte {
+	var code []byte
+
+	// path_remove_directory(dirfd, path, path_len)
+	code = append(code, OpLocalGet, 0)     // get dirfd param
+	code = append(code, OpLocalGet, 1)     // get path param
+	code = append(code, OpLocalGet, 2)     // get path_len param
+	code = append(code, OpCall, byte(pathRemoveDirIdx))
+
+	// Return the errno
+	return code
+}
+
+// generateUnlinkHelper generates the unlink(dirfd, path, path_len) helper function bytecode
+// Removes a file using WASI path_unlink_file
+// Params: dirfd (i32), path (i32), path_len (i32)
+// Returns: errno (0 on success)
+func generateUnlinkHelper(pathUnlinkIdx int) []byte {
+	var code []byte
+
+	// path_unlink_file(dirfd, path, path_len)
+	code = append(code, OpLocalGet, 0)     // get dirfd param
+	code = append(code, OpLocalGet, 1)     // get path param
+	code = append(code, OpLocalGet, 2)     // get path_len param
+	code = append(code, OpCall, byte(pathUnlinkIdx))
+
+	// Return the errno
+	return code
+}
+
+// generateRenameHelper generates the rename(old_dirfd, old_path, old_path_len, new_dirfd, new_path, new_path_len) helper function bytecode
+// Renames a file using WASI path_rename
+// Params: old_dirfd (i32), old_path (i32), old_path_len (i32), new_dirfd (i32), new_path (i32), new_path_len (i32)
+// Returns: errno (0 on success)
+func generateRenameHelper(pathRenameIdx int) []byte {
+	var code []byte
+
+	// path_rename(old_dirfd, old_path, old_path_len, new_dirfd, new_path, new_path_len)
+	code = append(code, OpLocalGet, 0)     // get old_dirfd param
+	code = append(code, OpLocalGet, 1)     // get old_path param
+	code = append(code, OpLocalGet, 2)     // get old_path_len param
+	code = append(code, OpLocalGet, 3)     // get new_dirfd param
+	code = append(code, OpLocalGet, 4)     // get new_path param
+	code = append(code, OpLocalGet, 5)     // get new_path_len param
+	code = append(code, OpCall, byte(pathRenameIdx))
+
+	// Return the errno
+	return code
+}
+
+// generateStatHelper generates the stat(dirfd, flags, path, path_len, buf) helper function bytecode
+// Gets file stats using WASI path_filestat_get
+// Params: dirfd (i32), flags (i32), path (i32), path_len (i32), buf (i32)
+// Returns: errno (0 on success)
+func generateStatHelper(pathFilestatIdx int) []byte {
+	var code []byte
+
+	// path_filestat_get(dirfd, flags, path, path_len, buf)
+	code = append(code, OpLocalGet, 0)     // get dirfd param
+	code = append(code, OpLocalGet, 1)     // get flags param
+	code = append(code, OpLocalGet, 2)     // get path param
+	code = append(code, OpLocalGet, 3)     // get path_len param
+	code = append(code, OpLocalGet, 4)     // get buf param
+	code = append(code, OpCall, byte(pathFilestatIdx))
+
+	// Return the errno
+	return code
+}
+
 // generateWriteCharHelper generates the write_char(c) helper function bytecode
 // Writes a single character to stdout
 // Params: c (i32) - the character to write
@@ -1191,6 +1281,66 @@ func CompileFile(file *parser.File, m *Module) {
 		usedImports["path_open"] = true
 	}
 
+	// Ensure path_create_directory is imported if mkdir is used
+	needsMkdirEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "mkdir") {
+			needsMkdirEarly = true
+			break
+		}
+	}
+	if needsMkdirEarly {
+		usedImports["path_create_directory"] = true
+	}
+
+	// Ensure path_remove_directory is imported if rmdir is used
+	needsRmdirEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "rmdir") {
+			needsRmdirEarly = true
+			break
+		}
+	}
+	if needsRmdirEarly {
+		usedImports["path_remove_directory"] = true
+	}
+
+	// Ensure path_unlink_file is imported if unlink is used
+	needsUnlinkEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "unlink") {
+			needsUnlinkEarly = true
+			break
+		}
+	}
+	if needsUnlinkEarly {
+		usedImports["path_unlink_file"] = true
+	}
+
+	// Ensure path_rename is imported if rename is used
+	needsRenameEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "rename") {
+			needsRenameEarly = true
+			break
+		}
+	}
+	if needsRenameEarly {
+		usedImports["path_rename"] = true
+	}
+
+	// Ensure path_filestat_get is imported if stat is used
+	needsStatEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "stat") {
+			needsStatEarly = true
+			break
+		}
+	}
+	if needsStatEarly {
+		usedImports["path_filestat_get"] = true
+	}
+
 	// Add WASI imports first
 	for name := range usedImports {
 		if numParams, ok := wasiImports[name]; ok {
@@ -1414,6 +1564,21 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsOpenEarly {
 		helperCount++
 	}
+	if needsMkdirEarly {
+		helperCount++
+	}
+	if needsRmdirEarly {
+		helperCount++
+	}
+	if needsUnlinkEarly {
+		helperCount++
+	}
+	if needsRenameEarly {
+		helperCount++
+	}
+	if needsStatEarly {
+		helperCount++
+	}
 
 	// Adjust function indices for helpers
 	helperIdx := 0
@@ -1543,6 +1708,26 @@ func CompileFile(file *parser.File, m *Module) {
 	}
 	if needsOpenEarly {
 		funcIdx["open"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsMkdirEarly {
+		funcIdx["mkdir"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsRmdirEarly {
+		funcIdx["rmdir"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsUnlinkEarly {
+		funcIdx["unlink"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsRenameEarly {
+		funcIdx["rename"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsStatEarly {
+		funcIdx["stat"] = len(m.imports) + helperIdx
 		helperIdx++
 	}
 	for i, fn := range file.Fns {
@@ -1677,6 +1862,26 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsOpenEarly {
 		code := generateOpenHelper(funcIdx["path_open"])
 		m.AddFunction("open", 8, code, 0) // 8 params (dirfd, path, path_len, oflags, rights_base, rights_inheriting, fdflags, fd_ptr), 0 locals
+	}
+	if needsMkdirEarly {
+		code := generateMkdirHelper(funcIdx["path_create_directory"])
+		m.AddFunction("mkdir", 3, code, 0) // 3 params (dirfd, path, path_len), 0 locals
+	}
+	if needsRmdirEarly {
+		code := generateRmdirHelper(funcIdx["path_remove_directory"])
+		m.AddFunction("rmdir", 3, code, 0) // 3 params (dirfd, path, path_len), 0 locals
+	}
+	if needsUnlinkEarly {
+		code := generateUnlinkHelper(funcIdx["path_unlink_file"])
+		m.AddFunction("unlink", 3, code, 0) // 3 params (dirfd, path, path_len), 0 locals
+	}
+	if needsRenameEarly {
+		code := generateRenameHelper(funcIdx["path_rename"])
+		m.AddFunction("rename", 6, code, 0) // 6 params (old_dirfd, old_path, old_path_len, new_dirfd, new_path, new_path_len), 0 locals
+	}
+	if needsStatEarly {
+		code := generateStatHelper(funcIdx["path_filestat_get"])
+		m.AddFunction("stat", 5, code, 0) // 5 params (dirfd, flags, path, path_len, buf), 0 locals
 	}
 
 	for _, fn := range file.Fns {

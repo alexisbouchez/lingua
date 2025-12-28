@@ -2068,3 +2068,45 @@ func TestWASIFileIOBuiltins(t *testing.T) {
 	t.Logf("sync(999) returned: %d", results[0])
 }
 
+func TestWASIPathBuiltins(t *testing.T) {
+	// Test mkdir() builtin
+	src := `
+		fn test_mkdir(): i32 {
+			mkdir(3, 1024, 7)
+		}
+	`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	wasi, err := wasi_snapshot_preview1.Instantiate(ctx, r)
+	if err != nil {
+		t.Fatalf("wasi instantiate: %v", err)
+	}
+	defer wasi.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	// Call test_mkdir
+	testFn := mod.ExportedFunction("test_mkdir")
+	results, err := testFn.Call(ctx)
+	if err != nil {
+		t.Fatalf("call error: %v", err)
+	}
+
+	// Expect error (likely EBADF or ENOTDIR)
+	if len(results) > 0 {
+		t.Logf("mkdir result: %d", results[0])
+	}
+}
+
