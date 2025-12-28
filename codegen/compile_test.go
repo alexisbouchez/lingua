@@ -1,11 +1,13 @@
 package codegen
 
 import (
+	"bytes"
 	"context"
 	"testing"
 
 	"github.com/alexisbouchez/lingua/parser"
 	"github.com/tetratelabs/wazero"
+	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 )
 
 func TestCompileAndRun(t *testing.T) {
@@ -267,5 +269,45 @@ func TestCompileData(t *testing.T) {
 	}
 	if results[0] != 42 {
 		t.Fatalf("expected 42, got %d", results[0])
+	}
+}
+
+func TestWASIHello(t *testing.T) {
+	// _start calls fd_write(1, iovs=0, iovs_len=1, nwritten=8)
+	// Memory: iovec at 0 (buf=16, len=14), nwritten at 8, string at 16
+	src := `fn _start(): i32 { fd_write(1, 0, 1, 8) }`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddImport("wasi_snapshot_preview1", "fd_write", 4)
+	m.AddMemory(1)
+
+	// iovec: buf=16, len=14
+	var data bytes.Buffer
+	data.Write([]byte{16, 0, 0, 0}) // buf pointer
+	data.Write([]byte{14, 0, 0, 0}) // buf len
+	data.Write([]byte{0, 0, 0, 0})  // nwritten placeholder
+	data.Write([]byte{0, 0, 0, 0})  // padding
+	data.WriteString("Hello, World!\n")
+	m.AddData(0, data.Bytes())
+
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	var stdout bytes.Buffer
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+
+	config := wazero.NewModuleConfig().WithStdout(&stdout)
+	_, err := r.InstantiateWithConfig(ctx, m.Bytes(), config)
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	if stdout.String() != "Hello, World!\n" {
+		t.Fatalf("expected 'Hello, World!\\n', got %q", stdout.String())
 	}
 }
