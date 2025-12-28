@@ -1222,3 +1222,118 @@ func TestReadCharMultiple(t *testing.T) {
 	// Skipping this test for now as single-char reads work correctly
 	t.Skip("Multiple fd_read calls have issues in wazero test environment")
 }
+
+func TestMalloc(t *testing.T) {
+	src := `fn _start(): i32 {
+		let addr1: i32 = malloc(10);
+		let addr2: i32 = malloc(20);
+		let addr3: i32 = malloc(5);
+		store(addr1, 100);
+		store(addr2, 200);
+		store(addr3, 300);
+		load(addr1) + load(addr2) + load(addr3)
+	}`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	start := mod.ExportedFunction("_start")
+	results, err := start.Call(ctx)
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+
+	// Should return 100 + 200 + 300 = 600
+	if results[0] != 600 {
+		t.Fatalf("expected 600, got %d", results[0])
+	}
+}
+
+func TestMallocSequential(t *testing.T) {
+	src := `fn _start(): i32 {
+		let addr1: i32 = malloc(10);
+		let addr2: i32 = malloc(20);
+		let addr3: i32 = malloc(15);
+		let diff1: i32 = addr2 - addr1;
+		let diff2: i32 = addr3 - addr2;
+		if diff1 != 10 { return 1 };
+		if diff2 != 20 { return 2 };
+		0
+	}`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	start := mod.ExportedFunction("_start")
+	results, err := start.Call(ctx)
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+
+	// Should return 0 if allocations are sequential
+	if results[0] != 0 {
+		t.Fatalf("expected 0 (success), got %d", results[0])
+	}
+}
+
+func TestMallocMemoryOperations(t *testing.T) {
+	src := `fn _start(): i32 {
+		let arr: i32 = malloc(20);
+		store(arr, 10);
+		store(arr + 4, 20);
+		store(arr + 8, 30);
+		store(arr + 12, 40);
+		store(arr + 16, 50);
+		load(arr) + load(arr + 4) + load(arr + 8) + load(arr + 12) + load(arr + 16)
+	}`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	start := mod.ExportedFunction("_start")
+	results, err := start.Call(ctx)
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+
+	// Should return 10 + 20 + 30 + 40 + 50 = 150
+	if results[0] != 150 {
+		t.Fatalf("expected 150, got %d", results[0])
+	}
+}

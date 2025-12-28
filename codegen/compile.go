@@ -306,6 +306,28 @@ func generateReadCharHelper(fdReadIdx int) []byte {
 	return code
 }
 
+// generateMallocHelper generates the malloc(size) helper function bytecode
+// Allocates size bytes on the heap and returns the address
+// Params: size (0)
+// Uses __heap_ptr global to track heap top
+func generateMallocHelper(heapPtrIdx int) []byte {
+	var code []byte
+
+	// Get current heap pointer (this will be the return address)
+	code = append(code, OpGlobalGet, byte(heapPtrIdx))
+
+	// Add size to heap pointer: heap_ptr + size
+	code = append(code, OpGlobalGet, byte(heapPtrIdx))
+	code = append(code, OpLocalGet, 0)     // get size param
+	code = append(code, OpI32Add)
+
+	// Store new heap pointer
+	code = append(code, OpGlobalSet, byte(heapPtrIdx))
+
+	// Return the old heap pointer (which is still on stack)
+	return code
+}
+
 // generatePrintIntHelper generates the _print_int helper function bytecode
 // params: n (i32)
 // locals: ptr, is_neg, digit
@@ -505,6 +527,7 @@ func CompileFile(file *parser.File, m *Module) {
 	needsStrEq := false
 	needsStrCopy := false
 	needsReadChar := false
+	needsMalloc := false
 	for _, fn := range file.Fns {
 		if usesPrintInt(fn.Body) {
 			needsPrintInt = true
@@ -529,6 +552,9 @@ func CompileFile(file *parser.File, m *Module) {
 		}
 		if usesBuiltin(fn.Body, "read_char") {
 			needsReadChar = true
+		}
+		if usesBuiltin(fn.Body, "malloc") {
+			needsMalloc = true
 		}
 	}
 
@@ -556,6 +582,9 @@ func CompileFile(file *parser.File, m *Module) {
 		helperCount++
 	}
 	if needsReadChar {
+		helperCount++
+	}
+	if needsMalloc {
 		helperCount++
 	}
 
@@ -591,6 +620,10 @@ func CompileFile(file *parser.File, m *Module) {
 	}
 	if needsReadChar {
 		funcIdx["read_char"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsMalloc {
+		funcIdx["malloc"] = len(m.imports) + helperIdx
 		helperIdx++
 	}
 	for i, fn := range file.Fns {
@@ -629,6 +662,10 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsReadChar {
 		code := generateReadCharHelper(funcIdx["fd_read"])
 		m.AddFunction("read_char", 0, code, 0) // 0 params, 0 locals
+	}
+	if needsMalloc {
+		code := generateMallocHelper(heapPtrIdx)
+		m.AddFunction("malloc", 1, code, 0) // 1 param (size), 0 locals
 	}
 
 	for _, fn := range file.Fns {

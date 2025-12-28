@@ -302,6 +302,7 @@ The following functions are available as built-ins and do not need to be declare
 - `str_copy(src: i32, len: i32, dest: i32): i32` - Copy string
 
 ### Memory Functions
+- `malloc(size: i32): i32` - Allocate size bytes on heap, returns address
 - `load(addr: i32): i32` - Load i32 from memory
 - `store(addr: i32, val: i32): i32` - Store i32 to memory
 - `drop(val: i32): i32` - Discard a value

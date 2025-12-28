@@ -59,6 +59,7 @@ arr[1] = 100;
 - `str_copy(src, len, dest)` - copy string from src to dest, returns dest
 
 #### Memory Functions
+- `malloc(size)` - allocate size bytes on heap, returns address
 - `load(addr)` - load i32 from memory
 - `store(addr, val)` - store i32 to memory
 - `drop(val)` - discard a value
