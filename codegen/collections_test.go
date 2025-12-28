@@ -34,7 +34,7 @@ func TestListNew(t *testing.T) {
 	fn := p.ParseFn()
 
 	m, globalIdx := setupCollectionModule()
-	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false, nil)
+	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false)
 	m.AddFunction("test", 0, code, numLocals)
 
 	ctx := context.Background()
@@ -72,7 +72,7 @@ func TestListPushAndLen(t *testing.T) {
 	fn := p.ParseFn()
 
 	m, globalIdx := setupCollectionModule()
-	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false, nil)
+	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false)
 	m.AddFunction("test", 0, code, numLocals)
 
 	ctx := context.Background()
@@ -109,7 +109,7 @@ func TestListGet(t *testing.T) {
 	fn := p.ParseFn()
 
 	m, globalIdx := setupCollectionModule()
-	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false, nil)
+	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false)
 	m.AddFunction("test", 0, code, numLocals)
 
 	ctx := context.Background()
@@ -146,7 +146,7 @@ func TestListSet(t *testing.T) {
 	fn := p.ParseFn()
 
 	m, globalIdx := setupCollectionModule()
-	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false, nil)
+	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false)
 	m.AddFunction("test", 0, code, numLocals)
 
 	ctx := context.Background()
@@ -184,7 +184,7 @@ func TestListPop(t *testing.T) {
 	fn := p.ParseFn()
 
 	m, globalIdx := setupCollectionModule()
-	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false, nil)
+	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false)
 	m.AddFunction("test", 0, code, numLocals)
 
 	ctx := context.Background()
@@ -221,7 +221,7 @@ func TestListPopReducesLen(t *testing.T) {
 	fn := p.ParseFn()
 
 	m, globalIdx := setupCollectionModule()
-	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false, nil)
+	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false)
 	m.AddFunction("test", 0, code, numLocals)
 
 	ctx := context.Background()
@@ -259,7 +259,7 @@ func TestMapNew(t *testing.T) {
 	fn := p.ParseFn()
 
 	mod, globalIdx := setupCollectionModule()
-	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false, nil)
+	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false)
 	mod.AddFunction("test", 0, code, numLocals)
 
 	ctx := context.Background()
@@ -294,7 +294,7 @@ func TestMapSetAndGet(t *testing.T) {
 	fn := p.ParseFn()
 
 	mod, globalIdx := setupCollectionModule()
-	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false, nil)
+	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false)
 	mod.AddFunction("test", 0, code, numLocals)
 
 	ctx := context.Background()
@@ -329,7 +329,7 @@ func TestMapHas(t *testing.T) {
 	fn := p.ParseFn()
 
 	mod, globalIdx := setupCollectionModule()
-	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false, nil)
+	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false)
 	mod.AddFunction("test", 0, code, numLocals)
 
 	ctx := context.Background()
@@ -364,7 +364,7 @@ func TestMapHasNotFound(t *testing.T) {
 	fn := p.ParseFn()
 
 	mod, globalIdx := setupCollectionModule()
-	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false, nil)
+	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false)
 	mod.AddFunction("test", 0, code, numLocals)
 
 	ctx := context.Background()
@@ -401,7 +401,7 @@ func TestMapMultipleKeys(t *testing.T) {
 	fn := p.ParseFn()
 
 	mod, globalIdx := setupCollectionModule()
-	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false, nil)
+	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false)
 	mod.AddFunction("test", 0, code, numLocals)
 
 	ctx := context.Background()
@@ -437,7 +437,7 @@ func TestMapUpdateKey(t *testing.T) {
 	fn := p.ParseFn()
 
 	mod, globalIdx := setupCollectionModule()
-	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false, nil)
+	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false)
 	mod.AddFunction("test", 0, code, numLocals)
 
 	ctx := context.Background()
@@ -475,7 +475,7 @@ func TestSetNew(t *testing.T) {
 	fn := p.ParseFn()
 
 	m, globalIdx := setupCollectionModule()
-	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false, nil)
+	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false)
 	m.AddFunction("test", 0, code, numLocals)
 
 	ctx := context.Background()
@@ -510,7 +510,7 @@ func TestSetAddAndHas(t *testing.T) {
 	fn := p.ParseFn()
 
 	m, globalIdx := setupCollectionModule()
-	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false, nil)
+	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false)
 	m.AddFunction("test", 0, code, numLocals)
 
 	ctx := context.Background()
@@ -545,7 +545,7 @@ func TestSetHasNotFound(t *testing.T) {
 	fn := p.ParseFn()
 
 	m, globalIdx := setupCollectionModule()
-	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false, nil)
+	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false)
 	m.AddFunction("test", 0, code, numLocals)
 
 	ctx := context.Background()
@@ -581,7 +581,7 @@ func TestSetRemove(t *testing.T) {
 	fn := p.ParseFn()
 
 	m, globalIdx := setupCollectionModule()
-	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false, nil)
+	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false)
 	m.AddFunction("test", 0, code, numLocals)
 
 	ctx := context.Background()
@@ -619,7 +619,7 @@ func TestSetLen(t *testing.T) {
 	fn := p.ParseFn()
 
 	m, globalIdx := setupCollectionModule()
-	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false, nil)
+	code, numLocals := Compile(fn, nil, globalIdx, nil, NewStringTable(1024), false)
 	m.AddFunction("test", 0, code, numLocals)
 
 	ctx := context.Background()

@@ -52,7 +52,7 @@ func main() {
 				os.Exit(1)
 			}
 		}()
-		codegen.CompileFile(f, m)
+		codegen.CompileFile(f, m, "input.lingua", false, false)
 	}()
 
 	outFile := "out.wasm"
