@@ -81,7 +81,7 @@ PHASE 8: TESTING & DOCUMENTATION
 [x] Write unit tests for lexer/parser
 [x] Write integration tests with WASM runtimes
 [x] Test with Wasmtime
-[ ] Test with WasmEdge
+[x] Test with WasmEdge
 [x] Test with wazero (Go native runtime)
 [ ] Write language documentation
 [ ] Create tutorials and examples
