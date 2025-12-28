@@ -3611,6 +3611,12 @@ func Compile(fn *parser.FnDecl, funcIdx, globalIdx map[string]int, structs map[s
 	// Map params to local indices
 	for i, p := range fn.Params {
 		c.locals[p.Name] = i
+		// Track struct type for parameters
+		if structs != nil {
+			if _, ok := structs[p.Type]; ok {
+				c.localStructs[p.Name] = p.Type
+			}
+		}
 	}
 	c.numLocals = len(fn.Params)
 
