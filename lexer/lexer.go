@@ -75,6 +75,8 @@ func (l *Lexer) NextToken() Token {
 		tok = Token{Type: SEMI, Literal: ";", Line: line, Column: col}
 	case ':':
 		tok = Token{Type: COLON, Literal: ":", Line: line, Column: col}
+	case '.':
+		tok = Token{Type: DOT, Literal: ".", Line: line, Column: col}
 	case '=':
 		if l.peek() == '=' {
 			l.readChar()

@@ -51,13 +51,31 @@ const (
 type Compiler struct {
 	fn            *parser.FnDecl
 	locals        map[string]int
+	localStructs  map[string]string // maps local variable name to struct type name
 	numLocals     int
 	funcIdx       map[string]int
 	globalIdx     map[string]int
+	structs       map[string]*StructInfo
 	strings       *StringTable
 	loopDepth     int // depth of nested loops
 	breakLabel    int // label offset for break (to outer block)
 	continueLabel int // label offset for continue (to loop)
+}
+
+// StructInfo contains information about a struct type
+type StructInfo struct {
+	Name    string
+	Fields  []StructFieldInfo
+	Size    int // total size in bytes
+	Offsets map[string]int // field name -> byte offset
+}
+
+// StructFieldInfo contains information about a struct field
+type StructFieldInfo struct {
+	Name   string
+	Type   string
+	Size   int
+	Offset int
 }
 
 type StringTable struct {
@@ -1710,6 +1728,33 @@ func generatePrintIntHelper(fdWriteIdx int) []byte {
 }
 
 func CompileFile(file *parser.File, m *Module) {
+	// Collect struct definitions
+	structs := make(map[string]*StructInfo)
+	for _, s := range file.Structs {
+		info := &StructInfo{
+			Name:    s.Name,
+			Offsets: make(map[string]int),
+		}
+		offset := 0
+		for _, f := range s.Fields {
+			size := 4 // default to i32 size
+			switch f.Type {
+			case "i64", "f64":
+				size = 8
+			}
+			info.Fields = append(info.Fields, StructFieldInfo{
+				Name:   f.Name,
+				Type:   f.Type,
+				Size:   size,
+				Offset: offset,
+			})
+			info.Offsets[f.Name] = offset
+			offset += size
+		}
+		info.Size = offset
+		structs[s.Name] = info
+	}
+
 	// Add internal heap pointer global for array allocation
 	// Starts at 4096 to avoid conflicts with iovec (0-16), print buffer (500-600), and string table (1024+)
 	m.AddGlobal("__heap_ptr", I32, true, 4096)
@@ -3238,7 +3283,7 @@ func CompileFile(file *parser.File, m *Module) {
 	}
 
 	for _, fn := range file.Fns {
-		code, numLocals := Compile(fn, funcIdx, globalIdx, strings)
+		code, numLocals := Compile(fn, funcIdx, globalIdx, structs, strings)
 		m.AddFunction(fn.Name, len(fn.Params), code, numLocals)
 	}
 
@@ -3268,6 +3313,10 @@ func usesPrintIntStmt(stmt parser.Stmt) bool {
 		return usesPrintIntExpr(s.Value)
 	case *parser.ExprStmt:
 		return usesPrintIntExpr(s.Expr)
+	case *parser.IndexAssignStmt:
+		return usesPrintIntExpr(s.Array) || usesPrintIntExpr(s.Index) || usesPrintIntExpr(s.Value)
+	case *parser.FieldAssignStmt:
+		return usesPrintIntExpr(s.Expr) || usesPrintIntExpr(s.Value)
 	}
 	return false
 }
@@ -3285,6 +3334,8 @@ func usesPrintIntExpr(expr parser.Expr) bool {
 		}
 	case *parser.BinaryExpr:
 		return usesPrintIntExpr(e.Left) || usesPrintIntExpr(e.Right)
+	case *parser.UnaryExpr:
+		return usesPrintIntExpr(e.Expr)
 	case *parser.IfExpr:
 		if usesPrintIntExpr(e.Cond) || usesPrintInt(e.Then) {
 			return true
@@ -3296,6 +3347,24 @@ func usesPrintIntExpr(expr parser.Expr) bool {
 		return usesPrintIntExpr(e.Cond) || usesPrintInt(e.Body)
 	case *parser.Block:
 		return usesPrintInt(e)
+	case *parser.ReturnExpr:
+		return usesPrintIntExpr(e.Value)
+	case *parser.IndexExpr:
+		return usesPrintIntExpr(e.Array) || usesPrintIntExpr(e.Index)
+	case *parser.ArrayLit:
+		for _, elem := range e.Elements {
+			if usesPrintIntExpr(elem) {
+				return true
+			}
+		}
+	case *parser.StructLit:
+		for _, f := range e.Fields {
+			if usesPrintIntExpr(f.Value) {
+				return true
+			}
+		}
+	case *parser.FieldExpr:
+		return usesPrintIntExpr(e.Expr)
 	}
 	return false
 }
@@ -3320,6 +3389,10 @@ func usesPrintlnStmt(stmt parser.Stmt) bool {
 		return usesPrintlnExpr(s.Value)
 	case *parser.ExprStmt:
 		return usesPrintlnExpr(s.Expr)
+	case *parser.IndexAssignStmt:
+		return usesPrintlnExpr(s.Array) || usesPrintlnExpr(s.Index) || usesPrintlnExpr(s.Value)
+	case *parser.FieldAssignStmt:
+		return usesPrintlnExpr(s.Expr) || usesPrintlnExpr(s.Value)
 	}
 	return false
 }
@@ -3337,6 +3410,8 @@ func usesPrintlnExpr(expr parser.Expr) bool {
 		}
 	case *parser.BinaryExpr:
 		return usesPrintlnExpr(e.Left) || usesPrintlnExpr(e.Right)
+	case *parser.UnaryExpr:
+		return usesPrintlnExpr(e.Expr)
 	case *parser.IfExpr:
 		if usesPrintlnExpr(e.Cond) || usesPrintln(e.Then) {
 			return true
@@ -3348,6 +3423,24 @@ func usesPrintlnExpr(expr parser.Expr) bool {
 		return usesPrintlnExpr(e.Cond) || usesPrintln(e.Body)
 	case *parser.Block:
 		return usesPrintln(e)
+	case *parser.ReturnExpr:
+		return usesPrintlnExpr(e.Value)
+	case *parser.IndexExpr:
+		return usesPrintlnExpr(e.Array) || usesPrintlnExpr(e.Index)
+	case *parser.ArrayLit:
+		for _, elem := range e.Elements {
+			if usesPrintlnExpr(elem) {
+				return true
+			}
+		}
+	case *parser.StructLit:
+		for _, f := range e.Fields {
+			if usesPrintlnExpr(f.Value) {
+				return true
+			}
+		}
+	case *parser.FieldExpr:
+		return usesPrintlnExpr(e.Expr)
 	}
 	return false
 }
@@ -3374,6 +3467,8 @@ func usesBuiltinStmt(stmt parser.Stmt, name string) bool {
 		return usesBuiltinExpr(s.Expr, name)
 	case *parser.IndexAssignStmt:
 		return usesBuiltinExpr(s.Array, name) || usesBuiltinExpr(s.Index, name) || usesBuiltinExpr(s.Value, name)
+	case *parser.FieldAssignStmt:
+		return usesBuiltinExpr(s.Expr, name) || usesBuiltinExpr(s.Value, name)
 	}
 	return false
 }
@@ -3414,6 +3509,14 @@ func usesBuiltinExpr(expr parser.Expr, name string) bool {
 				return true
 			}
 		}
+	case *parser.StructLit:
+		for _, f := range e.Fields {
+			if usesBuiltinExpr(f.Value, name) {
+				return true
+			}
+		}
+	case *parser.FieldExpr:
+		return usesBuiltinExpr(e.Expr, name)
 	}
 	return false
 }
@@ -3435,6 +3538,13 @@ func collectCallsStmt(stmt parser.Stmt, calls map[string]bool) {
 		collectCallsExpr(s.Value, calls)
 	case *parser.ExprStmt:
 		collectCallsExpr(s.Expr, calls)
+	case *parser.IndexAssignStmt:
+		collectCallsExpr(s.Array, calls)
+		collectCallsExpr(s.Index, calls)
+		collectCallsExpr(s.Value, calls)
+	case *parser.FieldAssignStmt:
+		collectCallsExpr(s.Expr, calls)
+		collectCallsExpr(s.Value, calls)
 	}
 }
 
@@ -3454,6 +3564,8 @@ func collectCallsExpr(expr parser.Expr, calls map[string]bool) {
 	case *parser.BinaryExpr:
 		collectCallsExpr(e.Left, calls)
 		collectCallsExpr(e.Right, calls)
+	case *parser.UnaryExpr:
+		collectCallsExpr(e.Expr, calls)
 	case *parser.IfExpr:
 		collectCallsExpr(e.Cond, calls)
 		collectCalls(e.Then, calls)
@@ -3465,16 +3577,35 @@ func collectCallsExpr(expr parser.Expr, calls map[string]bool) {
 		collectCalls(e.Body, calls)
 	case *parser.Block:
 		collectCalls(e, calls)
+	case *parser.ReturnExpr:
+		if e.Value != nil {
+			collectCallsExpr(e.Value, calls)
+		}
+	case *parser.IndexExpr:
+		collectCallsExpr(e.Array, calls)
+		collectCallsExpr(e.Index, calls)
+	case *parser.ArrayLit:
+		for _, elem := range e.Elements {
+			collectCallsExpr(elem, calls)
+		}
+	case *parser.StructLit:
+		for _, f := range e.Fields {
+			collectCallsExpr(f.Value, calls)
+		}
+	case *parser.FieldExpr:
+		collectCallsExpr(e.Expr, calls)
 	}
 }
 
-func Compile(fn *parser.FnDecl, funcIdx, globalIdx map[string]int, strings *StringTable) (code []byte, numLocals int) {
+func Compile(fn *parser.FnDecl, funcIdx, globalIdx map[string]int, structs map[string]*StructInfo, strings *StringTable) (code []byte, numLocals int) {
 	c := &Compiler{
-		fn:        fn,
-		locals:    make(map[string]int),
-		funcIdx:   funcIdx,
-		globalIdx: globalIdx,
-		strings:   strings,
+		fn:           fn,
+		locals:       make(map[string]int),
+		localStructs: make(map[string]string),
+		funcIdx:      funcIdx,
+		globalIdx:    globalIdx,
+		structs:      structs,
+		strings:      strings,
 	}
 
 	// Map params to local indices
@@ -3509,6 +3640,15 @@ func (c *Compiler) compileBlock(b *parser.Block) []byte {
 func (c *Compiler) compileStmt(s parser.Stmt) []byte {
 	switch s := s.(type) {
 	case *parser.LetStmt:
+		// Track struct type if assigning a struct literal
+		if lit, ok := s.Value.(*parser.StructLit); ok {
+			c.localStructs[s.Name] = lit.Name
+		} else if s.Type != "" {
+			// Also track if type annotation is a struct
+			if _, ok := c.structs[s.Type]; ok {
+				c.localStructs[s.Name] = s.Type
+			}
+		}
 		code := c.compileExpr(s.Value)
 		idx := c.locals[s.Name]
 		code = append(code, OpLocalSet, byte(idx))
@@ -3532,6 +3672,30 @@ func (c *Compiler) compileStmt(s parser.Stmt) []byte {
 		code = append(code, 0x41, 4) // i32.const 4
 		code = append(code, OpI32Mul)
 		code = append(code, OpI32Add)
+		// Store the value
+		code = append(code, c.compileExpr(s.Value)...)
+		code = append(code, OpI32Store, 2, 0)
+		return code
+	case *parser.FieldAssignStmt:
+		// Store value at struct.field
+		var code []byte
+		// Get the struct address
+		code = append(code, c.compileExpr(s.Expr)...)
+		// Get struct type from expression
+		var structName string
+		if ident, ok := s.Expr.(*parser.Ident); ok {
+			structName = c.localStructs[ident.Name]
+		}
+		// Add field offset
+		if info, ok := c.structs[structName]; ok {
+			if offset, ok := info.Offsets[s.Field]; ok {
+				if offset > 0 {
+					code = append(code, 0x41) // i32.const
+					code = append(code, sleb128(int64(offset))...)
+					code = append(code, OpI32Add)
+				}
+			}
+		}
 		// Store the value
 		code = append(code, c.compileExpr(s.Value)...)
 		code = append(code, OpI32Store, 2, 0)
@@ -3729,6 +3893,67 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 		code = append(code, 0x41, 4) // i32.const 4
 		code = append(code, OpI32Mul)
 		code = append(code, OpI32Add)
+		code = append(code, OpI32Load, 2, 0)
+		return code
+	case *parser.StructLit:
+		// Allocate space for struct on heap and initialize fields
+		info, ok := c.structs[e.Name]
+		if !ok {
+			return nil // undefined struct
+		}
+		var code []byte
+		// Get current heap pointer (this will be struct address)
+		code = append(code, OpGlobalGet, byte(c.globalIdx["__heap_ptr"]))
+		// Store the address in a local for later use (we'll return it)
+		// Use local.tee to keep value on stack while storing
+		localIdx := c.numLocals
+		c.numLocals++
+		code = append(code, OpLocalTee, byte(localIdx))
+		// Bump heap pointer by struct size
+		code = append(code, 0x41) // i32.const
+		code = append(code, sleb128(int64(info.Size))...)
+		code = append(code, OpI32Add)
+		code = append(code, OpGlobalSet, byte(c.globalIdx["__heap_ptr"]))
+		// Initialize fields
+		for _, field := range e.Fields {
+			offset, ok := info.Offsets[field.Name]
+			if !ok {
+				continue
+			}
+			// Get struct base address
+			code = append(code, OpLocalGet, byte(localIdx))
+			// Add field offset
+			if offset > 0 {
+				code = append(code, 0x41) // i32.const
+				code = append(code, sleb128(int64(offset))...)
+				code = append(code, OpI32Add)
+			}
+			// Compute field value
+			code = append(code, c.compileExpr(field.Value)...)
+			// Store the value
+			code = append(code, OpI32Store, 2, 0)
+		}
+		// Return struct address
+		code = append(code, OpLocalGet, byte(localIdx))
+		return code
+	case *parser.FieldExpr:
+		// Load field from struct
+		var code []byte
+		code = append(code, c.compileExpr(e.Expr)...)
+		// Get struct type from expression
+		var structName string
+		if ident, ok := e.Expr.(*parser.Ident); ok {
+			structName = c.localStructs[ident.Name]
+		}
+		if info, ok := c.structs[structName]; ok {
+			if offset, ok := info.Offsets[e.Field]; ok {
+				if offset > 0 {
+					code = append(code, 0x41) // i32.const
+					code = append(code, sleb128(int64(offset))...)
+					code = append(code, OpI32Add)
+				}
+			}
+		}
 		code = append(code, OpI32Load, 2, 0)
 		return code
 	case *parser.CallExpr:
@@ -3942,6 +4167,384 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 			code = append(code, 0x41, 1)
 			code = append(code, 0x41, 8)
 			code = append(code, OpCall, byte(idx))
+		// ============================================================================
+		// LIST OPERATIONS
+		// ============================================================================
+		case "list_new":
+			// Allocate a new list with initial capacity of 8
+			// Layout: [capacity:i32][length:i32][elements:i32...]
+			// Initial size: 8 (header) + 32 (8 elements * 4 bytes) = 40 bytes
+			code = nil
+			heapIdx := c.globalIdx["__heap_ptr"]
+			// Get current heap pointer (this will be the list address)
+			code = append(code, OpGlobalGet, byte(heapIdx))
+			// Store capacity (8) at offset 0
+			code = append(code, OpGlobalGet, byte(heapIdx))
+			code = append(code, 0x41, 8) // i32.const 8
+			code = append(code, OpI32Store, 2, 0)
+			// Store length (0) at offset 4
+			code = append(code, OpGlobalGet, byte(heapIdx))
+			code = append(code, 0x41, 4) // i32.const 4
+			code = append(code, OpI32Add)
+			code = append(code, 0x41, 0) // i32.const 0
+			code = append(code, OpI32Store, 2, 0)
+			// Update heap pointer: heap_ptr += 40
+			code = append(code, OpGlobalGet, byte(heapIdx))
+			code = append(code, 0x41, 40) // i32.const 40
+			code = append(code, OpI32Add)
+			code = append(code, OpGlobalSet, byte(heapIdx))
+
+		case "list_len":
+			// list_len(list) - return length at offset 4
+			code = nil
+			code = append(code, c.compileExpr(e.Args[0])...)
+			code = append(code, 0x41, 4) // i32.const 4
+			code = append(code, OpI32Add)
+			code = append(code, OpI32Load, 2, 0)
+
+		case "list_get":
+			// list_get(list, index) - return element at offset 8 + index*4
+			code = nil
+			list := c.compileExpr(e.Args[0])
+			index := c.compileExpr(e.Args[1])
+			code = append(code, list...)
+			code = append(code, 0x41, 8) // i32.const 8
+			code = append(code, OpI32Add)
+			code = append(code, index...)
+			code = append(code, 0x41, 4) // i32.const 4
+			code = append(code, OpI32Mul)
+			code = append(code, OpI32Add)
+			code = append(code, OpI32Load, 2, 0)
+
+		case "list_set":
+			// list_set(list, index, value) - store value at offset 8 + index*4
+			code = nil
+			list := c.compileExpr(e.Args[0])
+			index := c.compileExpr(e.Args[1])
+			value := c.compileExpr(e.Args[2])
+			// Calculate address: list + 8 + index*4
+			code = append(code, list...)
+			code = append(code, 0x41, 8) // i32.const 8
+			code = append(code, OpI32Add)
+			code = append(code, index...)
+			code = append(code, 0x41, 4) // i32.const 4
+			code = append(code, OpI32Mul)
+			code = append(code, OpI32Add)
+			// Store the value
+			code = append(code, value...)
+			code = append(code, OpI32Store, 2, 0)
+			// Return 0 (void-like)
+			code = append(code, 0x41, 0)
+
+		case "list_push":
+			// list_push(list, value) - append value to list
+			// For simplicity, assume we don't exceed capacity (no dynamic growth)
+			code = nil
+			list := c.compileExpr(e.Args[0])
+			value := c.compileExpr(e.Args[1])
+
+			// Calculate store address: list + 8 + length*4
+			code = append(code, list...)
+			code = append(code, 0x41, 8) // i32.const 8
+			code = append(code, OpI32Add)
+			// Load current length
+			code = append(code, list...)
+			code = append(code, 0x41, 4) // i32.const 4
+			code = append(code, OpI32Add)
+			code = append(code, OpI32Load, 2, 0)
+			// Multiply by 4
+			code = append(code, 0x41, 4)
+			code = append(code, OpI32Mul)
+			code = append(code, OpI32Add)
+			// Store value at calculated address
+			code = append(code, value...)
+			code = append(code, OpI32Store, 2, 0)
+			// Increment length: store length+1 at list+4
+			code = append(code, list...)
+			code = append(code, 0x41, 4)
+			code = append(code, OpI32Add)
+			// Load old length
+			code = append(code, list...)
+			code = append(code, 0x41, 4)
+			code = append(code, OpI32Add)
+			code = append(code, OpI32Load, 2, 0)
+			// Add 1
+			code = append(code, 0x41, 1)
+			code = append(code, OpI32Add)
+			// Store new length
+			code = append(code, OpI32Store, 2, 0)
+			// Return 0 (void-like)
+			code = append(code, 0x41, 0)
+
+		case "list_pop":
+			// list_pop(list) - remove and return last element
+			code = nil
+			list := c.compileExpr(e.Args[0])
+			// Decrement length first
+			code = append(code, list...)
+			code = append(code, 0x41, 4)
+			code = append(code, OpI32Add)
+			// Load old length, subtract 1, store
+			code = append(code, list...)
+			code = append(code, 0x41, 4)
+			code = append(code, OpI32Add)
+			code = append(code, OpI32Load, 2, 0)
+			code = append(code, 0x41, 1)
+			code = append(code, OpI32Sub)
+			code = append(code, OpI32Store, 2, 0)
+			// Load element at new length position (list + 8 + new_length*4)
+			code = append(code, list...)
+			code = append(code, 0x41, 8)
+			code = append(code, OpI32Add)
+			// Load new length
+			code = append(code, list...)
+			code = append(code, 0x41, 4)
+			code = append(code, OpI32Add)
+			code = append(code, OpI32Load, 2, 0)
+			// Multiply by 4
+			code = append(code, 0x41, 4)
+			code = append(code, OpI32Mul)
+			code = append(code, OpI32Add)
+			code = append(code, OpI32Load, 2, 0)
+
+		// ============================================================================
+		// MAP OPERATIONS
+		// ============================================================================
+		case "map_new":
+			// Allocate a new map with initial capacity of 8 entries
+			// Layout: [capacity:i32][count:i32][entries:(key:i32,value:i32)...]
+			// Entry key of -1 means empty slot
+			// Initial size: 8 (header) + 64 (8 entries * 8 bytes) = 72 bytes
+			code = nil
+			heapIdx := c.globalIdx["__heap_ptr"]
+			// Get current heap pointer (this will be the map address)
+			code = append(code, OpGlobalGet, byte(heapIdx))
+			// Store capacity (8) at offset 0
+			code = append(code, OpGlobalGet, byte(heapIdx))
+			code = append(code, 0x41, 8)
+			code = append(code, OpI32Store, 2, 0)
+			// Store count (0) at offset 4
+			code = append(code, OpGlobalGet, byte(heapIdx))
+			code = append(code, 0x41, 4)
+			code = append(code, OpI32Add)
+			code = append(code, 0x41, 0)
+			code = append(code, OpI32Store, 2, 0)
+			// Initialize all 8 entry keys to -1 (empty)
+			for i := 0; i < 8; i++ {
+				code = append(code, OpGlobalGet, byte(heapIdx))
+				code = append(code, 0x41)
+				code = append(code, sleb128(int64(8+i*8))...) // offset for key
+				code = append(code, OpI32Add)
+				code = append(code, 0x41)
+				code = append(code, sleb128(-1)...) // -1 = empty
+				code = append(code, OpI32Store, 2, 0)
+			}
+			// Update heap pointer: heap_ptr += 72
+			code = append(code, OpGlobalGet, byte(heapIdx))
+			code = append(code, 0x41, 72)
+			code = append(code, OpI32Add)
+			code = append(code, OpGlobalSet, byte(heapIdx))
+
+		case "map_set":
+			// map_set(map, key, value) - set key-value pair
+			// Simple hash: key % capacity (8)
+			// Entry offset = 8 + (key % 8) * 8
+			code = nil
+			mapPtr := c.compileExpr(e.Args[0])
+			key := c.compileExpr(e.Args[1])
+			value := c.compileExpr(e.Args[2])
+
+			// Calculate entry address: map + 8 + (key % 8) * 8
+			code = append(code, mapPtr...)
+			code = append(code, 0x41, 8)
+			code = append(code, OpI32Add)
+			code = append(code, key...)
+			code = append(code, 0x41, 8)
+			code = append(code, 0x6f) // i32.rem_s
+			code = append(code, 0x41, 8)
+			code = append(code, OpI32Mul)
+			code = append(code, OpI32Add)
+			// Store key at this address
+			code = append(code, key...)
+			code = append(code, OpI32Store, 2, 0)
+			// Store value at address + 4
+			code = append(code, mapPtr...)
+			code = append(code, 0x41, 8)
+			code = append(code, OpI32Add)
+			code = append(code, key...)
+			code = append(code, 0x41, 8)
+			code = append(code, 0x6f) // i32.rem_s
+			code = append(code, 0x41, 8)
+			code = append(code, OpI32Mul)
+			code = append(code, OpI32Add)
+			code = append(code, 0x41, 4)
+			code = append(code, OpI32Add)
+			code = append(code, value...)
+			code = append(code, OpI32Store, 2, 0)
+			// Return 0
+			code = append(code, 0x41, 0)
+
+		case "map_get":
+			// map_get(map, key) - get value for key
+			code = nil
+			mapPtr := c.compileExpr(e.Args[0])
+			key := c.compileExpr(e.Args[1])
+			// Calculate entry address: map + 8 + (key % 8) * 8 + 4 (for value)
+			code = append(code, mapPtr...)
+			code = append(code, 0x41, 8)
+			code = append(code, OpI32Add)
+			code = append(code, key...)
+			code = append(code, 0x41, 8)
+			code = append(code, 0x6f) // i32.rem_s
+			code = append(code, 0x41, 8)
+			code = append(code, OpI32Mul)
+			code = append(code, OpI32Add)
+			code = append(code, 0x41, 4)
+			code = append(code, OpI32Add)
+			code = append(code, OpI32Load, 2, 0)
+
+		case "map_has":
+			// map_has(map, key) - check if key exists (returns 1 or 0)
+			code = nil
+			mapPtr := c.compileExpr(e.Args[0])
+			key := c.compileExpr(e.Args[1])
+			// Load key at entry and compare with searched key
+			// Entry address: map + 8 + (key % 8) * 8
+			code = append(code, mapPtr...)
+			code = append(code, 0x41, 8)
+			code = append(code, OpI32Add)
+			code = append(code, key...)
+			code = append(code, 0x41, 8)
+			code = append(code, 0x6f) // i32.rem_s
+			code = append(code, 0x41, 8)
+			code = append(code, OpI32Mul)
+			code = append(code, OpI32Add)
+			code = append(code, OpI32Load, 2, 0)
+			// Compare with key
+			code = append(code, key...)
+			code = append(code, OpI32Eq)
+
+		// ============================================================================
+		// SET OPERATIONS
+		// ============================================================================
+		case "set_new":
+			// Allocate a new set with initial capacity of 8
+			// Layout: [capacity:i32][count:i32][values:i32...]
+			// Value of -2147483648 (MIN_INT) means empty slot
+			// Initial size: 8 (header) + 32 (8 values * 4 bytes) = 40 bytes
+			code = nil
+			heapIdx := c.globalIdx["__heap_ptr"]
+			// Get current heap pointer (this will be the set address)
+			code = append(code, OpGlobalGet, byte(heapIdx))
+			// Store capacity (8) at offset 0
+			code = append(code, OpGlobalGet, byte(heapIdx))
+			code = append(code, 0x41, 8)
+			code = append(code, OpI32Store, 2, 0)
+			// Store count (0) at offset 4
+			code = append(code, OpGlobalGet, byte(heapIdx))
+			code = append(code, 0x41, 4)
+			code = append(code, OpI32Add)
+			code = append(code, 0x41, 0)
+			code = append(code, OpI32Store, 2, 0)
+			// Initialize all 8 slots to MIN_INT (empty)
+			for i := 0; i < 8; i++ {
+				code = append(code, OpGlobalGet, byte(heapIdx))
+				code = append(code, 0x41)
+				code = append(code, sleb128(int64(8+i*4))...)
+				code = append(code, OpI32Add)
+				code = append(code, 0x41)
+				code = append(code, sleb128(-2147483648)...) // MIN_INT = empty
+				code = append(code, OpI32Store, 2, 0)
+			}
+			// Update heap pointer: heap_ptr += 40
+			code = append(code, OpGlobalGet, byte(heapIdx))
+			code = append(code, 0x41, 40)
+			code = append(code, OpI32Add)
+			code = append(code, OpGlobalSet, byte(heapIdx))
+
+		case "set_add":
+			// set_add(set, value) - add value to set (if not already present)
+			code = nil
+			setPtr := c.compileExpr(e.Args[0])
+			value := c.compileExpr(e.Args[1])
+			// Simple hash: value % 8
+			// Slot address = set + 8 + (value % 8) * 4
+			code = append(code, setPtr...)
+			code = append(code, 0x41, 8)
+			code = append(code, OpI32Add)
+			code = append(code, value...)
+			code = append(code, 0x41, 8)
+			code = append(code, 0x6f) // i32.rem_s
+			code = append(code, 0x41, 4)
+			code = append(code, OpI32Mul)
+			code = append(code, OpI32Add)
+			// Store value
+			code = append(code, value...)
+			code = append(code, OpI32Store, 2, 0)
+			// Return 0
+			code = append(code, 0x41, 0)
+
+		case "set_has":
+			// set_has(set, value) - check if value exists (returns 1 or 0)
+			code = nil
+			setPtr := c.compileExpr(e.Args[0])
+			value := c.compileExpr(e.Args[1])
+			// Slot address = set + 8 + (value % 8) * 4
+			code = append(code, setPtr...)
+			code = append(code, 0x41, 8)
+			code = append(code, OpI32Add)
+			code = append(code, value...)
+			code = append(code, 0x41, 8)
+			code = append(code, 0x6f) // i32.rem_s
+			code = append(code, 0x41, 4)
+			code = append(code, OpI32Mul)
+			code = append(code, OpI32Add)
+			code = append(code, OpI32Load, 2, 0)
+			// Compare with value
+			code = append(code, value...)
+			code = append(code, OpI32Eq)
+
+		case "set_remove":
+			// set_remove(set, value) - remove value from set
+			code = nil
+			setPtr := c.compileExpr(e.Args[0])
+			value := c.compileExpr(e.Args[1])
+			// Slot address = set + 8 + (value % 8) * 4
+			code = append(code, setPtr...)
+			code = append(code, 0x41, 8)
+			code = append(code, OpI32Add)
+			code = append(code, value...)
+			code = append(code, 0x41, 8)
+			code = append(code, 0x6f) // i32.rem_s
+			code = append(code, 0x41, 4)
+			code = append(code, OpI32Mul)
+			code = append(code, OpI32Add)
+			// Store MIN_INT (empty marker)
+			code = append(code, 0x41)
+			code = append(code, sleb128(-2147483648)...)
+			code = append(code, OpI32Store, 2, 0)
+			// Return 0
+			code = append(code, 0x41, 0)
+
+		case "set_len":
+			// set_len(set) - count non-empty slots
+			code = nil
+			setPtr := c.compileExpr(e.Args[0])
+			// Check each slot and sum up non-MIN_INT values
+			for i := 0; i < 8; i++ {
+				code = append(code, setPtr...)
+				code = append(code, 0x41)
+				code = append(code, sleb128(int64(8+i*4))...)
+				code = append(code, OpI32Add)
+				code = append(code, OpI32Load, 2, 0)
+				code = append(code, 0x41)
+				code = append(code, sleb128(-2147483648)...)
+				code = append(code, OpI32Ne) // 1 if not empty, 0 if empty
+				if i > 0 {
+					code = append(code, OpI32Add)
+				}
+			}
+
 		default:
 			idx := c.funcIdx[e.Name]
 			code = append(code, OpCall, byte(idx))

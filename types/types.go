@@ -79,8 +79,10 @@ func (e TypeError) Error() string {
 type Checker struct {
 	errors    []TypeError
 	funcs     map[string]*FuncType
+	structs   map[string]*StructType
 	globals   map[string]Type
 	locals    map[string]Type
+	localTyps map[string]string // maps local variable name to struct type name
 	returnTyp Type
 }
 
@@ -90,12 +92,21 @@ type FuncType struct {
 	Return Type
 }
 
+// StructType represents a struct's type information
+type StructType struct {
+	Name   string
+	Fields map[string]Type
+	Order  []string // field order for memory layout
+}
+
 // NewChecker creates a new type checker
 func NewChecker() *Checker {
 	return &Checker{
-		funcs:   make(map[string]*FuncType),
-		globals: make(map[string]Type),
-		locals:  make(map[string]Type),
+		funcs:     make(map[string]*FuncType),
+		structs:   make(map[string]*StructType),
+		globals:   make(map[string]Type),
+		locals:    make(map[string]Type),
+		localTyps: make(map[string]string),
 	}
 }
 
@@ -103,16 +114,31 @@ func NewChecker() *Checker {
 func (c *Checker) Check(file *parser.File) []TypeError {
 	c.errors = nil
 
+	// Collect struct definitions
+	for _, s := range file.Structs {
+		fields := make(map[string]Type)
+		var order []string
+		for _, f := range s.Fields {
+			typ := c.parseTypeWithStructs(f.Type)
+			if typ == Unknown {
+				c.addError(fmt.Sprintf("unknown type '%s' for field '%s' in struct '%s'", f.Type, f.Name, s.Name), 0)
+			}
+			fields[f.Name] = typ
+			order = append(order, f.Name)
+		}
+		c.structs[s.Name] = &StructType{Name: s.Name, Fields: fields, Order: order}
+	}
+
 	// First pass: collect function signatures
 	for _, fn := range file.Fns {
 		params := make([]Type, len(fn.Params))
 		for i, p := range fn.Params {
-			params[i] = ParseType(p.Type)
+			params[i] = c.parseTypeWithStructs(p.Type)
 			if params[i] == Unknown {
 				c.addError(fmt.Sprintf("unknown parameter type '%s' for parameter '%s'", p.Type, p.Name), 0)
 			}
 		}
-		retType := ParseType(fn.Return)
+		retType := c.parseTypeWithStructs(fn.Return)
 		if retType == Unknown && fn.Return != "" {
 			c.addError(fmt.Sprintf("unknown return type '%s' for function '%s'", fn.Return, fn.Name), 0)
 		}
@@ -121,7 +147,7 @@ func (c *Checker) Check(file *parser.File) []TypeError {
 
 	// Collect global types
 	for _, g := range file.Globals {
-		typ := ParseType(g.Type)
+		typ := c.parseTypeWithStructs(g.Type)
 		if typ == Unknown {
 			c.addError(fmt.Sprintf("unknown type '%s' for global '%s'", g.Type, g.Name), 0)
 		}
@@ -136,9 +162,19 @@ func (c *Checker) Check(file *parser.File) []TypeError {
 	return c.errors
 }
 
+// parseTypeWithStructs parses a type string, recognizing struct types
+func (c *Checker) parseTypeWithStructs(s string) Type {
+	// Check if it's a struct type
+	if _, ok := c.structs[s]; ok {
+		return I32 // Structs are represented as i32 pointers
+	}
+	return ParseType(s)
+}
+
 func (c *Checker) checkFunc(fn *parser.FnDecl) {
 	// Set up local scope
 	c.locals = make(map[string]Type)
+	c.localTyps = make(map[string]string)
 	c.returnTyp = ParseType(fn.Return)
 
 	// Add parameters to locals
@@ -172,15 +208,27 @@ func (c *Checker) checkBlock(block *parser.Block) Type {
 func (c *Checker) checkStmt(stmt parser.Stmt) {
 	switch s := stmt.(type) {
 	case *parser.LetStmt:
-		declType := ParseType(s.Type)
+		declType := c.parseTypeWithStructs(s.Type)
 		if declType == Unknown && s.Type != "" {
 			c.addError(fmt.Sprintf("unknown type '%s' for variable '%s'", s.Type, s.Name), 0)
 			return
 		}
 
+		// Track struct type name for field access
+		if _, ok := c.structs[s.Type]; ok {
+			c.localTyps[s.Name] = s.Type
+		}
+
 		if s.Value != nil {
 			valueType := c.checkExpr(s.Value)
-			if declType != Unknown && valueType != declType {
+			// For struct literals, check if the type matches
+			if lit, ok := s.Value.(*parser.StructLit); ok {
+				if s.Type != "" && s.Type != lit.Name {
+					c.addError(fmt.Sprintf("cannot assign %s to variable '%s' of type %s",
+						lit.Name, s.Name, s.Type), 0)
+				}
+				c.localTyps[s.Name] = lit.Name
+			} else if declType != Unknown && valueType != declType {
 				c.addError(fmt.Sprintf("cannot assign %s to variable '%s' of type %s",
 					valueType, s.Name, declType), 0)
 			}
@@ -212,6 +260,11 @@ func (c *Checker) checkStmt(stmt parser.Stmt) {
 			c.addError(fmt.Sprintf("array index must be i32, got %s", indexType), 0)
 		}
 		c.checkExpr(s.Value)
+
+	case *parser.FieldAssignStmt:
+		c.checkExpr(s.Expr)
+		c.checkExpr(s.Value)
+		// TODO: check field exists and type matches
 
 	case *parser.ExprStmt:
 		c.checkExpr(s.Expr)
@@ -346,6 +399,36 @@ func (c *Checker) checkExpr(expr parser.Expr) Type {
 			c.addError(fmt.Sprintf("array index must be i32, got %s", indexType), 0)
 		}
 		return I32 // element type (assuming i32 array)
+
+	case *parser.StructLit:
+		st, ok := c.structs[e.Name]
+		if !ok {
+			c.addError(fmt.Sprintf("undefined struct type '%s'", e.Name), 0)
+			return Unknown
+		}
+		// Check all fields are valid
+		for _, f := range e.Fields {
+			if _, ok := st.Fields[f.Name]; !ok {
+				c.addError(fmt.Sprintf("unknown field '%s' in struct '%s'", f.Name, e.Name), 0)
+			}
+			c.checkExpr(f.Value)
+		}
+		return I32 // structs are represented as i32 pointers
+
+	case *parser.FieldExpr:
+		c.checkExpr(e.Expr)
+		// Try to find the struct type
+		if ident, ok := e.Expr.(*parser.Ident); ok {
+			if structName, ok := c.localTyps[ident.Name]; ok {
+				if st, ok := c.structs[structName]; ok {
+					if fieldType, ok := st.Fields[e.Field]; ok {
+						return fieldType
+					}
+					c.addError(fmt.Sprintf("unknown field '%s' in struct '%s'", e.Field, structName), 0)
+				}
+			}
+		}
+		return I32 // assume i32 for field access
 	}
 
 	return Unknown
@@ -422,6 +505,42 @@ func (c *Checker) builtinType(name string, args []parser.Expr) Type {
 	// String builtins
 	case "str_eq", "str_copy":
 		return I32
+
+	// Collection builtins - List
+	case "list_new":
+		return I32 // returns pointer to list
+	case "list_push":
+		return I32 // void-like, returns 0
+	case "list_pop":
+		return I32 // returns popped element
+	case "list_get":
+		return I32 // returns element at index
+	case "list_set":
+		return I32 // void-like, returns 0
+	case "list_len":
+		return I32 // returns length
+
+	// Collection builtins - Map
+	case "map_new":
+		return I32 // returns pointer to map
+	case "map_set":
+		return I32 // void-like, returns 0
+	case "map_get":
+		return I32 // returns value for key
+	case "map_has":
+		return I32 // returns 1 if key exists, 0 otherwise
+
+	// Collection builtins - Set
+	case "set_new":
+		return I32 // returns pointer to set
+	case "set_add":
+		return I32 // void-like, returns 0
+	case "set_has":
+		return I32 // returns 1 if value exists, 0 otherwise
+	case "set_remove":
+		return I32 // void-like, returns 0
+	case "set_len":
+		return I32 // returns number of elements
 
 	case "drop":
 		return Void

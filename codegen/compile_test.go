@@ -15,7 +15,7 @@ func TestCompileAndRun(t *testing.T) {
 	p := parser.New("fn add(a: i32, b: i32): i32 { a + b }")
 	fn := p.ParseFn()
 
-	code, numLocals := Compile(fn, nil, nil, NewStringTable(0))
+	code, numLocals := Compile(fn, nil, nil, nil, NewStringTable(0))
 
 	m := NewModule()
 	m.AddFunction("add", 2, code, numLocals)
@@ -45,7 +45,7 @@ func TestCompileExpr(t *testing.T) {
 	p := parser.New("fn calc(x: i32, y: i32): i32 { x * 2 + y }")
 	fn := p.ParseFn()
 
-	code, numLocals := Compile(fn, nil, nil, NewStringTable(0))
+	code, numLocals := Compile(fn, nil, nil, nil, NewStringTable(0))
 
 	m := NewModule()
 	m.AddFunction("calc", 2, code, numLocals)
@@ -76,7 +76,7 @@ func TestCompileWithLocals(t *testing.T) {
 	p := parser.New("fn foo(x: i32, y: i32): i32 { let z: i32 = x * 2; z + y }")
 	fn := p.ParseFn()
 
-	code, numLocals := Compile(fn, nil, nil, NewStringTable(0))
+	code, numLocals := Compile(fn, nil, nil, nil, NewStringTable(0))
 	if numLocals != 1 {
 		t.Fatalf("expected 1 local, got %d", numLocals)
 	}
@@ -110,7 +110,7 @@ func TestCompileIfElse(t *testing.T) {
 	p := parser.New("fn max(a: i32, b: i32): i32 { if a > b { a } else { b } }")
 	fn := p.ParseFn()
 
-	code, numLocals := Compile(fn, nil, nil, NewStringTable(0))
+	code, numLocals := Compile(fn, nil, nil, nil, NewStringTable(0))
 
 	m := NewModule()
 	m.AddFunction("max", 2, code, numLocals)
@@ -159,7 +159,7 @@ func TestCompileLoop(t *testing.T) {
 	p := parser.New(src)
 	fn := p.ParseFn()
 
-	code, numLocals := Compile(fn, nil, nil, NewStringTable(0))
+	code, numLocals := Compile(fn, nil, nil, nil, NewStringTable(0))
 
 	m := NewModule()
 	m.AddFunction("sum", 2, code, numLocals)
@@ -1069,7 +1069,7 @@ func TestLogicalOps(t *testing.T) {
 	// Test && (and)
 	p := parser.New("fn test_and(a: i32, b: i32): i32 { if a > 0 && b > 0 { 1 } else { 0 } }")
 	fn := p.ParseFn()
-	code, numLocals := Compile(fn, nil, nil, NewStringTable(0))
+	code, numLocals := Compile(fn, nil, nil, nil, NewStringTable(0))
 
 	m := NewModule()
 	m.AddFunction("test_and", 2, code, numLocals)
@@ -1077,13 +1077,13 @@ func TestLogicalOps(t *testing.T) {
 	// Test || (or)
 	p = parser.New("fn test_or(a: i32, b: i32): i32 { if a > 0 || b > 0 { 1 } else { 0 } }")
 	fn = p.ParseFn()
-	code, numLocals = Compile(fn, nil, nil, NewStringTable(0))
+	code, numLocals = Compile(fn, nil, nil, nil, NewStringTable(0))
 	m.AddFunction("test_or", 2, code, numLocals)
 
 	// Test ! (not)
 	p = parser.New("fn test_not(a: i32): i32 { if !a { 1 } else { 0 } }")
 	fn = p.ParseFn()
-	code, numLocals = Compile(fn, nil, nil, NewStringTable(0))
+	code, numLocals = Compile(fn, nil, nil, nil, NewStringTable(0))
 	m.AddFunction("test_not", 1, code, numLocals)
 
 	ctx := context.Background()
@@ -1133,7 +1133,7 @@ func TestLogicalOps(t *testing.T) {
 func TestUnaryMinus(t *testing.T) {
 	p := parser.New("fn negate(x: i32): i32 { -x }")
 	fn := p.ParseFn()
-	code, numLocals := Compile(fn, nil, nil, NewStringTable(0))
+	code, numLocals := Compile(fn, nil, nil, nil, NewStringTable(0))
 
 	m := NewModule()
 	m.AddFunction("negate", 1, code, numLocals)
@@ -1175,7 +1175,7 @@ func TestBreakContinue(t *testing.T) {
 	}`
 	p := parser.New(src)
 	fn := p.ParseFn()
-	code, numLocals := Compile(fn, nil, nil, NewStringTable(0))
+	code, numLocals := Compile(fn, nil, nil, nil, NewStringTable(0))
 
 	m := NewModule()
 	m.AddFunction("test_break", 1, code, numLocals)
@@ -1193,7 +1193,7 @@ func TestBreakContinue(t *testing.T) {
 	}`
 	p = parser.New(src2)
 	fn = p.ParseFn()
-	code, numLocals = Compile(fn, nil, nil, NewStringTable(0))
+	code, numLocals = Compile(fn, nil, nil, nil, NewStringTable(0))
 	m.AddFunction("test_continue", 1, code, numLocals)
 
 	ctx := context.Background()

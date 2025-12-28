@@ -23,6 +23,7 @@ const (
 	COMMA
 	SEMI
 	COLON
+	DOT
 
 	ASSIGN
 	EQ
@@ -50,6 +51,7 @@ const (
 	LOOP
 	BREAK
 	CONTINUE
+	STRUCT
 
 	// wasm types
 	I32
@@ -68,6 +70,7 @@ var keywords = map[string]TokenType{
 	"loop":     LOOP,
 	"break":    BREAK,
 	"continue": CONTINUE,
+	"struct":   STRUCT,
 	"i32":      I32,
 	"i64":      I64,
 	"f32":      F32,

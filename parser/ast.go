@@ -172,7 +172,56 @@ type IndexExpr struct {
 func (IndexExpr) node() {}
 func (IndexExpr) expr() {}
 
+// StructDecl represents a struct type definition
+type StructDecl struct {
+	Name   string
+	Fields []StructField
+}
+
+func (StructDecl) node() {}
+
+// StructField represents a field in a struct definition
+type StructField struct {
+	Name string
+	Type string
+}
+
+// StructLit represents a struct literal expression
+type StructLit struct {
+	Name   string
+	Fields []StructFieldInit
+}
+
+func (StructLit) node() {}
+func (StructLit) expr() {}
+
+// StructFieldInit represents a field initialization in a struct literal
+type StructFieldInit struct {
+	Name  string
+	Value Expr
+}
+
+// FieldExpr represents field access on a struct (e.g., point.x)
+type FieldExpr struct {
+	Expr  Expr
+	Field string
+}
+
+func (FieldExpr) node() {}
+func (FieldExpr) expr() {}
+
+// FieldAssignStmt represents field assignment (e.g., point.x = 5)
+type FieldAssignStmt struct {
+	Expr  Expr
+	Field string
+	Value Expr
+}
+
+func (FieldAssignStmt) node() {}
+func (FieldAssignStmt) stmt() {}
+
 type File struct {
+	Structs []*StructDecl
 	Globals []*GlobalDecl
 	Fns     []*FnDecl
 }

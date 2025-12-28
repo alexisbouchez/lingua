@@ -34,6 +34,32 @@ func (p *Parser) next() {
 	p.cur = p.l.NextToken()
 }
 
+// isStructLitStart checks if current LBRACE starts a struct literal.
+// Struct literals look like { field: value, ... } so after { we should see IDENT COLON.
+// If we see just an expression (like { a } for if blocks), it's not a struct literal.
+func (p *Parser) isStructLitStart() bool {
+	// Create a new lexer at the same position to peek ahead
+	// Current token is LBRACE, we need to see what's after it
+	peekLexer := lexer.New(p.source)
+	// Advance to current position by reading tokens until we reach current line/column
+	for {
+		tok := peekLexer.NextToken()
+		if tok.Type == lexer.EOF {
+			return false
+		}
+		if tok.Type == lexer.LBRACE && tok.Line == p.cur.Line && tok.Column == p.cur.Column {
+			break
+		}
+	}
+	// Now peek the next two tokens
+	tok1 := peekLexer.NextToken()
+	if tok1.Type != lexer.IDENT {
+		return false
+	}
+	tok2 := peekLexer.NextToken()
+	return tok2.Type == lexer.COLON
+}
+
 func (p *Parser) ParseExpr() Expr {
 	return p.parseExprPrec(0)
 }
@@ -102,13 +128,25 @@ func (p *Parser) parsePrimary() Expr {
 		if p.cur.Type == lexer.LPAREN {
 			return p.parseCallExpr(name)
 		}
+		// Check for struct literal: StructName { field: value, ... }
+		// Must look ahead to distinguish from blocks: if b { x } vs Point { x: 1 }
+		if p.cur.Type == lexer.LBRACE && p.isStructLitStart() {
+			return p.parseStructLit(name)
+		}
 		var expr Expr = &Ident{Name: name}
-		// Handle index expressions: arr[0], arr[0][1], etc.
-		for p.cur.Type == lexer.LBRACKET {
-			p.next()
-			index := p.ParseExpr()
-			p.expect(lexer.RBRACKET)
-			expr = &IndexExpr{Array: expr, Index: index}
+		// Handle index expressions and field access
+		for p.cur.Type == lexer.LBRACKET || p.cur.Type == lexer.DOT {
+			if p.cur.Type == lexer.LBRACKET {
+				p.next()
+				index := p.ParseExpr()
+				p.expect(lexer.RBRACKET)
+				expr = &IndexExpr{Array: expr, Index: index}
+			} else if p.cur.Type == lexer.DOT {
+				p.next()
+				field := p.cur.Literal
+				p.next()
+				expr = &FieldExpr{Expr: expr, Field: field}
+			}
 		}
 		return expr
 	case lexer.IF:
@@ -207,6 +245,8 @@ func tokenTypeName(t lexer.TokenType) string {
 		return "';'"
 	case lexer.COLON:
 		return "':'"
+	case lexer.DOT:
+		return "'.'"
 	case lexer.ASSIGN:
 		return "'='"
 	case lexer.EQ:
@@ -245,6 +285,8 @@ func tokenTypeName(t lexer.TokenType) string {
 		return "'break'"
 	case lexer.CONTINUE:
 		return "'continue'"
+	case lexer.STRUCT:
+		return "'struct'"
 	case lexer.I32:
 		return "'i32'"
 	case lexer.I64:
@@ -291,7 +333,7 @@ func (p *Parser) parseBlock() *Block {
 			stmts = append(stmts, p.parseLetStmt())
 		} else {
 			expr := p.ParseExpr()
-			// Check for assignment: ident = expr; or arr[i] = expr;
+			// Check for assignment: ident = expr; or arr[i] = expr; or struct.field = expr;
 			if p.cur.Type == lexer.ASSIGN {
 				if ident, ok := expr.(*Ident); ok {
 					p.next()
@@ -305,6 +347,13 @@ func (p *Parser) parseBlock() *Block {
 					value := p.ParseExpr()
 					p.expect(lexer.SEMI)
 					stmts = append(stmts, &IndexAssignStmt{Array: idx.Array, Index: idx.Index, Value: value})
+					continue
+				}
+				if field, ok := expr.(*FieldExpr); ok {
+					p.next()
+					value := p.ParseExpr()
+					p.expect(lexer.SEMI)
+					stmts = append(stmts, &FieldAssignStmt{Expr: field.Expr, Field: field.Field, Value: value})
 					continue
 				}
 			}
@@ -389,17 +438,63 @@ func (p *Parser) parseArrayLit() *ArrayLit {
 	return &ArrayLit{Elements: elements}
 }
 
+func (p *Parser) parseStructLit(name string) *StructLit {
+	p.expect(lexer.LBRACE)
+	var fields []StructFieldInit
+	for p.cur.Type == lexer.IDENT {
+		fieldName := p.cur.Literal
+		p.next()
+		p.expect(lexer.COLON)
+		value := p.ParseExpr()
+		fields = append(fields, StructFieldInit{Name: fieldName, Value: value})
+		if p.cur.Type == lexer.COMMA {
+			p.next()
+		} else {
+			break
+		}
+	}
+	p.expect(lexer.RBRACE)
+	return &StructLit{Name: name, Fields: fields}
+}
+
 func (p *Parser) ParseFile() *File {
+	var structs []*StructDecl
 	var globals []*GlobalDecl
 	var fns []*FnDecl
 	for p.cur.Type != lexer.EOF {
-		if p.cur.Type == lexer.GLOBAL {
+		if p.cur.Type == lexer.STRUCT {
+			structs = append(structs, p.parseStruct())
+		} else if p.cur.Type == lexer.GLOBAL {
 			globals = append(globals, p.parseGlobal())
 		} else {
 			fns = append(fns, p.ParseFn())
 		}
 	}
-	return &File{Globals: globals, Fns: fns}
+	return &File{Structs: structs, Globals: globals, Fns: fns}
+}
+
+func (p *Parser) parseStruct() *StructDecl {
+	p.expect(lexer.STRUCT)
+	name := p.cur.Literal
+	p.next()
+	p.expect(lexer.LBRACE)
+
+	var fields []StructField
+	for p.cur.Type == lexer.IDENT {
+		fieldName := p.cur.Literal
+		p.next()
+		p.expect(lexer.COLON)
+		fieldType := p.cur.Literal
+		p.next()
+		fields = append(fields, StructField{Name: fieldName, Type: fieldType})
+		if p.cur.Type == lexer.COMMA {
+			p.next()
+		} else {
+			break
+		}
+	}
+	p.expect(lexer.RBRACE)
+	return &StructDecl{Name: name, Fields: fields}
 }
 
 func (p *Parser) parseGlobal() *GlobalDecl {
