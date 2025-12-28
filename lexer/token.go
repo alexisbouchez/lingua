@@ -32,6 +32,11 @@ const (
 	AND
 	OR
 	NOT
+	BAND    // &
+	BOR     // |
+	BXOR    // ^
+	SHL     // <<
+	SHR     // >>
 
 	// keywords
 	FN

@@ -593,6 +593,16 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 			code = append(code, 0x71) // i32.and
 		case "||":
 			code = append(code, 0x72) // i32.or
+		case "&":
+			code = append(code, 0x71) // i32.and
+		case "|":
+			code = append(code, 0x72) // i32.or
+		case "^":
+			code = append(code, 0x73) // i32.xor
+		case "<<":
+			code = append(code, 0x74) // i32.shl
+		case ">>":
+			code = append(code, 0x75) // i32.shr_s (signed)
 		}
 		return code
 	case *parser.IfExpr:

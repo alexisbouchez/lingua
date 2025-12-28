@@ -723,6 +723,65 @@ func TestBreakContinue(t *testing.T) {
 	}
 }
 
+func TestBitwiseOps(t *testing.T) {
+	// Test bitwise operations
+	src := `fn test_and(a: i32, b: i32): i32 { a & b }
+fn test_or(a: i32, b: i32): i32 { a | b }
+fn test_xor(a: i32, b: i32): i32 { a ^ b }
+fn test_shl(a: i32, b: i32): i32 { a << b }
+fn test_shr(a: i32, b: i32): i32 { a >> b }`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	testAnd := mod.ExportedFunction("test_and")
+	testOr := mod.ExportedFunction("test_or")
+	testXor := mod.ExportedFunction("test_xor")
+	testShl := mod.ExportedFunction("test_shl")
+	testShr := mod.ExportedFunction("test_shr")
+
+	// 0b1100 & 0b1010 = 0b1000 = 8
+	results, _ := testAnd.Call(ctx, 12, 10)
+	if results[0] != 8 {
+		t.Fatalf("12 & 10: expected 8, got %d", results[0])
+	}
+
+	// 0b1100 | 0b1010 = 0b1110 = 14
+	results, _ = testOr.Call(ctx, 12, 10)
+	if results[0] != 14 {
+		t.Fatalf("12 | 10: expected 14, got %d", results[0])
+	}
+
+	// 0b1100 ^ 0b1010 = 0b0110 = 6
+	results, _ = testXor.Call(ctx, 12, 10)
+	if results[0] != 6 {
+		t.Fatalf("12 ^ 10: expected 6, got %d", results[0])
+	}
+
+	// 1 << 4 = 16
+	results, _ = testShl.Call(ctx, 1, 4)
+	if results[0] != 16 {
+		t.Fatalf("1 << 4: expected 16, got %d", results[0])
+	}
+
+	// 16 >> 2 = 4
+	results, _ = testShr.Call(ctx, 16, 2)
+	if results[0] != 4 {
+		t.Fatalf("16 >> 2: expected 4, got %d", results[0])
+	}
+}
+
 func TestReturn(t *testing.T) {
 	// Test early return
 	src := `fn factorial(n: i32): i32 {

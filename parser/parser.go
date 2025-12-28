@@ -48,12 +48,20 @@ func (p *Parser) precedence() int {
 		return 0
 	case lexer.AND:
 		return 1
-	case lexer.EQ, lexer.NEQ, lexer.LT, lexer.GT, lexer.LTE, lexer.GTE:
+	case lexer.BOR:
 		return 2
-	case lexer.PLUS, lexer.MINUS:
+	case lexer.BXOR:
 		return 3
-	case lexer.STAR, lexer.SLASH, lexer.PERCENT:
+	case lexer.BAND:
 		return 4
+	case lexer.EQ, lexer.NEQ, lexer.LT, lexer.GT, lexer.LTE, lexer.GTE:
+		return 5
+	case lexer.SHL, lexer.SHR:
+		return 6
+	case lexer.PLUS, lexer.MINUS:
+		return 7
+	case lexer.STAR, lexer.SLASH, lexer.PERCENT:
+		return 8
 	default:
 		return -1
 	}

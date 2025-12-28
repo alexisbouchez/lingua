@@ -80,19 +80,24 @@ func (l *Lexer) NextToken() Token {
 			l.readChar()
 			tok = Token{Type: AND, Literal: "&&"}
 		} else {
-			return Token{Type: EOF}
+			tok = Token{Type: BAND, Literal: "&"}
 		}
 	case '|':
 		if l.peek() == '|' {
 			l.readChar()
 			tok = Token{Type: OR, Literal: "||"}
 		} else {
-			return Token{Type: EOF}
+			tok = Token{Type: BOR, Literal: "|"}
 		}
+	case '^':
+		tok = Token{Type: BXOR, Literal: "^"}
 	case '<':
 		if l.peek() == '=' {
 			l.readChar()
 			tok = Token{Type: LTE, Literal: "<="}
+		} else if l.peek() == '<' {
+			l.readChar()
+			tok = Token{Type: SHL, Literal: "<<"}
 		} else {
 			tok = Token{Type: LT, Literal: "<"}
 		}
@@ -100,6 +105,9 @@ func (l *Lexer) NextToken() Token {
 		if l.peek() == '=' {
 			l.readChar()
 			tok = Token{Type: GTE, Literal: ">="}
+		} else if l.peek() == '>' {
+			l.readChar()
+			tok = Token{Type: SHR, Literal: ">>"}
 		} else {
 			tok = Token{Type: GT, Literal: ">"}
 		}
