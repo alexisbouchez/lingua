@@ -61,7 +61,7 @@ PHASE 6: TOOLING
 ----------------
 [x] Build CLI compiler tool
 [ ] Implement source maps for debugging
-[ ] Add error reporting with line/column info
+[x] Add error reporting with line/column info
 [ ] Create REPL for interactive development
 [ ] Add language server protocol (LSP) support
 [ ] Create VS Code extension
@@ -71,7 +71,7 @@ PHASE 7: STANDARD LIBRARY
 [x] Implement python-like print() builtin
 [ ] Implement I/O primitives
 [ ] Implement string utilities
-[~] Implement math functions (abs, min, max)
+[x] Implement math functions (abs, min, max)
 [ ] Implement collections (list, map, set)
 [ ] Implement async/await primitives (WASI 0.3)
 

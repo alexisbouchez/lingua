@@ -99,6 +99,62 @@ func generatePrintlnHelper(printIntIdx, fdWriteIdx int) []byte {
 	return code
 }
 
+// generateAbsHelper generates the abs(n) helper function bytecode
+// Returns the absolute value of n
+func generateAbsHelper() []byte {
+	var code []byte
+
+	// if n >= 0, return n; else return -n
+	code = append(code, OpLocalGet, 0)     // get n
+	code = append(code, 0x41, 0)           // i32.const 0
+	code = append(code, OpI32GeS)          // n >= 0
+	code = append(code, OpIf, 0x7f)        // if (result i32)
+	code = append(code, OpLocalGet, 0)     // return n
+	code = append(code, OpElse)
+	code = append(code, 0x41, 0)           // i32.const 0
+	code = append(code, OpLocalGet, 0)     // get n
+	code = append(code, OpI32Sub)          // 0 - n
+	code = append(code, OpEnd)
+
+	return code
+}
+
+// generateMinHelper generates the min(a, b) helper function bytecode
+// Returns the smaller of a and b
+func generateMinHelper() []byte {
+	var code []byte
+
+	// if a < b, return a; else return b
+	code = append(code, OpLocalGet, 0)     // get a
+	code = append(code, OpLocalGet, 1)     // get b
+	code = append(code, OpI32LtS)          // a < b
+	code = append(code, OpIf, 0x7f)        // if (result i32)
+	code = append(code, OpLocalGet, 0)     // return a
+	code = append(code, OpElse)
+	code = append(code, OpLocalGet, 1)     // return b
+	code = append(code, OpEnd)
+
+	return code
+}
+
+// generateMaxHelper generates the max(a, b) helper function bytecode
+// Returns the larger of a and b
+func generateMaxHelper() []byte {
+	var code []byte
+
+	// if a > b, return a; else return b
+	code = append(code, OpLocalGet, 0)     // get a
+	code = append(code, OpLocalGet, 1)     // get b
+	code = append(code, OpI32GtS)          // a > b
+	code = append(code, OpIf, 0x7f)        // if (result i32)
+	code = append(code, OpLocalGet, 0)     // return a
+	code = append(code, OpElse)
+	code = append(code, OpLocalGet, 1)     // return b
+	code = append(code, OpEnd)
+
+	return code
+}
+
 // generatePrintIntHelper generates the _print_int helper function bytecode
 // params: n (i32)
 // locals: ptr, is_neg, digit
@@ -277,15 +333,27 @@ func CompileFile(file *parser.File, m *Module) {
 	// String table starts at offset 1024 (leave space for iovec, etc.)
 	strings := NewStringTable(1024)
 
-	// Check if print_int/println is used
+	// Check if print_int/println and math builtins are used
 	needsPrintInt := false
 	needsPrintln := false
+	needsAbs := false
+	needsMin := false
+	needsMax := false
 	for _, fn := range file.Fns {
 		if usesPrintInt(fn.Body) {
 			needsPrintInt = true
 		}
 		if usesPrintln(fn.Body) {
 			needsPrintln = true
+		}
+		if usesBuiltin(fn.Body, "abs") {
+			needsAbs = true
+		}
+		if usesBuiltin(fn.Body, "min") {
+			needsMin = true
+		}
+		if usesBuiltin(fn.Body, "max") {
+			needsMax = true
 		}
 	}
 
@@ -297,6 +365,15 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsPrintln {
 		helperCount++
 	}
+	if needsAbs {
+		helperCount++
+	}
+	if needsMin {
+		helperCount++
+	}
+	if needsMax {
+		helperCount++
+	}
 
 	// Adjust function indices for helpers
 	helperIdx := 0
@@ -306,6 +383,18 @@ func CompileFile(file *parser.File, m *Module) {
 	}
 	if needsPrintln {
 		funcIdx["_println"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsAbs {
+		funcIdx["abs"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsMin {
+		funcIdx["min"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsMax {
+		funcIdx["max"] = len(m.imports) + helperIdx
 		helperIdx++
 	}
 	for i, fn := range file.Fns {
@@ -320,6 +409,18 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsPrintln {
 		code := generatePrintlnHelper(funcIdx["_print_int"], funcIdx["fd_write"])
 		m.AddFunction("_println", 1, code, 0) // 1 param, 0 locals
+	}
+	if needsAbs {
+		code := generateAbsHelper()
+		m.AddFunction("abs", 1, code, 0) // 1 param, 0 locals
+	}
+	if needsMin {
+		code := generateMinHelper()
+		m.AddFunction("min", 2, code, 0) // 2 params, 0 locals
+	}
+	if needsMax {
+		code := generateMaxHelper()
+		m.AddFunction("max", 2, code, 0) // 2 params, 0 locals
 	}
 
 	for _, fn := range file.Fns {
@@ -433,6 +534,72 @@ func usesPrintlnExpr(expr parser.Expr) bool {
 		return usesPrintlnExpr(e.Cond) || usesPrintln(e.Body)
 	case *parser.Block:
 		return usesPrintln(e)
+	}
+	return false
+}
+
+func usesBuiltin(block *parser.Block, name string) bool {
+	for _, stmt := range block.Stmts {
+		if usesBuiltinStmt(stmt, name) {
+			return true
+		}
+	}
+	if block.Expr != nil && usesBuiltinExpr(block.Expr, name) {
+		return true
+	}
+	return false
+}
+
+func usesBuiltinStmt(stmt parser.Stmt, name string) bool {
+	switch s := stmt.(type) {
+	case *parser.LetStmt:
+		return usesBuiltinExpr(s.Value, name)
+	case *parser.AssignStmt:
+		return usesBuiltinExpr(s.Value, name)
+	case *parser.ExprStmt:
+		return usesBuiltinExpr(s.Expr, name)
+	case *parser.IndexAssignStmt:
+		return usesBuiltinExpr(s.Array, name) || usesBuiltinExpr(s.Index, name) || usesBuiltinExpr(s.Value, name)
+	}
+	return false
+}
+
+func usesBuiltinExpr(expr parser.Expr, name string) bool {
+	switch e := expr.(type) {
+	case *parser.CallExpr:
+		if e.Name == name {
+			return true
+		}
+		for _, arg := range e.Args {
+			if usesBuiltinExpr(arg, name) {
+				return true
+			}
+		}
+	case *parser.BinaryExpr:
+		return usesBuiltinExpr(e.Left, name) || usesBuiltinExpr(e.Right, name)
+	case *parser.UnaryExpr:
+		return usesBuiltinExpr(e.Expr, name)
+	case *parser.IfExpr:
+		if usesBuiltinExpr(e.Cond, name) || usesBuiltin(e.Then, name) {
+			return true
+		}
+		if e.Else != nil && usesBuiltin(e.Else, name) {
+			return true
+		}
+	case *parser.LoopExpr:
+		return usesBuiltinExpr(e.Cond, name) || usesBuiltin(e.Body, name)
+	case *parser.Block:
+		return usesBuiltin(e, name)
+	case *parser.ReturnExpr:
+		return usesBuiltinExpr(e.Value, name)
+	case *parser.IndexExpr:
+		return usesBuiltinExpr(e.Array, name) || usesBuiltinExpr(e.Index, name)
+	case *parser.ArrayLit:
+		for _, elem := range e.Elements {
+			if usesBuiltinExpr(elem, name) {
+				return true
+			}
+		}
 	}
 	return false
 }

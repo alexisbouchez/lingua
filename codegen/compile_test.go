@@ -496,13 +496,12 @@ func TestPrint(t *testing.T) {
 }
 
 func TestAbs(t *testing.T) {
-	p := parser.New("fn test(x: i32): i32 { abs(x) }")
-	fn := p.ParseFn()
-
-	code, numLocals := Compile(fn, nil, nil, NewStringTable(0))
+	src := `fn test(x: i32): i32 { abs(x) }`
+	p := parser.New(src)
+	f := p.ParseFile()
 
 	m := NewModule()
-	m.AddFunction("test", 1, code, numLocals)
+	CompileFile(f, m)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -530,17 +529,15 @@ func TestAbs(t *testing.T) {
 }
 
 func TestMinMax(t *testing.T) {
-	p := parser.New("fn test_min(a: i32, b: i32): i32 { min(a, b) }")
-	fn := p.ParseFn()
-	code, numLocals := Compile(fn, nil, nil, NewStringTable(0))
+	src := `
+		fn test_min(a: i32, b: i32): i32 { min(a, b) }
+		fn test_max(a: i32, b: i32): i32 { max(a, b) }
+	`
+	p := parser.New(src)
+	f := p.ParseFile()
 
 	m := NewModule()
-	m.AddFunction("test_min", 2, code, numLocals)
-
-	p = parser.New("fn test_max(a: i32, b: i32): i32 { max(a, b) }")
-	fn = p.ParseFn()
-	code, numLocals = Compile(fn, nil, nil, NewStringTable(0))
-	m.AddFunction("test_max", 2, code, numLocals)
+	CompileFile(f, m)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
