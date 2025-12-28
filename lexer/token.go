@@ -21,6 +21,14 @@ const (
 	SEMI
 	COLON
 
+	ASSIGN
+	EQ
+	NEQ
+	LT
+	GT
+	LTE
+	GTE
+
 	// keywords
 	FN
 	LET

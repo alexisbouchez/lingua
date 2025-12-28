@@ -21,6 +21,13 @@ func (l *Lexer) readChar() {
 	l.pos++
 }
 
+func (l *Lexer) peek() byte {
+	if l.pos >= len(l.input) {
+		return 0
+	}
+	return l.input[l.pos]
+}
+
 func (l *Lexer) NextToken() Token {
 	l.skipWhitespace()
 
@@ -54,6 +61,34 @@ func (l *Lexer) NextToken() Token {
 		tok = Token{Type: SEMI, Literal: ";"}
 	case ':':
 		tok = Token{Type: COLON, Literal: ":"}
+	case '=':
+		if l.peek() == '=' {
+			l.readChar()
+			tok = Token{Type: EQ, Literal: "=="}
+		} else {
+			tok = Token{Type: ASSIGN, Literal: "="}
+		}
+	case '!':
+		if l.peek() == '=' {
+			l.readChar()
+			tok = Token{Type: NEQ, Literal: "!="}
+		} else {
+			return Token{Type: EOF}
+		}
+	case '<':
+		if l.peek() == '=' {
+			l.readChar()
+			tok = Token{Type: LTE, Literal: "<="}
+		} else {
+			tok = Token{Type: LT, Literal: "<"}
+		}
+	case '>':
+		if l.peek() == '=' {
+			l.readChar()
+			tok = Token{Type: GTE, Literal: ">="}
+		} else {
+			tok = Token{Type: GT, Literal: ">"}
+		}
 	default:
 		if isLetter(l.ch) {
 			lit := l.readIdent()
