@@ -64,6 +64,9 @@ func (p *Parser) parsePrimary() Expr {
 	case lexer.NOT:
 		p.next()
 		return &UnaryExpr{Op: "!", Expr: p.parsePrimary()}
+	case lexer.MINUS:
+		p.next()
+		return &UnaryExpr{Op: "-", Expr: p.parsePrimary()}
 	case lexer.INT:
 		val, _ := strconv.ParseInt(p.cur.Literal, 10, 64)
 		p.next()

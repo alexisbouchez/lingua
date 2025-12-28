@@ -631,3 +631,34 @@ func TestLogicalOps(t *testing.T) {
 		t.Fatalf("!1: expected 0, got %d", results[0])
 	}
 }
+
+func TestUnaryMinus(t *testing.T) {
+	p := parser.New("fn negate(x: i32): i32 { -x }")
+	fn := p.ParseFn()
+	code, numLocals := Compile(fn, nil, NewStringTable(0))
+
+	m := NewModule()
+	m.AddFunction("negate", 1, code, numLocals)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	negate := mod.ExportedFunction("negate")
+
+	results, _ := negate.Call(ctx, 5)
+	if int32(results[0]) != -5 {
+		t.Fatalf("-5: expected -5, got %d", int32(results[0]))
+	}
+
+	neg7 := uint64(0xFFFFFFF9) // -7 as uint64
+	results, _ = negate.Call(ctx, neg7)
+	if int32(results[0]) != 7 {
+		t.Fatalf("-(-7): expected 7, got %d", int32(results[0]))
+	}
+}

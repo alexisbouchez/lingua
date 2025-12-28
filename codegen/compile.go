@@ -545,10 +545,14 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 		return []byte{OpLocalGet, byte(idx)}
 	case *parser.UnaryExpr:
 		var code []byte
-		code = append(code, c.compileExpr(e.Expr)...)
 		switch e.Op {
 		case "!":
+			code = append(code, c.compileExpr(e.Expr)...)
 			code = append(code, OpI32Eqz) // !x is x == 0
+		case "-":
+			code = append(code, 0x41, 0) // i32.const 0
+			code = append(code, c.compileExpr(e.Expr)...)
+			code = append(code, OpI32Sub) // 0 - x
 		}
 		return code
 	case *parser.BinaryExpr:
