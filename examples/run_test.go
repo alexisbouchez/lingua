@@ -1,0 +1,62 @@
+package examples
+
+import (
+	"context"
+	"os"
+	"testing"
+
+	"github.com/tetratelabs/wazero"
+)
+
+func TestRunAdd(t *testing.T) {
+	wasm, err := os.ReadFile("add.wasm")
+	if err != nil {
+		t.Skip("add.wasm not found, run: lingua examples/add.lingua examples/add.wasm")
+	}
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, wasm)
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	add := mod.ExportedFunction("add")
+	results, err := add.Call(ctx, 7, 8)
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+
+	if results[0] != 15 {
+		t.Fatalf("expected 15, got %d", results[0])
+	}
+}
+
+func TestRunDoubleAdd(t *testing.T) {
+	wasm, err := os.ReadFile("double_add.wasm")
+	if err != nil {
+		t.Skip("double_add.wasm not found")
+	}
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, wasm)
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	fn := mod.ExportedFunction("double_add")
+	results, err := fn.Call(ctx, 3, 4)
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+
+	// (3 + 4) * 2 = 14
+	if results[0] != 14 {
+		t.Fatalf("expected 14, got %d", results[0])
+	}
+}

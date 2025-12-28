@@ -1,0 +1,4 @@
+fn double_add(x: i32, y: i32): i32 {
+    let sum: i32 = x + y;
+    sum * 2
+}
