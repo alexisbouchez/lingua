@@ -494,3 +494,75 @@ func TestPrint(t *testing.T) {
 		t.Fatalf("expected 'Hello\\n', got %q", stdout.String())
 	}
 }
+
+func TestAbs(t *testing.T) {
+	p := parser.New("fn test(x: i32): i32 { abs(x) }")
+	fn := p.ParseFn()
+
+	code, numLocals := Compile(fn, nil, NewStringTable(0))
+
+	m := NewModule()
+	m.AddFunction("test", 1, code, numLocals)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	test := mod.ExportedFunction("test")
+
+	// abs(5) = 5
+	results, _ := test.Call(ctx, 5)
+	if results[0] != 5 {
+		t.Fatalf("expected 5, got %d", results[0])
+	}
+
+	// abs(-7) = 7
+	neg7 := uint64(0xFFFFFFF9) // -7 as uint64
+	results, _ = test.Call(ctx, neg7)
+	if int32(results[0]) != 7 {
+		t.Fatalf("expected 7, got %d", int32(results[0]))
+	}
+}
+
+func TestMinMax(t *testing.T) {
+	p := parser.New("fn test_min(a: i32, b: i32): i32 { min(a, b) }")
+	fn := p.ParseFn()
+	code, numLocals := Compile(fn, nil, NewStringTable(0))
+
+	m := NewModule()
+	m.AddFunction("test_min", 2, code, numLocals)
+
+	p = parser.New("fn test_max(a: i32, b: i32): i32 { max(a, b) }")
+	fn = p.ParseFn()
+	code, numLocals = Compile(fn, nil, NewStringTable(0))
+	m.AddFunction("test_max", 2, code, numLocals)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	testMin := mod.ExportedFunction("test_min")
+	testMax := mod.ExportedFunction("test_max")
+
+	// min(3, 7) = 3
+	results, _ := testMin.Call(ctx, 3, 7)
+	if results[0] != 3 {
+		t.Fatalf("min(3,7): expected 3, got %d", results[0])
+	}
+
+	// max(3, 7) = 7
+	results, _ = testMax.Call(ctx, 3, 7)
+	if results[0] != 7 {
+		t.Fatalf("max(3,7): expected 7, got %d", results[0])
+	}
+}

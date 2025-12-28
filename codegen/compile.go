@@ -651,6 +651,47 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 			// Call the _println helper function
 			idx := c.funcIdx["_println"]
 			code = append(code, OpCall, byte(idx))
+		case "abs":
+			// abs(n) - returns absolute value
+			// if n < 0 { -n } else { n }
+			code = append(code, OpLocalGet, 0) // duplicate for comparison
+			code = nil
+			code = append(code, c.compileExpr(e.Args[0])...)
+			code = append(code, 0x41, 0) // i32.const 0
+			code = append(code, OpI32LtS)
+			code = append(code, OpIf, 0x7f) // if with i32 result
+			code = append(code, 0x41, 0)
+			code = append(code, c.compileExpr(e.Args[0])...)
+			code = append(code, OpI32Sub) // 0 - n
+			code = append(code, OpElse)
+			code = append(code, c.compileExpr(e.Args[0])...)
+			code = append(code, OpEnd)
+		case "min":
+			// min(a, b) - returns smaller value
+			code = nil
+			a := c.compileExpr(e.Args[0])
+			b := c.compileExpr(e.Args[1])
+			code = append(code, a...)
+			code = append(code, b...)
+			code = append(code, OpI32LtS)
+			code = append(code, OpIf, 0x7f)
+			code = append(code, a...)
+			code = append(code, OpElse)
+			code = append(code, b...)
+			code = append(code, OpEnd)
+		case "max":
+			// max(a, b) - returns larger value
+			code = nil
+			a := c.compileExpr(e.Args[0])
+			b := c.compileExpr(e.Args[1])
+			code = append(code, a...)
+			code = append(code, b...)
+			code = append(code, OpI32GtS)
+			code = append(code, OpIf, 0x7f)
+			code = append(code, a...)
+			code = append(code, OpElse)
+			code = append(code, b...)
+			code = append(code, OpEnd)
 		case "print":
 			// print(str, len) - prints string with newline
 			code = nil
