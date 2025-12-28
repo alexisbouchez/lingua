@@ -1,0 +1,14 @@
+// Async/await test
+
+async fn sleep_and_print(ms: i32): i32 {
+    println(1); // Before sleep
+    await async_sleep(ms);
+    println(2); // After sleep
+    0
+}
+
+fn _start(): i32 {
+    // Call async function (for now, it will run synchronously)
+    sleep_and_print(100);
+    0
+}

@@ -1,0 +1,10 @@
+// This should fail because await is used in a non-async function
+
+fn regular_function(): i32 {
+    await async_sleep(100) // ERROR: await can only be used in async functions
+    0
+}
+
+fn _start(): i32 {
+    0
+}

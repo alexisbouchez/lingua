@@ -1,0 +1,13 @@
+// Simple async test without WASI calls
+
+async fn async_add(a: i32, b: i32): i32 {
+    // Simulate async operation with await
+    // For now, this just returns the sum
+    a + b
+}
+
+fn _start(): i32 {
+    // This should work without WASI calls
+    // For now, async functions run synchronously
+    42
+}

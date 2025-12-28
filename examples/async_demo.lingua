@@ -1,0 +1,22 @@
+// Async/await demonstration
+
+async fn async_task(name: i32, delay: i32): i32 {
+    // Simulate an async task
+    // For now, this runs synchronously but demonstrates the syntax
+    println(name);
+    // In a real async implementation, this would suspend:
+    // await async_sleep(delay);
+    name + 100
+}
+
+fn _start(): i32 {
+    let result1: i32 = async_task(1, 100);
+    let result2: i32 = async_task(2, 200);
+    
+    // For now, async functions run synchronously
+    // In a real implementation, these would run concurrently
+    println(result1);
+    println(result2);
+    
+    0
+}

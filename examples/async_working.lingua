@@ -1,0 +1,10 @@
+// This should work because await is used in an async function
+
+async fn async_function(): i32 {
+    await async_sleep(100);
+    0
+}
+
+fn _start(): i32 {
+    0
+}

@@ -1,0 +1,9 @@
+// Simple async function to test type checking
+
+async fn simple_async(): i32 {
+    async_sleep(100)
+}
+
+fn _start(): i32 {
+    0
+}

@@ -1,0 +1,81 @@
+// Complete async/await example demonstrating all features
+
+// Async function that simulates fetching user data
+async fn fetch_user_data(user_id: i32): i32 {
+    // Simulate network request
+    await async_sleep(100);
+    user_id * 1000
+}
+
+// Async function that processes data
+async fn process_user_data(data: i32): i32 {
+    // Simulate data processing
+    await async_sleep(50);
+    data + 5000
+}
+
+// Async function that saves results
+async fn save_results(result: i32): i32 {
+    // Simulate database operation
+    await async_sleep(25);
+    result * 2
+}
+
+// Complex async workflow
+async fn user_workflow(user_id: i32): i32 {
+    // Fetch data
+    let data: i32 = await fetch_user_data(user_id);
+    
+    // Process data
+    let processed: i32 = await process_user_data(data);
+    
+    // Save results
+    let final: i32 = await save_results(processed);
+    
+    final
+}
+
+// Async function with conditional logic
+async fn conditional_async(value: i32): i32 {
+    if value > 0 {
+        await async_sleep(10);
+        value * 2
+    } else {
+        await async_sleep(5);
+        value * 3
+    }
+}
+
+// Async function with loop
+async fn async_loop(count: i32): i32 {
+    let i: i32 = 0;
+    let result: i32 = 0;
+    
+    loop i < count {
+        await async_sleep(1);
+        result = result + i;
+        i = i + 1;
+    };
+    
+    result
+}
+
+fn _start(): i32 {
+    // Demonstrate various async patterns
+    
+    // 1. Simple async call
+    let result1: i32 = user_workflow(42);
+    
+    // 2. Conditional async
+    let result2: i32 = conditional_async(10);
+    
+    // 3. Async loop
+    let result3: i32 = async_loop(5);
+    
+    // Print results (for now, synchronous execution)
+    println(result1);
+    println(result2);
+    println(result3);
+    
+    0
+}

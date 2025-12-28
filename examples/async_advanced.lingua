@@ -1,0 +1,38 @@
+// Advanced async/await example with multiple async operations
+
+async fn fetch_data(id: i32): i32 {
+    // Simulate async data fetching
+    // In a real implementation, this would use async I/O
+    await async_sleep(50); // Simulate network delay
+    id * 100
+}
+
+async fn process_data(data: i32): i32 {
+    // Simulate async data processing
+    await async_sleep(30); // Simulate processing delay
+    data + 1000
+}
+
+async fn async_workflow(): i32 {
+    // Demonstrate chaining async operations
+    let raw_data: i32 = await fetch_data(42);
+    let processed: i32 = await process_data(raw_data);
+    
+    // Simulate final async operation
+    await async_sleep(20);
+    
+    processed
+}
+
+fn _start(): i32 {
+    // Call async function (for now, runs synchronously)
+    // In a real async implementation, this would return immediately
+    // and the async function would complete later
+    let result: i32 = async_workflow();
+    
+    // For now, this will be the synchronous result
+    // In a real implementation, you would need to await this
+    println(result);
+    
+    0
+}
