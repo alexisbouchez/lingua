@@ -68,7 +68,7 @@ PHASE 6: TOOLING
 
 PHASE 7: STANDARD LIBRARY
 -------------------------
-[ ] Implement python-like print() builtin
+[x] Implement python-like print() builtin
 [ ] Implement I/O primitives
 [ ] Implement string utilities
 [ ] Implement math functions
