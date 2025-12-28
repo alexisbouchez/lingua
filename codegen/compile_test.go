@@ -1018,3 +1018,98 @@ func TestArraySum(t *testing.T) {
 		t.Fatalf("expected 15, got %d", results[0])
 	}
 }
+
+func TestStrEq(t *testing.T) {
+	src := `
+		fn test_eq(addr1: i32, len1: i32, addr2: i32, len2: i32): i32 {
+			str_eq(addr1, len1, addr2, len2)
+		}
+	`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m)
+
+	// Add test strings to memory manually
+	// "hello" at address 100
+	// "hello" at address 200
+	// "world" at address 300
+	m.AddData(100, []byte("hello"))
+	m.AddData(200, []byte("hello"))
+	m.AddData(300, []byte("world"))
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	testEq := mod.ExportedFunction("test_eq")
+
+	// Test: "hello" == "hello" (same content)
+	results, _ := testEq.Call(ctx, 100, 5, 200, 5)
+	if results[0] != 1 {
+		t.Fatalf("expected strings to be equal, got %d", results[0])
+	}
+
+	// Test: "hello" != "world" (different content)
+	results, _ = testEq.Call(ctx, 100, 5, 300, 5)
+	if results[0] != 0 {
+		t.Fatalf("expected strings to be not equal, got %d", results[0])
+	}
+
+	// Test: "hello" != "hell" (different length)
+	results, _ = testEq.Call(ctx, 100, 5, 200, 4)
+	if results[0] != 0 {
+		t.Fatalf("expected strings to be not equal (different lengths), got %d", results[0])
+	}
+}
+
+func TestStrCopy(t *testing.T) {
+	src := `
+		fn test_copy(src: i32, len: i32, dest: i32): i32 {
+			str_copy(src, len, dest)
+		}
+	`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m)
+
+	// Add source string "test!" at address 100
+	m.AddData(100, []byte("test!"))
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	testCopy := mod.ExportedFunction("test_copy")
+
+	// Copy "test!" from address 100 to address 500
+	results, _ := testCopy.Call(ctx, 100, 5, 500)
+	if results[0] != 500 {
+		t.Fatalf("expected return value 500, got %d", results[0])
+	}
+
+	// Read memory at address 500 to verify the copy
+	data, ok := mod.Memory().Read(500, 5)
+	if !ok {
+		t.Fatalf("failed to read memory at 500")
+	}
+
+	if string(data) != "test!" {
+		t.Fatalf("expected 'test!', got %q", string(data))
+	}
+}

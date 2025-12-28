@@ -155,6 +155,122 @@ func generateMaxHelper() []byte {
 	return code
 }
 
+// generateStrEqHelper generates the str_eq(addr1, len1, addr2, len2) helper function bytecode
+// Returns 1 if strings are equal, 0 otherwise
+// Params: addr1 (0), len1 (1), addr2 (2), len2 (3)
+// Locals: i (4)
+func generateStrEqHelper() []byte {
+	var code []byte
+
+	// if len1 != len2, return 0
+	code = append(code, OpLocalGet, 1)     // len1
+	code = append(code, OpLocalGet, 3)     // len2
+	code = append(code, OpI32Ne)           // len1 != len2
+	code = append(code, OpIf, 0x40)        // if (no result)
+	code = append(code, 0x41, 0)           // i32.const 0
+	code = append(code, 0x0f)              // return
+	code = append(code, OpEnd)
+
+	// i = 0 (local 4)
+	code = append(code, 0x41, 0)           // i32.const 0
+	code = append(code, OpLocalSet, 4)     // local.set i
+
+	// loop: while i < len1
+	code = append(code, OpBlock, 0x40)     // block (no result)
+	code = append(code, OpLoop, 0x40)      // loop (no result)
+
+	// if i >= len1, break
+	code = append(code, OpLocalGet, 4)     // get i
+	code = append(code, OpLocalGet, 1)     // get len1
+	code = append(code, OpI32GeS)          // i >= len1
+	code = append(code, OpBrIf, 1)         // break if true
+
+	// load byte from addr1[i]
+	code = append(code, OpLocalGet, 0)     // get addr1
+	code = append(code, OpLocalGet, 4)     // get i
+	code = append(code, OpI32Add)          // addr1 + i
+	code = append(code, 0x2d, 0, 0)        // i32.load8_u (load unsigned byte)
+
+	// load byte from addr2[i]
+	code = append(code, OpLocalGet, 2)     // get addr2
+	code = append(code, OpLocalGet, 4)     // get i
+	code = append(code, OpI32Add)          // addr2 + i
+	code = append(code, 0x2d, 0, 0)        // i32.load8_u
+
+	// if bytes are not equal, return 0
+	code = append(code, OpI32Ne)           // byte1 != byte2
+	code = append(code, OpIf, 0x40)        // if (no result)
+	code = append(code, 0x41, 0)           // i32.const 0
+	code = append(code, 0x0f)              // return
+	code = append(code, OpEnd)
+
+	// i++
+	code = append(code, OpLocalGet, 4)     // get i
+	code = append(code, 0x41, 1)           // i32.const 1
+	code = append(code, OpI32Add)          // i + 1
+	code = append(code, OpLocalSet, 4)     // local.set i
+
+	// continue loop
+	code = append(code, OpBr, 0)           // br 0 (continue loop)
+	code = append(code, OpEnd)             // end loop
+	code = append(code, OpEnd)             // end block
+
+	// All bytes matched, return 1
+	code = append(code, 0x41, 1)           // i32.const 1
+
+	return code
+}
+
+// generateStrCopyHelper generates the str_copy(src, len, dest) helper function bytecode
+// Copies len bytes from src to dest, returns dest
+// Params: src (0), len (1), dest (2)
+// Locals: i (3)
+func generateStrCopyHelper() []byte {
+	var code []byte
+
+	// i = 0 (local 3)
+	code = append(code, 0x41, 0)           // i32.const 0
+	code = append(code, OpLocalSet, 3)     // local.set i
+
+	// loop: while i < len
+	code = append(code, OpBlock, 0x40)     // block (no result)
+	code = append(code, OpLoop, 0x40)      // loop (no result)
+
+	// if i >= len, break
+	code = append(code, OpLocalGet, 3)     // get i
+	code = append(code, OpLocalGet, 1)     // get len
+	code = append(code, OpI32GeS)          // i >= len
+	code = append(code, OpBrIf, 1)         // break if true
+
+	// dest[i] = src[i]
+	code = append(code, OpLocalGet, 2)     // get dest
+	code = append(code, OpLocalGet, 3)     // get i
+	code = append(code, OpI32Add)          // dest + i
+
+	code = append(code, OpLocalGet, 0)     // get src
+	code = append(code, OpLocalGet, 3)     // get i
+	code = append(code, OpI32Add)          // src + i
+	code = append(code, 0x2d, 0, 0)        // i32.load8_u (load byte)
+
+	code = append(code, 0x3a, 0, 0)        // i32.store8 (store byte)
+
+	// i++
+	code = append(code, OpLocalGet, 3)     // get i
+	code = append(code, 0x41, 1)           // i32.const 1
+	code = append(code, OpI32Add)          // i + 1
+	code = append(code, OpLocalSet, 3)     // local.set i
+
+	// continue loop
+	code = append(code, OpBr, 0)           // br 0 (continue loop)
+	code = append(code, OpEnd)             // end loop
+	code = append(code, OpEnd)             // end block
+
+	// Return dest
+	code = append(code, OpLocalGet, 2)     // get dest
+
+	return code
+}
+
 // generatePrintIntHelper generates the _print_int helper function bytecode
 // params: n (i32)
 // locals: ptr, is_neg, digit
@@ -339,6 +455,8 @@ func CompileFile(file *parser.File, m *Module) {
 	needsAbs := false
 	needsMin := false
 	needsMax := false
+	needsStrEq := false
+	needsStrCopy := false
 	for _, fn := range file.Fns {
 		if usesPrintInt(fn.Body) {
 			needsPrintInt = true
@@ -354,6 +472,12 @@ func CompileFile(file *parser.File, m *Module) {
 		}
 		if usesBuiltin(fn.Body, "max") {
 			needsMax = true
+		}
+		if usesBuiltin(fn.Body, "str_eq") {
+			needsStrEq = true
+		}
+		if usesBuiltin(fn.Body, "str_copy") {
+			needsStrCopy = true
 		}
 	}
 
@@ -372,6 +496,12 @@ func CompileFile(file *parser.File, m *Module) {
 		helperCount++
 	}
 	if needsMax {
+		helperCount++
+	}
+	if needsStrEq {
+		helperCount++
+	}
+	if needsStrCopy {
 		helperCount++
 	}
 
@@ -395,6 +525,14 @@ func CompileFile(file *parser.File, m *Module) {
 	}
 	if needsMax {
 		funcIdx["max"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsStrEq {
+		funcIdx["str_eq"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsStrCopy {
+		funcIdx["str_copy"] = len(m.imports) + helperIdx
 		helperIdx++
 	}
 	for i, fn := range file.Fns {
@@ -421,6 +559,14 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsMax {
 		code := generateMaxHelper()
 		m.AddFunction("max", 2, code, 0) // 2 params, 0 locals
+	}
+	if needsStrEq {
+		code := generateStrEqHelper()
+		m.AddFunction("str_eq", 4, code, 1) // 4 params, 1 local
+	}
+	if needsStrCopy {
+		code := generateStrCopyHelper()
+		m.AddFunction("str_copy", 3, code, 1) // 3 params, 1 local
 	}
 
 	for _, fn := range file.Fns {
