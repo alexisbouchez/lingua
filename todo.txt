@@ -44,7 +44,7 @@ PHASE 4: LANGUAGE FEATURES
 [x] Implement local and global variables
 [ ] Implement memory management
 [x] Implement linear memory operations
-[ ] Implement structs/records (using WASM GC if targeting 3.0)
+[x] Implement structs/records
 [x] Implement arrays
 [x] Implement strings
 [ ] Implement error handling

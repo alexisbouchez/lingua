@@ -146,8 +146,32 @@ func (l *Lexer) NextToken() Token {
 }
 
 func (l *Lexer) skipWhitespace() {
-	for l.ch == ' ' || l.ch == '\t' || l.ch == '\n' || l.ch == '\r' {
-		l.readChar()
+	for {
+		// Skip whitespace
+		for l.ch == ' ' || l.ch == '\t' || l.ch == '\n' || l.ch == '\r' {
+			l.readChar()
+		}
+		// Skip line comments: // ...
+		if l.ch == '/' && l.peek() == '/' {
+			for l.ch != '\n' && l.ch != 0 {
+				l.readChar()
+			}
+			continue
+		}
+		// Skip block comments: /* ... */
+		if l.ch == '/' && l.peek() == '*' {
+			l.readChar() // skip /
+			l.readChar() // skip *
+			for !(l.ch == '*' && l.peek() == '/') && l.ch != 0 {
+				l.readChar()
+			}
+			if l.ch != 0 {
+				l.readChar() // skip *
+				l.readChar() // skip /
+			}
+			continue
+		}
+		break
 	}
 }
 

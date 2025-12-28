@@ -1,14 +1,17 @@
+// Point struct with x and y coordinates
 struct Point {
     x: i32,
     y: i32
 }
 
+/* Calculate the squared distance from origin
+   using Pythagorean theorem: x² + y² */
 fn distance_squared(p: Point): i32 {
     p.x * p.x + p.y * p.y
 }
 
 fn main(): i32 {
     let p: Point = Point { x: 3, y: 4 };
-    p.x = 6;
-    distance_squared(p)
+    p.x = 6;  // Modify x to 6
+    distance_squared(p)  // Returns 52 (6² + 4² = 36 + 16)
 }
