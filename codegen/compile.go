@@ -1057,6 +1057,99 @@ func generateRaiseHelper(procRaiseIdx int) []byte {
 	return code
 }
 
+// generateSetFdFlagsHelper generates the set_fd_flags(fd, flags) helper function bytecode
+// Sets file descriptor flags using WASI fd_fdstat_set_flags
+// Params: fd (i32), flags (i32)
+// Returns: errno (0 on success)
+func generateSetFdFlagsHelper(fdFdstatSetFlagsIdx int) []byte {
+	var code []byte
+
+	// fd_fdstat_set_flags(fd, flags)
+	code = append(code, OpLocalGet, 0)     // get fd param
+	code = append(code, OpLocalGet, 1)     // get flags param
+	code = append(code, OpCall, byte(fdFdstatSetFlagsIdx))
+
+	// Return the errno
+	return code
+}
+
+// generateDatasyncHelper generates the datasync(fd) helper function bytecode
+// Syncs data to disk using WASI fd_datasync
+// Params: fd (i32)
+// Returns: errno (0 on success)
+func generateDatasyncHelper(fdDatasyncIdx int) []byte {
+	var code []byte
+
+	// fd_datasync(fd)
+	code = append(code, OpLocalGet, 0)     // get fd param
+	code = append(code, OpCall, byte(fdDatasyncIdx))
+
+	// Return the errno
+	return code
+}
+
+// generateAllocateHelper generates the allocate(fd, offset, len) helper function bytecode
+// Allocates space for a file using WASI fd_allocate
+// Params: fd (i32), offset (i32), len (i32)
+// Returns: errno (0 on success)
+// Note: WASI fd_allocate expects i64 offset/len but we only support i32
+func generateAllocateHelper(fdAllocateIdx int) []byte {
+	var code []byte
+
+	// fd_allocate(fd, offset, len)
+	code = append(code, OpLocalGet, 0)     // get fd param
+	code = append(code, OpLocalGet, 1)     // get offset param (i32)
+	code = append(code, 0xac)              // i64.extend_i32_s (convert to i64)
+	code = append(code, OpLocalGet, 2)     // get len param (i32)
+	code = append(code, 0xac)              // i64.extend_i32_s (convert to i64)
+	code = append(code, OpCall, byte(fdAllocateIdx))
+
+	// Return the errno
+	return code
+}
+
+// generateAdviseHelper generates the advise(fd, offset, len, advice) helper function bytecode
+// Provides file advice using WASI fd_advise
+// Params: fd (i32), offset (i32), len (i32), advice (i32)
+// Returns: errno (0 on success)
+// Note: WASI fd_advise expects i64 offset/len but we only support i32
+func generateAdviseHelper(fdAdviseIdx int) []byte {
+	var code []byte
+
+	// fd_advise(fd, offset, len, advice)
+	code = append(code, OpLocalGet, 0)     // get fd param
+	code = append(code, OpLocalGet, 1)     // get offset param (i32)
+	code = append(code, 0xac)              // i64.extend_i32_s (convert to i64)
+	code = append(code, OpLocalGet, 2)     // get len param (i32)
+	code = append(code, 0xac)              // i64.extend_i32_s (convert to i64)
+	code = append(code, OpLocalGet, 3)     // get advice param
+	code = append(code, OpCall, byte(fdAdviseIdx))
+
+	// Return the errno
+	return code
+}
+
+// generateLinkHelper generates the link(old_fd, old_flags, old_path, old_path_len, new_fd, new_path, new_path_len) helper function bytecode
+// Creates a hard link using WASI path_link
+// Params: old_fd (i32), old_flags (i32), old_path (i32), old_path_len (i32), new_fd (i32), new_path (i32), new_path_len (i32)
+// Returns: errno (0 on success)
+func generateLinkHelper(pathLinkIdx int) []byte {
+	var code []byte
+
+	// path_link(old_fd, old_flags, old_path, old_path_len, new_fd, new_path, new_path_len)
+	code = append(code, OpLocalGet, 0)     // get old_fd param
+	code = append(code, OpLocalGet, 1)     // get old_flags param
+	code = append(code, OpLocalGet, 2)     // get old_path param
+	code = append(code, OpLocalGet, 3)     // get old_path_len param
+	code = append(code, OpLocalGet, 4)     // get new_fd param
+	code = append(code, OpLocalGet, 5)     // get new_path param
+	code = append(code, OpLocalGet, 6)     // get new_path_len param
+	code = append(code, OpCall, byte(pathLinkIdx))
+
+	// Return the errno
+	return code
+}
+
 // generateWriteCharHelper generates the write_char(c) helper function bytecode
 // Writes a single character to stdout
 // Params: c (i32) - the character to write
@@ -1593,6 +1686,66 @@ func CompileFile(file *parser.File, m *Module) {
 		usedImports["proc_raise"] = true
 	}
 
+	// Ensure fd_fdstat_set_flags is imported if set_fd_flags is used
+	needsSetFdFlagsEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "set_fd_flags") {
+			needsSetFdFlagsEarly = true
+			break
+		}
+	}
+	if needsSetFdFlagsEarly {
+		usedImports["fd_fdstat_set_flags"] = true
+	}
+
+	// Ensure fd_datasync is imported if datasync is used
+	needsDatasyncEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "datasync") {
+			needsDatasyncEarly = true
+			break
+		}
+	}
+	if needsDatasyncEarly {
+		usedImports["fd_datasync"] = true
+	}
+
+	// Ensure fd_allocate is imported if allocate is used
+	needsAllocateEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "allocate") {
+			needsAllocateEarly = true
+			break
+		}
+	}
+	if needsAllocateEarly {
+		usedImports["fd_allocate"] = true
+	}
+
+	// Ensure fd_advise is imported if advise is used
+	needsAdviseEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "advise") {
+			needsAdviseEarly = true
+			break
+		}
+	}
+	if needsAdviseEarly {
+		usedImports["fd_advise"] = true
+	}
+
+	// Ensure path_link is imported if link is used
+	needsLinkEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "link") {
+			needsLinkEarly = true
+			break
+		}
+	}
+	if needsLinkEarly {
+		usedImports["path_link"] = true
+	}
+
 	// Add WASI imports first
 	for name := range usedImports {
 		if numParams, ok := wasiImports[name]; ok {
@@ -1858,6 +2011,21 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsRaiseEarly {
 		helperCount++
 	}
+	if needsSetFdFlagsEarly {
+		helperCount++
+	}
+	if needsDatasyncEarly {
+		helperCount++
+	}
+	if needsAllocateEarly {
+		helperCount++
+	}
+	if needsAdviseEarly {
+		helperCount++
+	}
+	if needsLinkEarly {
+		helperCount++
+	}
 
 	// Adjust function indices for helpers
 	helperIdx := 0
@@ -2043,6 +2211,26 @@ func CompileFile(file *parser.File, m *Module) {
 	}
 	if needsRaiseEarly {
 		funcIdx["raise"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsSetFdFlagsEarly {
+		funcIdx["set_fd_flags"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsDatasyncEarly {
+		funcIdx["datasync"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsAllocateEarly {
+		funcIdx["allocate"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsAdviseEarly {
+		funcIdx["advise"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsLinkEarly {
+		funcIdx["link"] = len(m.imports) + helperIdx
 		helperIdx++
 	}
 	for i, fn := range file.Fns {
@@ -2233,6 +2421,26 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsRaiseEarly {
 		code := generateRaiseHelper(funcIdx["proc_raise"])
 		m.AddFunction("raise", 1, code, 0) // 1 param (sig), 0 locals
+	}
+	if needsSetFdFlagsEarly {
+		code := generateSetFdFlagsHelper(funcIdx["fd_fdstat_set_flags"])
+		m.AddFunction("set_fd_flags", 2, code, 0) // 2 params (fd, flags), 0 locals
+	}
+	if needsDatasyncEarly {
+		code := generateDatasyncHelper(funcIdx["fd_datasync"])
+		m.AddFunction("datasync", 1, code, 0) // 1 param (fd), 0 locals
+	}
+	if needsAllocateEarly {
+		code := generateAllocateHelper(funcIdx["fd_allocate"])
+		m.AddFunction("allocate", 3, code, 0) // 3 params (fd, offset, len), 0 locals
+	}
+	if needsAdviseEarly {
+		code := generateAdviseHelper(funcIdx["fd_advise"])
+		m.AddFunction("advise", 4, code, 0) // 4 params (fd, offset, len, advice), 0 locals
+	}
+	if needsLinkEarly {
+		code := generateLinkHelper(funcIdx["path_link"])
+		m.AddFunction("link", 7, code, 0) // 7 params (old_fd, old_flags, old_path, old_path_len, new_fd, new_path, new_path_len), 0 locals
 	}
 
 	for _, fn := range file.Fns {

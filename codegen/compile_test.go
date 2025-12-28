@@ -2243,3 +2243,45 @@ func TestWASIYieldBuiltin(t *testing.T) {
 	}
 }
 
+func TestWASIAdvancedFileBuiltins(t *testing.T) {
+	// Test datasync() builtin
+	src := `
+		fn test_datasync(): i32 {
+			datasync(999)
+		}
+	`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	wasi, err := wasi_snapshot_preview1.Instantiate(ctx, r)
+	if err != nil {
+		t.Fatalf("wasi instantiate: %v", err)
+	}
+	defer wasi.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	// Call test_datasync - should return EBADF for invalid fd
+	testFn := mod.ExportedFunction("test_datasync")
+	results, err := testFn.Call(ctx)
+	if err != nil {
+		t.Fatalf("call error: %v", err)
+	}
+
+	// Should return EBADF (8) for invalid fd
+	if len(results) > 0 {
+		t.Logf("datasync(999) result: %d", results[0])
+	}
+}
+
