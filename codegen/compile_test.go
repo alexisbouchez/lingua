@@ -13,10 +13,10 @@ func TestCompileAndRun(t *testing.T) {
 	p := parser.New("fn add(a: i32, b: i32): i32 { a + b }")
 	fn := p.ParseFn()
 
-	code, numLocals := Compile(fn)
+	code, numLocals := Compile(fn, nil)
 
 	m := NewModule()
-	m.AddFunction("add", code, numLocals)
+	m.AddFunction("add", 2, code, numLocals)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -43,10 +43,10 @@ func TestCompileExpr(t *testing.T) {
 	p := parser.New("fn calc(x: i32, y: i32): i32 { x * 2 + y }")
 	fn := p.ParseFn()
 
-	code, numLocals := Compile(fn)
+	code, numLocals := Compile(fn, nil)
 
 	m := NewModule()
-	m.AddFunction("calc", code, numLocals)
+	m.AddFunction("calc", 2, code, numLocals)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -74,13 +74,13 @@ func TestCompileWithLocals(t *testing.T) {
 	p := parser.New("fn foo(x: i32, y: i32): i32 { let z: i32 = x * 2; z + y }")
 	fn := p.ParseFn()
 
-	code, numLocals := Compile(fn)
+	code, numLocals := Compile(fn, nil)
 	if numLocals != 1 {
 		t.Fatalf("expected 1 local, got %d", numLocals)
 	}
 
 	m := NewModule()
-	m.AddFunction("foo", code, numLocals)
+	m.AddFunction("foo", 2, code, numLocals)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -108,10 +108,10 @@ func TestCompileIfElse(t *testing.T) {
 	p := parser.New("fn max(a: i32, b: i32): i32 { if a > b { a } else { b } }")
 	fn := p.ParseFn()
 
-	code, numLocals := Compile(fn)
+	code, numLocals := Compile(fn, nil)
 
 	m := NewModule()
-	m.AddFunction("max", code, numLocals)
+	m.AddFunction("max", 2, code, numLocals)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -157,10 +157,10 @@ func TestCompileLoop(t *testing.T) {
 	p := parser.New(src)
 	fn := p.ParseFn()
 
-	code, numLocals := Compile(fn)
+	code, numLocals := Compile(fn, nil)
 
 	m := NewModule()
-	m.AddFunction("sum", code, numLocals)
+	m.AddFunction("sum", 2, code, numLocals)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -175,6 +175,34 @@ func TestCompileLoop(t *testing.T) {
 
 	// sum(5) = 0 + 1 + 2 + 3 + 4 = 10
 	results, err := sum.Call(ctx, 5, 0)
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+	if results[0] != 10 {
+		t.Fatalf("expected 10, got %d", results[0])
+	}
+}
+
+func TestCompileCall(t *testing.T) {
+	src := `fn add(a: i32, b: i32): i32 { a + b }
+fn double(x: i32): i32 { add(x, x) }`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	double := mod.ExportedFunction("double")
+	results, err := double.Call(ctx, 5)
 	if err != nil {
 		t.Fatalf("call: %v", err)
 	}

@@ -64,6 +64,9 @@ func (p *Parser) parsePrimary() Expr {
 	case lexer.IDENT:
 		name := p.cur.Literal
 		p.next()
+		if p.cur.Type == lexer.LPAREN {
+			return p.parseCallExpr(name)
+		}
 		return &Ident{Name: name}
 	case lexer.IF:
 		return p.parseIfExpr()
@@ -191,4 +194,27 @@ func (p *Parser) parseParams() []Param {
 		}
 	}
 	return params
+}
+
+func (p *Parser) parseCallExpr(name string) *CallExpr {
+	p.expect(lexer.LPAREN)
+	var args []Expr
+	for p.cur.Type != lexer.RPAREN && p.cur.Type != lexer.EOF {
+		args = append(args, p.ParseExpr())
+		if p.cur.Type == lexer.COMMA {
+			p.next()
+		} else {
+			break
+		}
+	}
+	p.expect(lexer.RPAREN)
+	return &CallExpr{Name: name, Args: args}
+}
+
+func (p *Parser) ParseFile() *File {
+	var fns []*FnDecl
+	for p.cur.Type != lexer.EOF {
+		fns = append(fns, p.ParseFn())
+	}
+	return &File{Fns: fns}
 }

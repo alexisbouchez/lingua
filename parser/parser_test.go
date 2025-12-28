@@ -114,3 +114,34 @@ func TestParseIfExpr(t *testing.T) {
 		t.Fatalf("expected then and else blocks")
 	}
 }
+
+func TestParseCallExpr(t *testing.T) {
+	p := New("add(1, 2)")
+	expr := p.ParseExpr()
+	call, ok := expr.(*CallExpr)
+	if !ok {
+		t.Fatalf("expected *CallExpr, got %T", expr)
+	}
+	if call.Name != "add" {
+		t.Fatalf("expected add, got %s", call.Name)
+	}
+	if len(call.Args) != 2 {
+		t.Fatalf("expected 2 args, got %d", len(call.Args))
+	}
+}
+
+func TestParseFile(t *testing.T) {
+	src := `fn add(a: i32, b: i32): i32 { a + b }
+fn double(x: i32): i32 { add(x, x) }`
+	p := New(src)
+	f := p.ParseFile()
+	if len(f.Fns) != 2 {
+		t.Fatalf("expected 2 functions, got %d", len(f.Fns))
+	}
+	if f.Fns[0].Name != "add" {
+		t.Fatalf("expected first fn=add, got %s", f.Fns[0].Name)
+	}
+	if f.Fns[1].Name != "double" {
+		t.Fatalf("expected second fn=double, got %s", f.Fns[1].Name)
+	}
+}

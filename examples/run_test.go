@@ -130,3 +130,29 @@ func TestRunSum(t *testing.T) {
 		t.Fatalf("expected 45, got %d", results[0])
 	}
 }
+
+func TestRunCall(t *testing.T) {
+	wasm, err := os.ReadFile("call.wasm")
+	if err != nil {
+		t.Skip("call.wasm not found")
+	}
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, wasm)
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	fn := mod.ExportedFunction("sum_of_squares")
+	// 3^2 + 4^2 = 9 + 16 = 25
+	results, err := fn.Call(ctx, 3, 4)
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+	if results[0] != 25 {
+		t.Fatalf("expected 25, got %d", results[0])
+	}
+}

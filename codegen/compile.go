@@ -11,6 +11,7 @@ const (
 	OpEnd      = 0x0b
 	OpBr       = 0x0c
 	OpBrIf     = 0x0d
+	OpCall     = 0x10
 	OpLocalGet = 0x20
 	OpLocalSet = 0x21
 	OpI32Eqz   = 0x45
@@ -30,12 +31,25 @@ type Compiler struct {
 	fn        *parser.FnDecl
 	locals    map[string]int
 	numLocals int
+	funcIdx   map[string]int
 }
 
-func Compile(fn *parser.FnDecl) (code []byte, numLocals int) {
+func CompileFile(file *parser.File, m *Module) {
+	funcIdx := make(map[string]int)
+	for i, fn := range file.Fns {
+		funcIdx[fn.Name] = i
+	}
+	for _, fn := range file.Fns {
+		code, numLocals := Compile(fn, funcIdx)
+		m.AddFunction(fn.Name, len(fn.Params), code, numLocals)
+	}
+}
+
+func Compile(fn *parser.FnDecl, funcIdx map[string]int) (code []byte, numLocals int) {
 	c := &Compiler{
-		fn:     fn,
-		locals: make(map[string]int),
+		fn:      fn,
+		locals:  make(map[string]int),
+		funcIdx: funcIdx,
 	}
 
 	// Map params to local indices
@@ -151,6 +165,14 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 		return code
 	case *parser.Block:
 		return c.compileBlock(e)
+	case *parser.CallExpr:
+		var code []byte
+		for _, arg := range e.Args {
+			code = append(code, c.compileExpr(arg)...)
+		}
+		idx := c.funcIdx[e.Name]
+		code = append(code, OpCall, byte(idx))
+		return code
 	}
 	return nil
 }

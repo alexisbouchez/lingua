@@ -99,3 +99,17 @@ type FnDecl struct {
 }
 
 func (FnDecl) node() {}
+
+type CallExpr struct {
+	Name string
+	Args []Expr
+}
+
+func (CallExpr) node() {}
+func (CallExpr) expr() {}
+
+type File struct {
+	Fns []*FnDecl
+}
+
+func (File) node() {}

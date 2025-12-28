@@ -21,12 +21,10 @@ func main() {
 	}
 
 	p := parser.New(string(src))
-	fn := p.ParseFn()
-
-	code, numLocals := codegen.Compile(fn)
+	f := p.ParseFile()
 
 	m := codegen.NewModule()
-	m.AddFunction(fn.Name, code, numLocals)
+	codegen.CompileFile(f, m)
 
 	outFile := "out.wasm"
 	if len(os.Args) > 2 {

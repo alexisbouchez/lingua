@@ -32,7 +32,7 @@ func TestAddFunction(t *testing.T) {
 		0x20, 0x01, // local.get 1
 		0x6a,       // i32.add
 	}
-	m.AddFunction("add", code, 0)
+	m.AddFunction("add", 2, code, 0)
 
 	b := m.Bytes()
 	if len(b) < 20 {
@@ -60,7 +60,7 @@ func TestWazeroExecution(t *testing.T) {
 		0x20, 0x01, // local.get 1
 		0x6a,       // i32.add
 	}
-	m.AddFunction("add", code, 0)
+	m.AddFunction("add", 2, code, 0)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)

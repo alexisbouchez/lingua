@@ -22,39 +22,112 @@ const (
 	F64 = 0x7c
 )
 
+type FuncDef struct {
+	Name      string
+	NumParams int
+	NumLocals int
+	Code      []byte
+}
+
 type Module struct {
-	buf bytes.Buffer
+	funcs   []FuncDef
+	funcIdx map[string]int
 }
 
 func NewModule() *Module {
-	m := &Module{}
-	m.buf.Write(magic)
-	m.buf.Write(version)
-	return m
+	return &Module{
+		funcIdx: make(map[string]int),
+	}
+}
+
+func (m *Module) AddFunction(name string, numParams int, code []byte, numLocals int) {
+	m.funcIdx[name] = len(m.funcs)
+	m.funcs = append(m.funcs, FuncDef{
+		Name:      name,
+		NumParams: numParams,
+		NumLocals: numLocals,
+		Code:      code,
+	})
+}
+
+func (m *Module) FuncIndex(name string) int {
+	return m.funcIdx[name]
 }
 
 func (m *Module) Bytes() []byte {
-	return m.buf.Bytes()
-}
+	var buf bytes.Buffer
+	buf.Write(magic)
+	buf.Write(version)
 
-func (m *Module) writeSection(id byte, content []byte) {
-	m.buf.WriteByte(id)
-	m.writeULEB128(uint64(len(content)))
-	m.buf.Write(content)
-}
-
-func (m *Module) writeULEB128(v uint64) {
-	for {
-		b := byte(v & 0x7f)
-		v >>= 7
-		if v != 0 {
-			b |= 0x80
-		}
-		m.buf.WriteByte(b)
-		if v == 0 {
-			break
+	// Type section - one type per function based on param count
+	typeMap := make(map[int]int) // numParams -> typeIdx
+	var types []int
+	for _, f := range m.funcs {
+		if _, ok := typeMap[f.NumParams]; !ok {
+			typeMap[f.NumParams] = len(types)
+			types = append(types, f.NumParams)
 		}
 	}
+
+	var typeSec bytes.Buffer
+	typeSec.Write(uleb128(uint64(len(types))))
+	for _, numParams := range types {
+		typeSec.WriteByte(0x60) // func type
+		typeSec.Write(uleb128(uint64(numParams)))
+		for i := 0; i < numParams; i++ {
+			typeSec.WriteByte(I32)
+		}
+		typeSec.WriteByte(1)   // 1 result
+		typeSec.WriteByte(I32) // i32
+	}
+	writeSection(&buf, SectionType, typeSec.Bytes())
+
+	// Function section
+	var funcSec bytes.Buffer
+	funcSec.Write(uleb128(uint64(len(m.funcs))))
+	for _, f := range m.funcs {
+		funcSec.Write(uleb128(uint64(typeMap[f.NumParams])))
+	}
+	writeSection(&buf, SectionFunction, funcSec.Bytes())
+
+	// Export section
+	var expSec bytes.Buffer
+	expSec.Write(uleb128(uint64(len(m.funcs))))
+	for i, f := range m.funcs {
+		expSec.Write(uleb128(uint64(len(f.Name))))
+		expSec.WriteString(f.Name)
+		expSec.WriteByte(0x00) // func export
+		expSec.Write(uleb128(uint64(i)))
+	}
+	writeSection(&buf, SectionExport, expSec.Bytes())
+
+	// Code section
+	var codeSec bytes.Buffer
+	codeSec.Write(uleb128(uint64(len(m.funcs))))
+	for _, f := range m.funcs {
+		var body bytes.Buffer
+		if f.NumLocals > 0 {
+			body.WriteByte(1)
+			body.Write(uleb128(uint64(f.NumLocals)))
+			body.WriteByte(I32)
+		} else {
+			body.WriteByte(0)
+		}
+		body.Write(f.Code)
+		body.WriteByte(0x0b) // end
+
+		codeSec.Write(uleb128(uint64(body.Len())))
+		codeSec.Write(body.Bytes())
+	}
+	writeSection(&buf, SectionCode, codeSec.Bytes())
+
+	return buf.Bytes()
+}
+
+func writeSection(buf *bytes.Buffer, id byte, content []byte) {
+	buf.WriteByte(id)
+	buf.Write(uleb128(uint64(len(content))))
+	buf.Write(content)
 }
 
 func uleb128(v uint64) []byte {
@@ -88,53 +161,4 @@ func sleb128(v int64) []byte {
 		}
 	}
 	return buf.Bytes()
-}
-
-// AddFunction adds a function that returns i32
-func (m *Module) AddFunction(name string, code []byte, numLocals int) {
-	// Type section: (i32, i32) -> i32
-	var typeSec bytes.Buffer
-	typeSec.WriteByte(1)    // 1 type
-	typeSec.WriteByte(0x60) // func type
-	typeSec.WriteByte(2)    // 2 params
-	typeSec.WriteByte(I32)
-	typeSec.WriteByte(I32)
-	typeSec.WriteByte(1)   // 1 result
-	typeSec.WriteByte(I32)
-	m.writeSection(SectionType, typeSec.Bytes())
-
-	// Function section
-	var funcSec bytes.Buffer
-	funcSec.WriteByte(1) // 1 function
-	funcSec.WriteByte(0) // type index 0
-	m.writeSection(SectionFunction, funcSec.Bytes())
-
-	// Export section
-	var expSec bytes.Buffer
-	expSec.WriteByte(1) // 1 export
-	expSec.Write(uleb128(uint64(len(name))))
-	expSec.WriteString(name)
-	expSec.WriteByte(0x00) // func export
-	expSec.WriteByte(0)    // func index 0
-	m.writeSection(SectionExport, expSec.Bytes())
-
-	// Code section
-	var codeSec bytes.Buffer
-	codeSec.WriteByte(1) // 1 function body
-
-	// Build function body with locals
-	var body bytes.Buffer
-	if numLocals > 0 {
-		body.WriteByte(1)                         // 1 local entry
-		body.Write(uleb128(uint64(numLocals)))    // count
-		body.WriteByte(I32)                       // type
-	} else {
-		body.WriteByte(0) // 0 local entries
-	}
-	body.Write(code)
-	body.WriteByte(0x0b) // end
-
-	codeSec.Write(uleb128(uint64(body.Len())))
-	codeSec.Write(body.Bytes())
-	m.writeSection(SectionCode, codeSec.Bytes())
 }
