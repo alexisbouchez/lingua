@@ -7,6 +7,7 @@ import (
 
 	"github.com/alexisbouchez/lingua/codegen"
 	"github.com/alexisbouchez/lingua/parser"
+	"github.com/alexisbouchez/lingua/types"
 )
 
 func main() {
@@ -26,6 +27,16 @@ func main() {
 
 	if p.Errors().HasErrors() {
 		fmt.Fprintln(os.Stderr, p.Errors().Format())
+		os.Exit(1)
+	}
+
+	// Type check
+	checker := types.NewChecker()
+	typeErrors := checker.Check(f)
+	if len(typeErrors) > 0 {
+		for _, err := range typeErrors {
+			fmt.Fprintln(os.Stderr, err)
+		}
 		os.Exit(1)
 	}
 
