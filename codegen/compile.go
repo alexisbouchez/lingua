@@ -1,6 +1,9 @@
 package codegen
 
-import "github.com/alexisbouchez/lingua/parser"
+import (
+	"github.com/alexisbouchez/lingua/parser"
+	"github.com/alexisbouchez/lingua/source"
+)
 
 // WASM opcodes
 const (
@@ -63,6 +66,7 @@ type Compiler struct {
 	isAsync       bool // true if compiling an async function
 	continuation  string // current continuation label for async functions
 	asyncRuntime  bool // true if async runtime support is needed
+	sourceMap     *source.SourceMapBuilder // source map builder for debugging
 }
 
 // StructInfo contains information about a struct type
@@ -1837,7 +1841,7 @@ func generatePrintIntHelper(fdWriteIdx int) []byte {
 	return code
 }
 
-func CompileFile(file *parser.File, m *Module) {
+func CompileFile(file *parser.File, m *Module, fileName string, generateSourceMaps bool) {
 	// Collect struct definitions
 	structs := make(map[string]*StructInfo)
 	for _, s := range file.Structs {
@@ -3462,9 +3466,21 @@ func CompileFile(file *parser.File, m *Module) {
 		}
 	}
 
+	// Create source map builder if needed
+	var sourceMap *source.SourceMapBuilder
+	if generateSourceMaps {
+		sourceMap = source.NewSourceMapBuilder(fileName)
+	}
+
 	for _, fn := range file.Fns {
-		code, numLocals := Compile(fn, funcIdx, globalIdx, structs, strings, hasAsyncFunctions)
+		code, numLocals := Compile(fn, funcIdx, globalIdx, structs, strings, hasAsyncFunctions, sourceMap)
 		m.AddFunction(fn.Name, len(fn.Params), code, numLocals)
+	}
+
+	// Add source map to module if generated
+	if sourceMap != nil {
+		sm := sourceMap.Build()
+		m.SourceMap = sm
 	}
 
 	// Add string data to module
@@ -3777,7 +3793,7 @@ func collectCallsExpr(expr parser.Expr, calls map[string]bool) {
 	}
 }
 
-func Compile(fn *parser.FnDecl, funcIdx, globalIdx map[string]int, structs map[string]*StructInfo, strings *StringTable, hasAsyncFunctions bool) (code []byte, numLocals int) {
+func Compile(fn *parser.FnDecl, funcIdx, globalIdx map[string]int, structs map[string]*StructInfo, strings *StringTable, hasAsyncFunctions bool, sourceMap *source.SourceMapBuilder) (code []byte, numLocals int) {
 	// Check if async runtime is needed for this function
 	asyncRuntimeNeeded := hasAsyncFunctions && fn.Async
 	
@@ -3792,6 +3808,7 @@ func Compile(fn *parser.FnDecl, funcIdx, globalIdx map[string]int, structs map[s
 		isAsync:      fn.Async,
 		continuation: "",
 		asyncRuntime: asyncRuntimeNeeded,
+		sourceMap:    sourceMap,
 	}
 
 	// Map params to local indices
