@@ -183,6 +183,31 @@ func TestRunHello(t *testing.T) {
 	}
 }
 
+func TestRunFactorial(t *testing.T) {
+	wasm, err := os.ReadFile("factorial.wasm")
+	if err != nil {
+		t.Skip("factorial.wasm not found")
+	}
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	var stdout bytes.Buffer
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+
+	config := wazero.NewModuleConfig().WithStdout(&stdout)
+	_, err = r.InstantiateWithConfig(ctx, wasm, config)
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	expected := "1\n2\n6\n24\n120\n720\n5040\n40320\n362880\n3628800\n"
+	if stdout.String() != expected {
+		t.Fatalf("expected %q, got %q", expected, stdout.String())
+	}
+}
+
 func TestRunCountdown(t *testing.T) {
 	wasm, err := os.ReadFile("countdown.wasm")
 	if err != nil {

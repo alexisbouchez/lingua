@@ -1,0 +1,13 @@
+fn factorial(n: i32): i32 {
+    if n <= 1 { return 1 };
+    n * factorial(n - 1)
+}
+
+fn _start(): i32 {
+    let i: i32 = 1;
+    loop i <= 10 {
+        println(factorial(i));
+        i = i + 1;
+    };
+    0
+}
