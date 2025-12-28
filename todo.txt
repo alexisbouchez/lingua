@@ -83,8 +83,8 @@ PHASE 8: TESTING & DOCUMENTATION
 [x] Test with Wasmtime
 [x] Test with WasmEdge
 [x] Test with wazero (Go native runtime)
-[ ] Write language documentation
-[ ] Create tutorials and examples
+[x] Write language documentation
+[x] Create tutorials and examples
 
 RESOURCES TO STUDY
 ------------------

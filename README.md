@@ -41,17 +41,29 @@ arr[1] = 100;
 ```
 
 ### Built-in Functions
+
+#### I/O Functions
 - `print(str, len)` - print string with newline
 - `println(n)` - print integer with newline
 - `print_str(str, len)` - print string without newline
 - `print_int(n)` - print integer without newline
+
+#### Math Functions
 - `abs(n)` - absolute value
 - `min(a, b)` - minimum of two values
 - `max(a, b)` - maximum of two values
-- `exit(code)` - exit program
+
+#### String Functions
+- `str_eq(addr1, len1, addr2, len2)` - compare two strings, returns 1 if equal, 0 otherwise
+- `str_copy(src, len, dest)` - copy string from src to dest, returns dest
+
+#### Memory Functions
 - `load(addr)` - load i32 from memory
 - `store(addr, val)` - store i32 to memory
 - `drop(val)` - discard a value
+
+#### System Functions
+- `exit(code)` - exit program
 
 ## Example
 
