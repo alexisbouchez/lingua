@@ -42,7 +42,7 @@ PHASE 4: LANGUAGE FEATURES
 [x] Implement control flow (if, else, loops, blocks, break, continue, return)
 [x] Implement functions and function calls
 [x] Implement local and global variables
-[ ] Implement memory management
+[~] Implement memory management (basic allocator and free added)
 [x] Implement linear memory operations
 [x] Implement structs/records
 [x] Implement arrays
@@ -60,7 +60,7 @@ PHASE 5: COMPONENT MODEL (WASM 3.0)
 PHASE 6: TOOLING
 ----------------
 [x] Build CLI compiler tool
-[ ] Implement source maps for debugging
+[~] Implement source maps for debugging (basic source map generation added)
 [x] Add error reporting with line/column info
 [~] Create REPL for interactive development (basic REPL implemented)
 [x] Add language server protocol (LSP) support
