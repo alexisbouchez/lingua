@@ -768,6 +768,46 @@ func TestMod(t *testing.T) {
 	}
 }
 
+func TestRandom(t *testing.T) {
+	src := `fn _start(): i32 { random() }`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+
+	config := wazero.NewModuleConfig()
+	mod, err := r.InstantiateWithConfig(ctx, m.Bytes(), config)
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	fn := mod.ExportedFunction("_start")
+
+	// Call random() twice and verify we get different values (very likely)
+	results1, err := fn.Call(ctx)
+	if err != nil {
+		t.Fatalf("call 1: %v", err)
+	}
+
+	results2, err := fn.Call(ctx)
+	if err != nil {
+		t.Fatalf("call 2: %v", err)
+	}
+
+	// Very unlikely to get same random number twice
+	if results1[0] == results2[0] {
+		t.Logf("warning: got same random value twice: %d (rare but possible)", results1[0])
+	}
+}
+
 func TestLogicalOps(t *testing.T) {
 	// Test && (and)
 	p := parser.New("fn test_and(a: i32, b: i32): i32 { if a > 0 && b > 0 { 1 } else { 0 } }")

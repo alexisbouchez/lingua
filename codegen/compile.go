@@ -491,6 +491,25 @@ func generateReadCharHelper(fdReadIdx int) []byte {
 	return code
 }
 
+// generateRandomHelper generates the random() helper function bytecode
+// Returns a random i32 value using WASI random_get
+// Uses memory at address 900 for the 4-byte random buffer
+func generateRandomHelper(randomGetIdx int) []byte {
+	var code []byte
+
+	// random_get(900, 4) - get 4 random bytes at address 900
+	code = append(code, 0x41, 0x84, 0x07) // i32.const 900 (LEB128)
+	code = append(code, 0x41, 4)          // i32.const 4 (length)
+	code = append(code, OpCall, byte(randomGetIdx))
+	code = append(code, 0x1a)             // drop result (errno)
+
+	// Load the 4 bytes as an i32
+	code = append(code, 0x41, 0x84, 0x07) // i32.const 900
+	code = append(code, OpI32Load, 2, 0)  // i32.load
+
+	return code
+}
+
 // generateWriteCharHelper generates the write_char(c) helper function bytecode
 // Writes a single character to stdout
 // Params: c (i32) - the character to write
@@ -699,6 +718,9 @@ func CompileFile(file *parser.File, m *Module) {
 		"args_get":       2,
 		"args_sizes_get": 2,
 		"proc_exit":      1,
+		"random_get":     2,
+		"path_open":      8,
+		"fd_close":       1,
 	}
 
 	usedImports := make(map[string]bool)
@@ -728,6 +750,18 @@ func CompileFile(file *parser.File, m *Module) {
 	}
 	if needsWriteCharEarly {
 		usedImports["fd_write"] = true
+	}
+
+	// Ensure random_get is imported if random is used
+	needsRandomEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "random") {
+			needsRandomEarly = true
+			break
+		}
+	}
+	if needsRandomEarly {
+		usedImports["random_get"] = true
 	}
 
 	// Add WASI imports first
@@ -764,6 +798,7 @@ func CompileFile(file *parser.File, m *Module) {
 	needsStrCopy := false
 	needsReadChar := false
 	needsWriteChar := false
+	needsRandom := false
 	needsMalloc := false
 	needsMemcpy := false
 	for _, fn := range file.Fns {
@@ -802,6 +837,9 @@ func CompileFile(file *parser.File, m *Module) {
 		}
 		if usesBuiltin(fn.Body, "write_char") {
 			needsWriteChar = true
+		}
+		if usesBuiltin(fn.Body, "random") {
+			needsRandom = true
 		}
 		if usesBuiltin(fn.Body, "malloc") {
 			needsMalloc = true
@@ -847,6 +885,9 @@ func CompileFile(file *parser.File, m *Module) {
 		helperCount++
 	}
 	if needsWriteChar {
+		helperCount++
+	}
+	if needsRandom {
 		helperCount++
 	}
 	if needsMalloc {
@@ -904,6 +945,10 @@ func CompileFile(file *parser.File, m *Module) {
 	}
 	if needsWriteChar {
 		funcIdx["write_char"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsRandom {
+		funcIdx["random"] = len(m.imports) + helperIdx
 		helperIdx++
 	}
 	if needsMalloc {
@@ -966,6 +1011,10 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsWriteChar {
 		code := generateWriteCharHelper(funcIdx["fd_write"])
 		m.AddFunction("write_char", 1, code, 0) // 1 param (char), 0 locals
+	}
+	if needsRandom {
+		code := generateRandomHelper(funcIdx["random_get"])
+		m.AddFunction("random", 0, code, 0) // 0 params, 0 locals
 	}
 	if needsMalloc {
 		code := generateMallocHelper(heapPtrIdx)
