@@ -436,7 +436,7 @@ func collectCallsStmt(stmt parser.Stmt, calls map[string]bool) {
 func collectCallsExpr(expr parser.Expr, calls map[string]bool) {
 	switch e := expr.(type) {
 	case *parser.CallExpr:
-		if e.Name == "print_str" || e.Name == "print_int" || e.Name == "println" {
+		if e.Name == "print_str" || e.Name == "print_int" || e.Name == "println" || e.Name == "print" {
 			calls["fd_write"] = true
 		} else if e.Name == "exit" {
 			calls["proc_exit"] = true
@@ -650,6 +650,44 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 		case "println":
 			// Call the _println helper function
 			idx := c.funcIdx["_println"]
+			code = append(code, OpCall, byte(idx))
+		case "print":
+			// print(str, len) - prints string with newline
+			code = nil
+			addr := c.compileExpr(e.Args[0])
+			length := c.compileExpr(e.Args[1])
+			// store addr at 0
+			code = append(code, 0x41, 0)
+			code = append(code, addr...)
+			code = append(code, OpI32Store, 2, 0)
+			// store len at 4
+			code = append(code, 0x41, 4)
+			code = append(code, length...)
+			code = append(code, OpI32Store, 2, 0)
+			// fd_write(1, 0, 1, 8)
+			code = append(code, 0x41, 1)
+			code = append(code, 0x41, 0)
+			code = append(code, 0x41, 1)
+			code = append(code, 0x41, 8)
+			idx := c.funcIdx["fd_write"]
+			code = append(code, OpCall, byte(idx))
+			code = append(code, 0x1a) // drop result
+			// Print newline: store '\n' at 600, iovec at 0
+			code = append(code, 0x41)
+			code = append(code, sleb128(600)...)
+			code = append(code, 0x41, 0x0a)
+			code = append(code, 0x3a, 0, 0) // i32.store8
+			code = append(code, 0x41, 0)
+			code = append(code, 0x41)
+			code = append(code, sleb128(600)...)
+			code = append(code, OpI32Store, 2, 0)
+			code = append(code, 0x41, 4)
+			code = append(code, 0x41, 1)
+			code = append(code, OpI32Store, 2, 0)
+			code = append(code, 0x41, 1)
+			code = append(code, 0x41, 0)
+			code = append(code, 0x41, 1)
+			code = append(code, 0x41, 8)
 			code = append(code, OpCall, byte(idx))
 		default:
 			idx := c.funcIdx[e.Name]

@@ -467,3 +467,30 @@ func TestPrintln(t *testing.T) {
 		t.Fatalf("expected '42\\n', got %q", stdout.String())
 	}
 }
+
+func TestPrint(t *testing.T) {
+	src := `fn _start(): i32 { print("Hello", 5) }`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	var stdout bytes.Buffer
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+
+	config := wazero.NewModuleConfig().WithStdout(&stdout)
+	_, err := r.InstantiateWithConfig(ctx, m.Bytes(), config)
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	if stdout.String() != "Hello\n" {
+		t.Fatalf("expected 'Hello\\n', got %q", stdout.String())
+	}
+}
