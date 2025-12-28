@@ -183,6 +183,32 @@ func TestRunHello(t *testing.T) {
 	}
 }
 
+func TestRunFibonacci(t *testing.T) {
+	wasm, err := os.ReadFile("fibonacci.wasm")
+	if err != nil {
+		t.Skip("fibonacci.wasm not found")
+	}
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	var stdout bytes.Buffer
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+
+	config := wazero.NewModuleConfig().WithStdout(&stdout)
+	_, err = r.InstantiateWithConfig(ctx, wasm, config)
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	// fib(0)=0, fib(1)=1, fib(2)=1, fib(3)=2, ..., fib(15)=610
+	expected := "0\n1\n1\n2\n3\n5\n8\n13\n21\n34\n55\n89\n144\n233\n377\n610\n"
+	if stdout.String() != expected {
+		t.Fatalf("expected %q, got %q", expected, stdout.String())
+	}
+}
+
 func TestRunFactorial(t *testing.T) {
 	wasm, err := os.ReadFile("factorial.wasm")
 	if err != nil {
