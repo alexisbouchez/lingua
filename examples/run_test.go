@@ -1,11 +1,13 @@
 package examples
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"testing"
 
 	"github.com/tetratelabs/wazero"
+	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 )
 
 func TestRunAdd(t *testing.T) {
@@ -154,5 +156,29 @@ func TestRunCall(t *testing.T) {
 	}
 	if results[0] != 25 {
 		t.Fatalf("expected 25, got %d", results[0])
+	}
+}
+
+func TestRunHello(t *testing.T) {
+	wasm, err := os.ReadFile("hello.wasm")
+	if err != nil {
+		t.Skip("hello.wasm not found")
+	}
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	var stdout bytes.Buffer
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+
+	config := wazero.NewModuleConfig().WithStdout(&stdout)
+	_, err = r.InstantiateWithConfig(ctx, wasm, config)
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	if stdout.String() != "Hello, World!\n" {
+		t.Fatalf("expected 'Hello, World!\\n', got %q", stdout.String())
 	}
 }

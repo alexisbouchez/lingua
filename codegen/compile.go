@@ -127,7 +127,11 @@ func collectCallsStmt(stmt parser.Stmt, calls map[string]bool) {
 func collectCallsExpr(expr parser.Expr, calls map[string]bool) {
 	switch e := expr.(type) {
 	case *parser.CallExpr:
-		calls[e.Name] = true
+		if e.Name == "print_str" {
+			calls["fd_write"] = true
+		} else {
+			calls[e.Name] = true
+		}
 		for _, arg := range e.Args {
 			collectCallsExpr(arg, calls)
 		}
@@ -284,6 +288,28 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 			code = append(code, OpI32Store, 2, 0)
 		case "drop":
 			code = append(code, 0x1a) // drop opcode
+		case "print_str":
+			// Args on stack: addr, len
+			// Set up iovec at addr 0: store addr at 0, len at 4
+			// Then call fd_write(1, 0, 1, 8)
+			code = nil // clear, we'll handle this specially
+			addr := c.compileExpr(e.Args[0])
+			length := c.compileExpr(e.Args[1])
+			// store addr at 0
+			code = append(code, 0x41, 0) // i32.const 0
+			code = append(code, addr...)
+			code = append(code, OpI32Store, 2, 0)
+			// store len at 4
+			code = append(code, 0x41, 4) // i32.const 4
+			code = append(code, length...)
+			code = append(code, OpI32Store, 2, 0)
+			// fd_write(1, 0, 1, 8)
+			code = append(code, 0x41, 1) // fd = 1 (stdout)
+			code = append(code, 0x41, 0) // iovs = 0
+			code = append(code, 0x41, 1) // iovs_len = 1
+			code = append(code, 0x41, 8) // nwritten = 8
+			idx := c.funcIdx["fd_write"]
+			code = append(code, OpCall, byte(idx))
 		default:
 			idx := c.funcIdx[e.Name]
 			code = append(code, OpCall, byte(idx))

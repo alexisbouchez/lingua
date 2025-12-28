@@ -24,6 +24,7 @@ func main() {
 	f := p.ParseFile()
 
 	m := codegen.NewModule()
+	m.AddMemory(1) // 1 page = 64KB, needed for WASI
 	codegen.CompileFile(f, m)
 
 	outFile := "out.wasm"

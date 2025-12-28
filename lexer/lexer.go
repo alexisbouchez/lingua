@@ -129,13 +129,31 @@ func (l *Lexer) readIdent() string {
 
 func (l *Lexer) readString() string {
 	l.readChar() // skip opening quote
-	start := l.pos - 1
+	var result []byte
 	for l.ch != '"' && l.ch != 0 {
+		if l.ch == '\\' {
+			l.readChar()
+			switch l.ch {
+			case 'n':
+				result = append(result, '\n')
+			case 't':
+				result = append(result, '\t')
+			case 'r':
+				result = append(result, '\r')
+			case '\\':
+				result = append(result, '\\')
+			case '"':
+				result = append(result, '"')
+			default:
+				result = append(result, l.ch)
+			}
+		} else {
+			result = append(result, l.ch)
+		}
 		l.readChar()
 	}
-	str := l.input[start : l.pos-1]
 	l.readChar() // skip closing quote
-	return str
+	return string(result)
 }
 
 func isDigit(ch byte) bool {
