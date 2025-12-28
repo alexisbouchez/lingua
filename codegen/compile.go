@@ -60,6 +60,9 @@ type Compiler struct {
 	loopDepth     int // depth of nested loops
 	breakLabel    int // label offset for break (to outer block)
 	continueLabel int // label offset for continue (to loop)
+	isAsync       bool // true if compiling an async function
+	continuation  string // current continuation label for async functions
+	asyncRuntime  bool // true if async runtime support is needed
 }
 
 // StructInfo contains information about a struct type
@@ -1603,6 +1606,78 @@ func generateMallocHelper(heapPtrIdx int) []byte {
 	return code
 }
 
+// generateAsyncSleepHelper generates the async_sleep(ms) helper function bytecode
+// Simulates async sleep using poll_oneoff
+// For now, this is just a stub that returns immediately
+// In a real implementation, this would use WASI async I/O
+func generateAsyncSleepHelper() []byte {
+	var code []byte
+	// For now, just return 0 (success)
+	code = append(code, 0x41, 0) // i32.const 0
+	return code
+}
+
+// generateAsyncReadHelper generates the async_read(fd, buf, len) helper function bytecode
+// Simulates async file read using poll_oneoff
+// For now, this is just a stub that calls fd_read synchronously
+func generateAsyncReadHelper(fdReadIdx int) []byte {
+	var code []byte
+	// For now, just call fd_read synchronously
+	// Params: fd, iovs, iovs_len, nread
+	code = append(code, OpLocalGet, 0) // fd
+	code = append(code, OpLocalGet, 1) // buf (iovs.buf)
+	code = append(code, 0x41, 0)      // iovs address
+	code = append(code, OpI32Store, 2, 0) // store buf at iovs.buf
+	code = append(code, OpLocalGet, 2) // len
+	code = append(code, 0x41, 4)      // iovs.len address
+	code = append(code, OpI32Store, 2, 0) // store len at iovs.len
+	code = append(code, OpLocalGet, 0) // fd
+	code = append(code, 0x41, 0)      // iovs address
+	code = append(code, 0x41, 1)      // iovs_len = 1
+	code = append(code, 0x41, 8)      // nread address
+	code = append(code, OpCall, byte(fdReadIdx))
+	// Return nread
+	code = append(code, 0x41, 8)      // nread address
+	code = append(code, OpI32Load, 2, 0)
+	return code
+}
+
+// generateAsyncRuntimeInitHelper generates the async runtime initialization code
+// Sets up memory for async state and continuations
+func generateAsyncRuntimeInitHelper() []byte {
+	var code []byte
+	// For now, just return 0 (success)
+	// In a real implementation, this would initialize async runtime state
+	code = append(code, 0x41, 0) // i32.const 0
+	return code
+}
+
+// generateAsyncYieldHelper generates code to yield execution and suspend
+// This is the core of async/await - saves state and returns to caller
+func generateAsyncYieldHelper() []byte {
+	var code []byte
+	// For now, just return 0 (ready)
+	// In a real implementation, this would:
+	// 1. Save current execution state
+	// 2. Set up continuation
+	// 3. Return "not ready" status
+	code = append(code, 0x41, 0) // i32.const 0 (ready)
+	return code
+}
+
+// generateAsyncResumeHelper generates code to resume a suspended async function
+// Restores state and continues execution
+func generateAsyncResumeHelper() []byte {
+	var code []byte
+	// For now, just return 0 (success)
+	// In a real implementation, this would:
+	// 1. Restore saved execution state
+	// 2. Jump to continuation point
+	// 3. Return result
+	code = append(code, 0x41, 0) // i32.const 0 (success)
+	return code
+}
+
 // generatePrintIntHelper generates the _print_int helper function bytecode
 // params: n (i32)
 // locals: ptr, is_neg, digit
@@ -1818,11 +1893,23 @@ func CompileFile(file *parser.File, m *Module) {
 		"sock_recv":             {6, true},
 		"sock_send":             {5, true},
 		"sock_shutdown":         {2, true},
+		// WASI async I/O functions (for future use)
+		"fd_pread":              {5, true},  // Async pread
+		"fd_pwrite":             {5, true},  // Async pwrite
 	}
 
 	usedImports := make(map[string]bool)
 	for _, fn := range file.Fns {
 		collectCalls(fn.Body, usedImports)
+	}
+
+	// Check if any functions are async
+	hasAsyncFunctions := false
+	for _, fn := range file.Fns {
+		if fn.Async {
+			hasAsyncFunctions = true
+			break
+		}
 	}
 
 	// Ensure fd_read is imported if read_char is used
@@ -3282,8 +3369,42 @@ func CompileFile(file *parser.File, m *Module) {
 		m.AddFunction("millis", 0, code, 0) // 0 params, 0 locals, returns i32 (milliseconds)
 	}
 
+	// Add async helper functions if needed
+	if hasAsyncFunctions {
+		// Add async runtime initialization
+		code := generateAsyncRuntimeInitHelper()
+		m.AddFunction("_async_init", 0, code, 0) // 0 params, 0 locals, returns i32
+		funcIdx["_async_init"] = len(m.imports) + helperIdx
+		helperIdx++
+
+		// Add async yield/resume helpers
+		code = generateAsyncYieldHelper()
+		m.AddFunction("_async_yield", 0, code, 0) // 0 params, 0 locals, returns i32
+		funcIdx["_async_yield"] = len(m.imports) + helperIdx
+		helperIdx++
+
+		code = generateAsyncResumeHelper()
+		m.AddFunction("_async_resume", 1, code, 0) // 1 param (continuation), 0 locals, returns i32
+		funcIdx["_async_resume"] = len(m.imports) + helperIdx
+		helperIdx++
+
+		// Add async_sleep helper
+		code = generateAsyncSleepHelper()
+		m.AddFunction("async_sleep", 1, code, 0) // 1 param (ms), 0 locals, returns i32
+		funcIdx["async_sleep"] = len(m.imports) + helperIdx
+		helperIdx++
+
+		// Add async_read helper if fd_read is available
+		if _, ok := funcIdx["fd_read"]; ok {
+			code = generateAsyncReadHelper(funcIdx["fd_read"])
+			m.AddFunction("async_read", 3, code, 0) // 3 params (fd, buf, len), 0 locals, returns i32
+			funcIdx["async_read"] = len(m.imports) + helperIdx
+			helperIdx++
+		}
+	}
+
 	for _, fn := range file.Fns {
-		code, numLocals := Compile(fn, funcIdx, globalIdx, structs, strings)
+		code, numLocals := Compile(fn, funcIdx, globalIdx, structs, strings, hasAsyncFunctions)
 		m.AddFunction(fn.Name, len(fn.Params), code, numLocals)
 	}
 
@@ -3597,7 +3718,10 @@ func collectCallsExpr(expr parser.Expr, calls map[string]bool) {
 	}
 }
 
-func Compile(fn *parser.FnDecl, funcIdx, globalIdx map[string]int, structs map[string]*StructInfo, strings *StringTable) (code []byte, numLocals int) {
+func Compile(fn *parser.FnDecl, funcIdx, globalIdx map[string]int, structs map[string]*StructInfo, strings *StringTable, hasAsyncFunctions bool) (code []byte, numLocals int) {
+	// Check if async runtime is needed for this function
+	asyncRuntimeNeeded := hasAsyncFunctions && fn.Async
+	
 	c := &Compiler{
 		fn:           fn,
 		locals:       make(map[string]int),
@@ -3606,6 +3730,9 @@ func Compile(fn *parser.FnDecl, funcIdx, globalIdx map[string]int, structs map[s
 		globalIdx:    globalIdx,
 		structs:      structs,
 		strings:      strings,
+		isAsync:      fn.Async,
+		continuation: "",
+		asyncRuntime: asyncRuntimeNeeded,
 	}
 
 	// Map params to local indices
@@ -4599,10 +4726,77 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 				}
 			}
 
+		case "async_sleep":
+			// async_sleep(ms) - async sleep for milliseconds
+			idx := c.funcIdx["async_sleep"]
+			code = append(code, OpCall, byte(idx))
+
+		case "async_read":
+			// async_read(fd, buf, len) - async file read
+			idx := c.funcIdx["async_read"]
+			code = append(code, OpCall, byte(idx))
+
+		case "_async_init":
+			// Initialize async runtime
+			idx := c.funcIdx["_async_init"]
+			code = append(code, OpCall, byte(idx))
+
+		case "_async_yield":
+			// Yield execution (suspend async function)
+			idx := c.funcIdx["_async_yield"]
+			code = append(code, OpCall, byte(idx))
+
+		case "_async_resume":
+			// Resume suspended async function
+			idx := c.funcIdx["_async_resume"]
+			code = append(code, OpCall, byte(idx))
+
 		default:
 			idx := c.funcIdx[e.Name]
 			code = append(code, OpCall, byte(idx))
 		}
+		return code
+	case *parser.AwaitExpr:
+		// Await expressions can only be used in async functions
+		if !c.isAsync {
+			panic("await can only be used in async functions")
+		}
+		
+		// Enhanced await implementation using async runtime
+		var code []byte
+		
+		// Compile the expression being awaited (should be an async operation)
+		code = append(code, c.compileExpr(e.Expr)...)
+		
+		// Check if the operation is ready (for now, assume it's always ready)
+		// In a real implementation, this would use polling
+		if c.asyncRuntime {
+			// Call async_yield to suspend execution
+			// This would save state and return to caller
+			if idx, ok := c.funcIdx["_async_yield"]; ok {
+				code = append(code, OpCall, byte(idx))
+				code = append(code, OpDrop) // Drop the result for now
+			}
+			
+			// Store the result in a local variable
+			// In a real implementation, this would be handled by the runtime
+			localIdx := c.numLocals
+			c.numLocals++
+			code = append(code, OpLocalTee, byte(localIdx))
+			
+			// Return from the async function with "not ready" status
+			code = append(code, 0x41, 1) // i32.const 1 (not ready)
+			code = append(code, 0x0f)    // return
+			
+			// Continuation point (this would be jumped to when resumed)
+			code = append(code, OpBlock, 0x7f) // block with i32 result
+			code = append(code, OpLocalGet, byte(localIdx)) // get the stored result
+			code = append(code, OpEnd)
+		} else {
+			// Fallback: just return the expression result (synchronous)
+			// This maintains backward compatibility
+		}
+		
 		return code
 	}
 	return nil
