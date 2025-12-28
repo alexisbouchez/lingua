@@ -84,4 +84,6 @@ func LookupIdent(ident string) TokenType {
 type Token struct {
 	Type    TokenType
 	Literal string
+	Line    int
+	Column  int
 }

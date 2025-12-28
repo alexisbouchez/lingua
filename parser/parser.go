@@ -3,18 +3,31 @@ package parser
 import (
 	"strconv"
 
+	"github.com/alexisbouchez/lingua/errors"
 	"github.com/alexisbouchez/lingua/lexer"
 )
 
 type Parser struct {
-	l   *lexer.Lexer
-	cur lexer.Token
+	l      *lexer.Lexer
+	cur    lexer.Token
+	errors *errors.ErrorList
+	source string
 }
 
 func New(input string) *Parser {
-	p := &Parser{l: lexer.New(input)}
+	errList := errors.NewErrorList()
+	errList.Source = input
+	p := &Parser{
+		l:      lexer.New(input),
+		errors: errList,
+		source: input,
+	}
 	p.next()
 	return p
+}
+
+func (p *Parser) Errors() *errors.ErrorList {
+	return p.errors
 }
 
 func (p *Parser) next() {
@@ -146,9 +159,103 @@ func (p *Parser) parseIfExpr() *IfExpr {
 
 func (p *Parser) expect(t lexer.TokenType) {
 	if p.cur.Type != t {
+		p.errors.Add(
+			"expected "+tokenTypeName(t)+", got "+tokenTypeName(p.cur.Type),
+			p.cur.Line,
+			p.cur.Column,
+		)
 		return
 	}
 	p.next()
+}
+
+func tokenTypeName(t lexer.TokenType) string {
+	switch t {
+	case lexer.EOF:
+		return "EOF"
+	case lexer.INT:
+		return "integer"
+	case lexer.STRING:
+		return "string"
+	case lexer.IDENT:
+		return "identifier"
+	case lexer.PLUS:
+		return "'+'"
+	case lexer.MINUS:
+		return "'-'"
+	case lexer.STAR:
+		return "'*'"
+	case lexer.SLASH:
+		return "'/'"
+	case lexer.PERCENT:
+		return "'%'"
+	case lexer.LPAREN:
+		return "'('"
+	case lexer.RPAREN:
+		return "')'"
+	case lexer.LBRACE:
+		return "'{'"
+	case lexer.RBRACE:
+		return "'}'"
+	case lexer.LBRACKET:
+		return "'['"
+	case lexer.RBRACKET:
+		return "']'"
+	case lexer.COMMA:
+		return "','"
+	case lexer.SEMI:
+		return "';'"
+	case lexer.COLON:
+		return "':'"
+	case lexer.ASSIGN:
+		return "'='"
+	case lexer.EQ:
+		return "'=='"
+	case lexer.NEQ:
+		return "'!='"
+	case lexer.LT:
+		return "'<'"
+	case lexer.GT:
+		return "'>'"
+	case lexer.LTE:
+		return "'<='"
+	case lexer.GTE:
+		return "'>='"
+	case lexer.AND:
+		return "'&&'"
+	case lexer.OR:
+		return "'||'"
+	case lexer.NOT:
+		return "'!'"
+	case lexer.FN:
+		return "'fn'"
+	case lexer.LET:
+		return "'let'"
+	case lexer.GLOBAL:
+		return "'global'"
+	case lexer.RETURN:
+		return "'return'"
+	case lexer.IF:
+		return "'if'"
+	case lexer.ELSE:
+		return "'else'"
+	case lexer.LOOP:
+		return "'loop'"
+	case lexer.BREAK:
+		return "'break'"
+	case lexer.CONTINUE:
+		return "'continue'"
+	case lexer.I32:
+		return "'i32'"
+	case lexer.I64:
+		return "'i64'"
+	case lexer.F32:
+		return "'f32'"
+	case lexer.F64:
+		return "'f64'"
+	default:
+		return "unknown token"
+	}
 }
 
 func (p *Parser) ParseFn() *FnDecl {

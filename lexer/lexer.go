@@ -1,24 +1,31 @@
 package lexer
 
 type Lexer struct {
-	input string
-	pos   int
-	ch    byte
+	input  string
+	pos    int
+	ch     byte
+	line   int
+	column int
 }
 
 func New(input string) *Lexer {
-	l := &Lexer{input: input}
+	l := &Lexer{input: input, line: 1, column: 0}
 	l.readChar()
 	return l
 }
 
 func (l *Lexer) readChar() {
+	if l.ch == '\n' {
+		l.line++
+		l.column = 0
+	}
 	if l.pos >= len(l.input) {
 		l.ch = 0
 	} else {
 		l.ch = l.input[l.pos]
 	}
 	l.pos++
+	l.column++
 }
 
 func (l *Lexer) peek() byte {
@@ -31,101 +38,106 @@ func (l *Lexer) peek() byte {
 func (l *Lexer) NextToken() Token {
 	l.skipWhitespace()
 
+	line := l.line
+	col := l.column
+
 	if l.ch == 0 {
-		return Token{Type: EOF}
+		return Token{Type: EOF, Line: line, Column: col}
 	}
 
 	var tok Token
 	switch l.ch {
 	case '+':
-		tok = Token{Type: PLUS, Literal: "+"}
+		tok = Token{Type: PLUS, Literal: "+", Line: line, Column: col}
 	case '-':
-		tok = Token{Type: MINUS, Literal: "-"}
+		tok = Token{Type: MINUS, Literal: "-", Line: line, Column: col}
 	case '*':
-		tok = Token{Type: STAR, Literal: "*"}
+		tok = Token{Type: STAR, Literal: "*", Line: line, Column: col}
 	case '/':
-		tok = Token{Type: SLASH, Literal: "/"}
+		tok = Token{Type: SLASH, Literal: "/", Line: line, Column: col}
 	case '%':
-		tok = Token{Type: PERCENT, Literal: "%"}
+		tok = Token{Type: PERCENT, Literal: "%", Line: line, Column: col}
 	case '(':
-		tok = Token{Type: LPAREN, Literal: "("}
+		tok = Token{Type: LPAREN, Literal: "(", Line: line, Column: col}
 	case ')':
-		tok = Token{Type: RPAREN, Literal: ")"}
+		tok = Token{Type: RPAREN, Literal: ")", Line: line, Column: col}
 	case '{':
-		tok = Token{Type: LBRACE, Literal: "{"}
+		tok = Token{Type: LBRACE, Literal: "{", Line: line, Column: col}
 	case '}':
-		tok = Token{Type: RBRACE, Literal: "}"}
+		tok = Token{Type: RBRACE, Literal: "}", Line: line, Column: col}
 	case '[':
-		tok = Token{Type: LBRACKET, Literal: "["}
+		tok = Token{Type: LBRACKET, Literal: "[", Line: line, Column: col}
 	case ']':
-		tok = Token{Type: RBRACKET, Literal: "]"}
+		tok = Token{Type: RBRACKET, Literal: "]", Line: line, Column: col}
 	case ',':
-		tok = Token{Type: COMMA, Literal: ","}
+		tok = Token{Type: COMMA, Literal: ",", Line: line, Column: col}
 	case ';':
-		tok = Token{Type: SEMI, Literal: ";"}
+		tok = Token{Type: SEMI, Literal: ";", Line: line, Column: col}
 	case ':':
-		tok = Token{Type: COLON, Literal: ":"}
+		tok = Token{Type: COLON, Literal: ":", Line: line, Column: col}
 	case '=':
 		if l.peek() == '=' {
 			l.readChar()
-			tok = Token{Type: EQ, Literal: "=="}
+			tok = Token{Type: EQ, Literal: "==", Line: line, Column: col}
 		} else {
-			tok = Token{Type: ASSIGN, Literal: "="}
+			tok = Token{Type: ASSIGN, Literal: "=", Line: line, Column: col}
 		}
 	case '!':
 		if l.peek() == '=' {
 			l.readChar()
-			tok = Token{Type: NEQ, Literal: "!="}
+			tok = Token{Type: NEQ, Literal: "!=", Line: line, Column: col}
 		} else {
-			tok = Token{Type: NOT, Literal: "!"}
+			tok = Token{Type: NOT, Literal: "!", Line: line, Column: col}
 		}
 	case '&':
 		if l.peek() == '&' {
 			l.readChar()
-			tok = Token{Type: AND, Literal: "&&"}
+			tok = Token{Type: AND, Literal: "&&", Line: line, Column: col}
 		} else {
-			tok = Token{Type: BAND, Literal: "&"}
+			tok = Token{Type: BAND, Literal: "&", Line: line, Column: col}
 		}
 	case '|':
 		if l.peek() == '|' {
 			l.readChar()
-			tok = Token{Type: OR, Literal: "||"}
+			tok = Token{Type: OR, Literal: "||", Line: line, Column: col}
 		} else {
-			tok = Token{Type: BOR, Literal: "|"}
+			tok = Token{Type: BOR, Literal: "|", Line: line, Column: col}
 		}
 	case '^':
-		tok = Token{Type: BXOR, Literal: "^"}
+		tok = Token{Type: BXOR, Literal: "^", Line: line, Column: col}
 	case '<':
 		if l.peek() == '=' {
 			l.readChar()
-			tok = Token{Type: LTE, Literal: "<="}
+			tok = Token{Type: LTE, Literal: "<=", Line: line, Column: col}
 		} else if l.peek() == '<' {
 			l.readChar()
-			tok = Token{Type: SHL, Literal: "<<"}
+			tok = Token{Type: SHL, Literal: "<<", Line: line, Column: col}
 		} else {
-			tok = Token{Type: LT, Literal: "<"}
+			tok = Token{Type: LT, Literal: "<", Line: line, Column: col}
 		}
 	case '>':
 		if l.peek() == '=' {
 			l.readChar()
-			tok = Token{Type: GTE, Literal: ">="}
+			tok = Token{Type: GTE, Literal: ">=", Line: line, Column: col}
 		} else if l.peek() == '>' {
 			l.readChar()
-			tok = Token{Type: SHR, Literal: ">>"}
+			tok = Token{Type: SHR, Literal: ">>", Line: line, Column: col}
 		} else {
-			tok = Token{Type: GT, Literal: ">"}
+			tok = Token{Type: GT, Literal: ">", Line: line, Column: col}
 		}
 	case '"':
-		return Token{Type: STRING, Literal: l.readString()}
+		lit := l.readString()
+		return Token{Type: STRING, Literal: lit, Line: line, Column: col}
 	default:
 		if isLetter(l.ch) {
 			lit := l.readIdent()
-			return Token{Type: LookupIdent(lit), Literal: lit}
+			return Token{Type: LookupIdent(lit), Literal: lit, Line: line, Column: col}
 		}
 		if isDigit(l.ch) {
-			return Token{Type: INT, Literal: l.readNumber()}
+			lit := l.readNumber()
+			return Token{Type: INT, Literal: lit, Line: line, Column: col}
 		}
-		return Token{Type: EOF}
+		return Token{Type: EOF, Line: line, Column: col}
 	}
 	l.readChar()
 	return tok

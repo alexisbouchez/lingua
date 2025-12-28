@@ -24,6 +24,11 @@ func main() {
 	p := parser.New(string(src))
 	f := p.ParseFile()
 
+	if p.Errors().HasErrors() {
+		fmt.Fprintln(os.Stderr, p.Errors().Format())
+		os.Exit(1)
+	}
+
 	m := codegen.NewModule()
 	m.AddMemory(1) // 1 page = 64KB, needed for WASI
 	codegen.CompileFile(f, m)
