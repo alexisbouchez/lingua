@@ -429,6 +429,13 @@ func (c *Checker) checkExpr(expr parser.Expr) Type {
 			}
 		}
 		return I32 // assume i32 for field access
+	
+	case *parser.AwaitExpr:
+		// Await expressions return the same type as the awaited expression
+		// For now, we assume all async operations return i32
+		// In a real implementation, this would check the actual type
+		c.checkExpr(e.Expr)
+		return I32
 	}
 
 	return Unknown
@@ -500,6 +507,10 @@ func (c *Checker) builtinType(name string, args []parser.Expr) Type {
 		"sock_recv", "sock_send", "sock_shutdown",
 		"http_get", "http_post", "http_request",
 		"argc", "envc", "stdin_read", "stdout_write", "stderr_write":
+		return I32
+
+	// Async builtins
+	case "async_sleep", "async_read", "_async_init", "_async_yield", "_async_resume":
 		return I32
 
 	// String builtins
