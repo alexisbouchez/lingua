@@ -129,6 +129,8 @@ func collectCallsExpr(expr parser.Expr, calls map[string]bool) {
 	case *parser.CallExpr:
 		if e.Name == "print_str" {
 			calls["fd_write"] = true
+		} else if e.Name == "exit" {
+			calls["proc_exit"] = true
 		} else {
 			calls[e.Name] = true
 		}
@@ -310,6 +312,11 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 			code = append(code, 0x41, 8) // nwritten = 8
 			idx := c.funcIdx["fd_write"]
 			code = append(code, OpCall, byte(idx))
+		case "exit":
+			// proc_exit(code) - doesn't return
+			idx := c.funcIdx["proc_exit"]
+			code = append(code, OpCall, byte(idx))
+			code = append(code, 0x00) // unreachable
 		default:
 			idx := c.funcIdx[e.Name]
 			code = append(code, OpCall, byte(idx))

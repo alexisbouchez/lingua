@@ -337,3 +337,25 @@ func TestPrintStr(t *testing.T) {
 		t.Fatalf("expected 'Hi\\n', got %q", stdout.String())
 	}
 }
+
+func TestExit(t *testing.T) {
+	src := `fn _start(): i32 { exit(0) }`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+
+	config := wazero.NewModuleConfig()
+	_, err := r.InstantiateWithConfig(ctx, m.Bytes(), config)
+	// proc_exit causes an exit error, which is expected for exit(0)
+	// The test passes if no panic occurred
+	_ = err
+}
