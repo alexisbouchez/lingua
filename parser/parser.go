@@ -22,17 +22,35 @@ func (p *Parser) next() {
 }
 
 func (p *Parser) ParseExpr() Expr {
+	return p.parseExprPrec(0)
+}
+
+func (p *Parser) parseExprPrec(minPrec int) Expr {
 	left := p.parsePrimary()
 
-	for p.cur.Type == lexer.PLUS || p.cur.Type == lexer.MINUS ||
-		p.cur.Type == lexer.STAR || p.cur.Type == lexer.SLASH {
+	for {
+		prec := p.precedence()
+		if prec < minPrec {
+			break
+		}
 		op := p.cur.Literal
 		p.next()
-		right := p.parsePrimary()
+		right := p.parseExprPrec(prec + 1)
 		left = &BinaryExpr{Left: left, Op: op, Right: right}
 	}
 
 	return left
+}
+
+func (p *Parser) precedence() int {
+	switch p.cur.Type {
+	case lexer.PLUS, lexer.MINUS:
+		return 1
+	case lexer.STAR, lexer.SLASH, lexer.PERCENT:
+		return 2
+	default:
+		return -1
+	}
 }
 
 func (p *Parser) parsePrimary() Expr {
