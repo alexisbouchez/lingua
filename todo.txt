@@ -7,8 +7,8 @@ PHASE 1: FOUNDATION
 [x] Define language grammar and syntax specification
 [x] Implement lexer/tokenizer
 [x] Implement parser (AST generation)
-[ ] Design type system
-[ ] Implement semantic analyzer
+[x] Design type system
+[x] Implement semantic analyzer (type checker)
 
 PHASE 2: WASM CODE GENERATION
 -----------------------------
