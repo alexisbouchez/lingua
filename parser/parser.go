@@ -243,9 +243,26 @@ func (p *Parser) parseCallExpr(name string) *CallExpr {
 }
 
 func (p *Parser) ParseFile() *File {
+	var globals []*GlobalDecl
 	var fns []*FnDecl
 	for p.cur.Type != lexer.EOF {
-		fns = append(fns, p.ParseFn())
+		if p.cur.Type == lexer.GLOBAL {
+			globals = append(globals, p.parseGlobal())
+		} else {
+			fns = append(fns, p.ParseFn())
+		}
 	}
-	return &File{Fns: fns}
+	return &File{Globals: globals, Fns: fns}
+}
+
+func (p *Parser) parseGlobal() *GlobalDecl {
+	p.expect(lexer.GLOBAL)
+	name := p.cur.Literal
+	p.next()
+	p.expect(lexer.COLON)
+	typ := p.cur.Literal
+	p.next()
+	p.expect(lexer.ASSIGN)
+	value := p.ParseExpr()
+	return &GlobalDecl{Name: name, Type: typ, Value: value}
 }

@@ -26,6 +26,12 @@ A WASM/WASI native programming language written in Go.
 - `break` and `continue`
 - `return` for early returns
 
+### Global Variables
+Global variables can be declared at module level:
+```
+global counter: i32 = 0
+```
+
 ### Built-in Functions
 - `print(str, len)` - print string with newline
 - `println(n)` - print integer with newline

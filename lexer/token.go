@@ -41,6 +41,7 @@ const (
 	// keywords
 	FN
 	LET
+	GLOBAL
 	RETURN
 	IF
 	ELSE
@@ -58,6 +59,7 @@ const (
 var keywords = map[string]TokenType{
 	"fn":       FN,
 	"let":      LET,
+	"global":   GLOBAL,
 	"return":   RETURN,
 	"if":       IF,
 	"else":     ELSE,

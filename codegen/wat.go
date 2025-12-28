@@ -15,6 +15,33 @@ func (m *Module) WAT() string {
 		b.WriteString(fmt.Sprintf("  (memory (export \"memory\") %d)\n", m.memPages))
 	}
 
+	// Globals
+	for _, g := range m.globals {
+		mutStr := "const"
+		if g.Mutable {
+			mutStr = "mut"
+		}
+		typeStr := "i32"
+		switch g.Type {
+		case I64:
+			typeStr = "i64"
+		case F32:
+			typeStr = "f32"
+		case F64:
+			typeStr = "f64"
+		}
+		b.WriteString(fmt.Sprintf("  (global $%s (%s %s) (%s.const %d))\n", g.Name, mutStr, typeStr, typeStr, g.Init))
+	}
+
+	// Table
+	if m.table != nil {
+		if m.table.HasMax {
+			b.WriteString(fmt.Sprintf("  (table %d %d funcref)\n", m.table.Min, m.table.Max))
+		} else {
+			b.WriteString(fmt.Sprintf("  (table %d funcref)\n", m.table.Min))
+		}
+	}
+
 	// Imports
 	for _, imp := range m.imports {
 		b.WriteString(fmt.Sprintf("  (import \"%s\" \"%s\" (func $%s", imp.Module, imp.Name, imp.Name))
@@ -53,6 +80,15 @@ func (m *Module) WAT() string {
 		if fn.Name[0] != '_' {
 			b.WriteString(fmt.Sprintf("  (export \"%s\" (func $%s))\n", fn.Name, fn.Name))
 		}
+	}
+
+	// Element section
+	if m.table != nil && len(m.table.Elements) > 0 {
+		b.WriteString("  (elem (i32.const 0)")
+		for _, funcIdx := range m.table.Elements {
+			b.WriteString(fmt.Sprintf(" %d", funcIdx))
+		}
+		b.WriteString(")\n")
 	}
 
 	// Data sections
@@ -117,6 +153,12 @@ func disassemble(code []byte, indent int) string {
 			idx := code[i]
 			i++
 			b.WriteString(fmt.Sprintf("call %d", idx))
+		case 0x11:
+			typeIdx := code[i]
+			i++
+			tableIdx := code[i]
+			i++
+			b.WriteString(fmt.Sprintf("call_indirect (type %d) (table %d)", typeIdx, tableIdx))
 		case 0x1a:
 			b.WriteString("drop")
 		case 0x20:
@@ -127,6 +169,14 @@ func disassemble(code []byte, indent int) string {
 			idx := code[i]
 			i++
 			b.WriteString(fmt.Sprintf("local.set %d", idx))
+		case 0x23:
+			idx := code[i]
+			i++
+			b.WriteString(fmt.Sprintf("global.get %d", idx))
+		case 0x24:
+			idx := code[i]
+			i++
+			b.WriteString(fmt.Sprintf("global.set %d", idx))
 		case 0x28:
 			align := code[i]
 			i++

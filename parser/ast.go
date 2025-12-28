@@ -132,6 +132,14 @@ type FnDecl struct {
 
 func (FnDecl) node() {}
 
+type GlobalDecl struct {
+	Name  string
+	Type  string
+	Value Expr
+}
+
+func (GlobalDecl) node() {}
+
 type CallExpr struct {
 	Name string
 	Args []Expr
@@ -141,7 +149,8 @@ func (CallExpr) node() {}
 func (CallExpr) expr() {}
 
 type File struct {
-	Fns []*FnDecl
+	Globals []*GlobalDecl
+	Fns     []*FnDecl
 }
 
 func (File) node() {}

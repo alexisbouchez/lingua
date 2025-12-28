@@ -4,41 +4,44 @@ import "github.com/alexisbouchez/lingua/parser"
 
 // WASM opcodes
 const (
-	OpBlock    = 0x02
-	OpLoop     = 0x03
-	OpIf       = 0x04
-	OpElse     = 0x05
-	OpEnd      = 0x0b
-	OpBr       = 0x0c
-	OpBrIf     = 0x0d
-	OpCall     = 0x10
-	OpLocalGet = 0x20
-	OpLocalSet = 0x21
-	OpI32Eqz   = 0x45
-	OpI32Eq    = 0x46
-	OpI32Ne    = 0x47
-	OpI32LtS   = 0x48
-	OpI32GtS   = 0x4a
-	OpI32LeS   = 0x4c
-	OpI32GeS   = 0x4e
-	OpI32Add   = 0x6a
-	OpI32Sub   = 0x6b
-	OpI32Mul   = 0x6c
-	OpI32Div   = 0x6d
+	OpBlock     = 0x02
+	OpLoop      = 0x03
+	OpIf        = 0x04
+	OpElse      = 0x05
+	OpEnd       = 0x0b
+	OpBr        = 0x0c
+	OpBrIf      = 0x0d
+	OpCall      = 0x10
+	OpLocalGet  = 0x20
+	OpLocalSet  = 0x21
+	OpGlobalGet = 0x23
+	OpGlobalSet = 0x24
+	OpI32Eqz    = 0x45
+	OpI32Eq     = 0x46
+	OpI32Ne     = 0x47
+	OpI32LtS    = 0x48
+	OpI32GtS    = 0x4a
+	OpI32LeS    = 0x4c
+	OpI32GeS    = 0x4e
+	OpI32Add    = 0x6a
+	OpI32Sub    = 0x6b
+	OpI32Mul    = 0x6c
+	OpI32Div    = 0x6d
 
 	OpI32Load  = 0x28
 	OpI32Store = 0x36
 )
 
 type Compiler struct {
-	fn           *parser.FnDecl
-	locals       map[string]int
-	numLocals    int
-	funcIdx      map[string]int
-	strings      *StringTable
-	loopDepth    int    // depth of nested loops
-	breakLabel   int    // label offset for break (to outer block)
-	continueLabel int   // label offset for continue (to loop)
+	fn            *parser.FnDecl
+	locals        map[string]int
+	numLocals     int
+	funcIdx       map[string]int
+	globalIdx     map[string]int
+	strings       *StringTable
+	loopDepth     int // depth of nested loops
+	breakLabel    int // label offset for break (to outer block)
+	continueLabel int // label offset for continue (to loop)
 }
 
 type StringTable struct {
@@ -221,13 +224,25 @@ func generatePrintIntHelper(fdWriteIdx int) []byte {
 }
 
 func CompileFile(file *parser.File, m *Module) {
+	// Process globals first
+	globalIdx := make(map[string]int)
+	for _, g := range file.Globals {
+		// For now, only support i32 globals with integer literal initializers
+		var initVal int64
+		if lit, ok := g.Value.(*parser.IntLit); ok {
+			initVal = lit.Value
+		}
+		m.AddGlobal(g.Name, I32, true, initVal) // mutable i32
+		globalIdx[g.Name] = m.GlobalIndex(g.Name)
+	}
+
 	// First pass: collect all function calls to detect WASI imports
 	wasiImports := map[string]int{
-		"fd_write":    4,
-		"fd_read":     4,
-		"args_get":    2,
+		"fd_write":       4,
+		"fd_read":        4,
+		"args_get":       2,
 		"args_sizes_get": 2,
-		"proc_exit":   1,
+		"proc_exit":      1,
 	}
 
 	usedImports := make(map[string]bool)
@@ -302,7 +317,7 @@ func CompileFile(file *parser.File, m *Module) {
 	}
 
 	for _, fn := range file.Fns {
-		code, numLocals := Compile(fn, funcIdx, strings)
+		code, numLocals := Compile(fn, funcIdx, globalIdx, strings)
 		m.AddFunction(fn.Name, len(fn.Params), code, numLocals)
 	}
 
@@ -466,12 +481,13 @@ func collectCallsExpr(expr parser.Expr, calls map[string]bool) {
 	}
 }
 
-func Compile(fn *parser.FnDecl, funcIdx map[string]int, strings *StringTable) (code []byte, numLocals int) {
+func Compile(fn *parser.FnDecl, funcIdx, globalIdx map[string]int, strings *StringTable) (code []byte, numLocals int) {
 	c := &Compiler{
-		fn:      fn,
-		locals:  make(map[string]int),
-		funcIdx: funcIdx,
-		strings: strings,
+		fn:        fn,
+		locals:    make(map[string]int),
+		funcIdx:   funcIdx,
+		globalIdx: globalIdx,
+		strings:   strings,
 	}
 
 	// Map params to local indices
@@ -512,6 +528,11 @@ func (c *Compiler) compileStmt(s parser.Stmt) []byte {
 		return code
 	case *parser.AssignStmt:
 		code := c.compileExpr(s.Value)
+		// Check if it's a global variable
+		if idx, ok := c.globalIdx[s.Name]; ok {
+			code = append(code, OpGlobalSet, byte(idx))
+			return code
+		}
 		idx := c.locals[s.Name]
 		code = append(code, OpLocalSet, byte(idx))
 		return code
@@ -548,6 +569,10 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 		addr := c.strings.Add(e.Value)
 		return append([]byte{0x41}, sleb128(int64(addr))...) // i32.const addr
 	case *parser.Ident:
+		// Check if it's a global variable first
+		if idx, ok := c.globalIdx[e.Name]; ok {
+			return []byte{OpGlobalGet, byte(idx)}
+		}
 		idx := c.locals[e.Name]
 		return []byte{OpLocalGet, byte(idx)}
 	case *parser.UnaryExpr:

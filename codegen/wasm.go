@@ -11,8 +11,11 @@ const (
 	SectionType     = 1
 	SectionImport   = 2
 	SectionFunction = 3
+	SectionTable    = 4
 	SectionMemory   = 5
+	SectionGlobal   = 6
 	SectionExport   = 7
+	SectionElement  = 9
 	SectionCode     = 10
 	SectionData     = 11
 )
@@ -43,10 +46,27 @@ type DataSeg struct {
 	Data   []byte
 }
 
+type GlobalDef struct {
+	Name    string
+	Type    byte
+	Mutable bool
+	Init    int64
+}
+
+type TableDef struct {
+	Min      int
+	Max      int // -1 means no max
+	HasMax   bool
+	Elements []int // function indices to populate
+}
+
 type Module struct {
 	imports    []ImportDef
 	funcs      []FuncDef
 	funcIdx    map[string]int
+	globals    []GlobalDef
+	globalIdx  map[string]int
+	table      *TableDef
 	hasMemory  bool
 	memPages   int
 	data       []DataSeg
@@ -54,7 +74,8 @@ type Module struct {
 
 func NewModule() *Module {
 	return &Module{
-		funcIdx: make(map[string]int),
+		funcIdx:   make(map[string]int),
+		globalIdx: make(map[string]int),
 	}
 }
 
@@ -90,8 +111,32 @@ func (m *Module) AddMemory(pages int) {
 	m.memPages = pages
 }
 
+func (m *Module) AddGlobal(name string, typ byte, mutable bool, init int64) {
+	m.globalIdx[name] = len(m.globals)
+	m.globals = append(m.globals, GlobalDef{
+		Name:    name,
+		Type:    typ,
+		Mutable: mutable,
+		Init:    init,
+	})
+}
+
+func (m *Module) GlobalIndex(name string) int {
+	return m.globalIdx[name]
+}
+
 func (m *Module) AddData(offset int, data []byte) {
 	m.data = append(m.data, DataSeg{Offset: offset, Data: data})
+}
+
+func (m *Module) AddTable(min, max int, hasMax bool) {
+	m.table = &TableDef{Min: min, Max: max, HasMax: hasMax}
+}
+
+func (m *Module) AddTableElement(funcIdx int) {
+	if m.table != nil {
+		m.table.Elements = append(m.table.Elements, funcIdx)
+	}
 }
 
 func (m *Module) Bytes() []byte {
@@ -151,6 +196,22 @@ func (m *Module) Bytes() []byte {
 	}
 	writeSection(&buf, SectionFunction, funcSec.Bytes())
 
+	// Table section
+	if m.table != nil {
+		var tableSec bytes.Buffer
+		tableSec.WriteByte(1)    // 1 table
+		tableSec.WriteByte(0x70) // funcref type
+		if m.table.HasMax {
+			tableSec.WriteByte(0x01) // has max
+			tableSec.Write(uleb128(uint64(m.table.Min)))
+			tableSec.Write(uleb128(uint64(m.table.Max)))
+		} else {
+			tableSec.WriteByte(0x00) // no max
+			tableSec.Write(uleb128(uint64(m.table.Min)))
+		}
+		writeSection(&buf, SectionTable, tableSec.Bytes())
+	}
+
 	// Memory section
 	if m.hasMemory {
 		var memSec bytes.Buffer
@@ -158,6 +219,24 @@ func (m *Module) Bytes() []byte {
 		memSec.WriteByte(0x00)                       // no max
 		memSec.Write(uleb128(uint64(m.memPages)))    // initial pages
 		writeSection(&buf, SectionMemory, memSec.Bytes())
+	}
+
+	// Global section
+	if len(m.globals) > 0 {
+		var globalSec bytes.Buffer
+		globalSec.Write(uleb128(uint64(len(m.globals))))
+		for _, g := range m.globals {
+			globalSec.WriteByte(g.Type)
+			if g.Mutable {
+				globalSec.WriteByte(0x01)
+			} else {
+				globalSec.WriteByte(0x00)
+			}
+			globalSec.WriteByte(0x41) // i32.const
+			globalSec.Write(sleb128(g.Init))
+			globalSec.WriteByte(0x0b) // end
+		}
+		writeSection(&buf, SectionGlobal, globalSec.Bytes())
 	}
 
 	// Export section
@@ -180,6 +259,21 @@ func (m *Module) Bytes() []byte {
 		expSec.WriteByte(0)    // memory index 0
 	}
 	writeSection(&buf, SectionExport, expSec.Bytes())
+
+	// Element section (populates table with function references)
+	if m.table != nil && len(m.table.Elements) > 0 {
+		var elemSec bytes.Buffer
+		elemSec.WriteByte(1)    // 1 element segment
+		elemSec.WriteByte(0)    // table index 0
+		elemSec.WriteByte(0x41) // i32.const
+		elemSec.WriteByte(0)    // offset 0
+		elemSec.WriteByte(0x0b) // end
+		elemSec.Write(uleb128(uint64(len(m.table.Elements))))
+		for _, funcIdx := range m.table.Elements {
+			elemSec.Write(uleb128(uint64(funcIdx)))
+		}
+		writeSection(&buf, SectionElement, elemSec.Bytes())
+	}
 
 	// Code section
 	var codeSec bytes.Buffer

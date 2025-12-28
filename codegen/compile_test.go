@@ -15,7 +15,7 @@ func TestCompileAndRun(t *testing.T) {
 	p := parser.New("fn add(a: i32, b: i32): i32 { a + b }")
 	fn := p.ParseFn()
 
-	code, numLocals := Compile(fn, nil, NewStringTable(0))
+	code, numLocals := Compile(fn, nil, nil, NewStringTable(0))
 
 	m := NewModule()
 	m.AddFunction("add", 2, code, numLocals)
@@ -45,7 +45,7 @@ func TestCompileExpr(t *testing.T) {
 	p := parser.New("fn calc(x: i32, y: i32): i32 { x * 2 + y }")
 	fn := p.ParseFn()
 
-	code, numLocals := Compile(fn, nil, NewStringTable(0))
+	code, numLocals := Compile(fn, nil, nil, NewStringTable(0))
 
 	m := NewModule()
 	m.AddFunction("calc", 2, code, numLocals)
@@ -76,7 +76,7 @@ func TestCompileWithLocals(t *testing.T) {
 	p := parser.New("fn foo(x: i32, y: i32): i32 { let z: i32 = x * 2; z + y }")
 	fn := p.ParseFn()
 
-	code, numLocals := Compile(fn, nil, NewStringTable(0))
+	code, numLocals := Compile(fn, nil, nil, NewStringTable(0))
 	if numLocals != 1 {
 		t.Fatalf("expected 1 local, got %d", numLocals)
 	}
@@ -110,7 +110,7 @@ func TestCompileIfElse(t *testing.T) {
 	p := parser.New("fn max(a: i32, b: i32): i32 { if a > b { a } else { b } }")
 	fn := p.ParseFn()
 
-	code, numLocals := Compile(fn, nil, NewStringTable(0))
+	code, numLocals := Compile(fn, nil, nil, NewStringTable(0))
 
 	m := NewModule()
 	m.AddFunction("max", 2, code, numLocals)
@@ -159,7 +159,7 @@ func TestCompileLoop(t *testing.T) {
 	p := parser.New(src)
 	fn := p.ParseFn()
 
-	code, numLocals := Compile(fn, nil, NewStringTable(0))
+	code, numLocals := Compile(fn, nil, nil, NewStringTable(0))
 
 	m := NewModule()
 	m.AddFunction("sum", 2, code, numLocals)
@@ -499,7 +499,7 @@ func TestAbs(t *testing.T) {
 	p := parser.New("fn test(x: i32): i32 { abs(x) }")
 	fn := p.ParseFn()
 
-	code, numLocals := Compile(fn, nil, NewStringTable(0))
+	code, numLocals := Compile(fn, nil, nil, NewStringTable(0))
 
 	m := NewModule()
 	m.AddFunction("test", 1, code, numLocals)
@@ -532,14 +532,14 @@ func TestAbs(t *testing.T) {
 func TestMinMax(t *testing.T) {
 	p := parser.New("fn test_min(a: i32, b: i32): i32 { min(a, b) }")
 	fn := p.ParseFn()
-	code, numLocals := Compile(fn, nil, NewStringTable(0))
+	code, numLocals := Compile(fn, nil, nil, NewStringTable(0))
 
 	m := NewModule()
 	m.AddFunction("test_min", 2, code, numLocals)
 
 	p = parser.New("fn test_max(a: i32, b: i32): i32 { max(a, b) }")
 	fn = p.ParseFn()
-	code, numLocals = Compile(fn, nil, NewStringTable(0))
+	code, numLocals = Compile(fn, nil, nil, NewStringTable(0))
 	m.AddFunction("test_max", 2, code, numLocals)
 
 	ctx := context.Background()
@@ -571,7 +571,7 @@ func TestLogicalOps(t *testing.T) {
 	// Test && (and)
 	p := parser.New("fn test_and(a: i32, b: i32): i32 { if a > 0 && b > 0 { 1 } else { 0 } }")
 	fn := p.ParseFn()
-	code, numLocals := Compile(fn, nil, NewStringTable(0))
+	code, numLocals := Compile(fn, nil, nil, NewStringTable(0))
 
 	m := NewModule()
 	m.AddFunction("test_and", 2, code, numLocals)
@@ -579,13 +579,13 @@ func TestLogicalOps(t *testing.T) {
 	// Test || (or)
 	p = parser.New("fn test_or(a: i32, b: i32): i32 { if a > 0 || b > 0 { 1 } else { 0 } }")
 	fn = p.ParseFn()
-	code, numLocals = Compile(fn, nil, NewStringTable(0))
+	code, numLocals = Compile(fn, nil, nil, NewStringTable(0))
 	m.AddFunction("test_or", 2, code, numLocals)
 
 	// Test ! (not)
 	p = parser.New("fn test_not(a: i32): i32 { if !a { 1 } else { 0 } }")
 	fn = p.ParseFn()
-	code, numLocals = Compile(fn, nil, NewStringTable(0))
+	code, numLocals = Compile(fn, nil, nil, NewStringTable(0))
 	m.AddFunction("test_not", 1, code, numLocals)
 
 	ctx := context.Background()
@@ -635,7 +635,7 @@ func TestLogicalOps(t *testing.T) {
 func TestUnaryMinus(t *testing.T) {
 	p := parser.New("fn negate(x: i32): i32 { -x }")
 	fn := p.ParseFn()
-	code, numLocals := Compile(fn, nil, NewStringTable(0))
+	code, numLocals := Compile(fn, nil, nil, NewStringTable(0))
 
 	m := NewModule()
 	m.AddFunction("negate", 1, code, numLocals)
@@ -677,7 +677,7 @@ func TestBreakContinue(t *testing.T) {
 	}`
 	p := parser.New(src)
 	fn := p.ParseFn()
-	code, numLocals := Compile(fn, nil, NewStringTable(0))
+	code, numLocals := Compile(fn, nil, nil, NewStringTable(0))
 
 	m := NewModule()
 	m.AddFunction("test_break", 1, code, numLocals)
@@ -695,7 +695,7 @@ func TestBreakContinue(t *testing.T) {
 	}`
 	p = parser.New(src2)
 	fn = p.ParseFn()
-	code, numLocals = Compile(fn, nil, NewStringTable(0))
+	code, numLocals = Compile(fn, nil, nil, NewStringTable(0))
 	m.AddFunction("test_continue", 1, code, numLocals)
 
 	ctx := context.Background()
@@ -815,5 +815,102 @@ func TestReturn(t *testing.T) {
 	results, _ = factorial.Call(ctx, 1)
 	if results[0] != 1 {
 		t.Fatalf("1!: expected 1, got %d", results[0])
+	}
+}
+
+func TestTable(t *testing.T) {
+	// Test basic table creation
+	m := NewModule()
+	m.AddTable(2, 10, true) // min 2, max 10
+
+	// Add some functions
+	m.AddFunction("add", 2, []byte{
+		0x20, 0, // local.get 0
+		0x20, 1, // local.get 1
+		0x6a, // i32.add
+	}, 0)
+	m.AddFunction("sub", 2, []byte{
+		0x20, 0, // local.get 0
+		0x20, 1, // local.get 1
+		0x6b, // i32.sub
+	}, 0)
+
+	// Add function references to table
+	m.AddTableElement(0) // add
+	m.AddTableElement(1) // sub
+
+	wasmBytes := m.Bytes()
+
+	// Verify we can instantiate the module
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, wasmBytes)
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	// Verify the add function works
+	add := mod.ExportedFunction("add")
+	results, err := add.Call(ctx, 3, 5)
+	if err != nil {
+		t.Fatalf("call add: %v", err)
+	}
+	if results[0] != 8 {
+		t.Fatalf("expected 8, got %d", results[0])
+	}
+}
+
+func TestGlobals(t *testing.T) {
+	// Test global variable
+	src := `global counter: i32 = 0
+fn increment(): i32 {
+	counter = counter + 1;
+	counter
+}
+fn get_counter(): i32 {
+	counter
+}`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	increment := mod.ExportedFunction("increment")
+	getCounter := mod.ExportedFunction("get_counter")
+
+	// Initial value should be 0
+	results, _ := getCounter.Call(ctx)
+	if results[0] != 0 {
+		t.Fatalf("initial counter: expected 0, got %d", results[0])
+	}
+
+	// Increment should return 1
+	results, _ = increment.Call(ctx)
+	if results[0] != 1 {
+		t.Fatalf("first increment: expected 1, got %d", results[0])
+	}
+
+	// Increment again should return 2
+	results, _ = increment.Call(ctx)
+	if results[0] != 2 {
+		t.Fatalf("second increment: expected 2, got %d", results[0])
+	}
+
+	// get_counter should also return 2
+	results, _ = getCounter.Call(ctx)
+	if results[0] != 2 {
+		t.Fatalf("get_counter after 2 increments: expected 2, got %d", results[0])
 	}
 }
