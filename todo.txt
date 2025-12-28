@@ -12,13 +12,13 @@ PHASE 1: FOUNDATION
 
 PHASE 2: WASM CODE GENERATION
 -----------------------------
-[ ] Study WebAssembly 3.0 binary format specification
-[ ] Implement WASM binary encoder
-[ ] Generate WASM module structure (magic number, version, sections)
-[ ] Implement type section generation
-[ ] Implement function section generation
-[ ] Implement export section generation
-[ ] Implement code section generation
+[x] Study WebAssembly 3.0 binary format specification
+[x] Implement WASM binary encoder
+[x] Generate WASM module structure (magic number, version, sections)
+[x] Implement type section generation
+[x] Implement function section generation
+[x] Implement export section generation
+[x] Implement code section generation
 [ ] Implement memory section generation
 [ ] Implement global section generation
 [ ] Implement table section generation
@@ -76,12 +76,12 @@ PHASE 7: STANDARD LIBRARY
 
 PHASE 8: TESTING & DOCUMENTATION
 --------------------------------
-[ ] Set up test framework
-[ ] Write unit tests for lexer/parser
-[ ] Write integration tests with WASM runtimes
+[x] Set up test framework
+[x] Write unit tests for lexer/parser
+[x] Write integration tests with WASM runtimes
 [ ] Test with Wasmtime
 [ ] Test with WasmEdge
-[ ] Test with wazero (Go native runtime)
+[x] Test with wazero (Go native runtime)
 [ ] Write language documentation
 [ ] Create tutorials and examples
 
