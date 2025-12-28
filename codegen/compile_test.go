@@ -914,3 +914,110 @@ fn get_counter(): i32 {
 		t.Fatalf("get_counter after 2 increments: expected 2, got %d", results[0])
 	}
 }
+
+func TestArrayLiteral(t *testing.T) {
+	// Test array literal creation and indexing
+	src := `fn test(): i32 {
+	let arr: i32 = [10, 20, 30];
+	arr[1]
+}`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	test := mod.ExportedFunction("test")
+	results, err := test.Call(ctx)
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+
+	if results[0] != 20 {
+		t.Fatalf("expected 20, got %d", results[0])
+	}
+}
+
+func TestArrayIndexAssign(t *testing.T) {
+	// Test array index assignment
+	src := `fn test(): i32 {
+	let arr: i32 = [1, 2, 3];
+	arr[0] = 100;
+	arr[0]
+}`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	test := mod.ExportedFunction("test")
+	results, err := test.Call(ctx)
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+
+	if results[0] != 100 {
+		t.Fatalf("expected 100, got %d", results[0])
+	}
+}
+
+func TestArraySum(t *testing.T) {
+	// Test summing array elements
+	src := `fn sum_array(): i32 {
+	let arr: i32 = [1, 2, 3, 4, 5];
+	let i: i32 = 0;
+	let sum: i32 = 0;
+	loop i < 5 {
+		sum = sum + arr[i];
+		i = i + 1;
+	};
+	sum
+}`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	sumArray := mod.ExportedFunction("sum_array")
+	results, err := sumArray.Call(ctx)
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+
+	// 1 + 2 + 3 + 4 + 5 = 15
+	if results[0] != 15 {
+		t.Fatalf("expected 15, got %d", results[0])
+	}
+}

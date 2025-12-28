@@ -89,7 +89,15 @@ func (p *Parser) parsePrimary() Expr {
 		if p.cur.Type == lexer.LPAREN {
 			return p.parseCallExpr(name)
 		}
-		return &Ident{Name: name}
+		var expr Expr = &Ident{Name: name}
+		// Handle index expressions: arr[0], arr[0][1], etc.
+		for p.cur.Type == lexer.LBRACKET {
+			p.next()
+			index := p.ParseExpr()
+			p.expect(lexer.RBRACKET)
+			expr = &IndexExpr{Array: expr, Index: index}
+		}
+		return expr
 	case lexer.IF:
 		return p.parseIfExpr()
 	case lexer.LOOP:
@@ -103,6 +111,16 @@ func (p *Parser) parsePrimary() Expr {
 	case lexer.RETURN:
 		p.next()
 		return &ReturnExpr{Value: p.ParseExpr()}
+	case lexer.LBRACKET:
+		var expr Expr = p.parseArrayLit()
+		// Handle index expressions: [1,2,3][0]
+		for p.cur.Type == lexer.LBRACKET {
+			p.next()
+			index := p.ParseExpr()
+			p.expect(lexer.RBRACKET)
+			expr = &IndexExpr{Array: expr, Index: index}
+		}
+		return expr
 	}
 	return nil
 }
@@ -166,13 +184,20 @@ func (p *Parser) parseBlock() *Block {
 			stmts = append(stmts, p.parseLetStmt())
 		} else {
 			expr := p.ParseExpr()
-			// Check for assignment: ident = expr;
+			// Check for assignment: ident = expr; or arr[i] = expr;
 			if p.cur.Type == lexer.ASSIGN {
 				if ident, ok := expr.(*Ident); ok {
 					p.next()
 					value := p.ParseExpr()
 					p.expect(lexer.SEMI)
 					stmts = append(stmts, &AssignStmt{Name: ident.Name, Value: value})
+					continue
+				}
+				if idx, ok := expr.(*IndexExpr); ok {
+					p.next()
+					value := p.ParseExpr()
+					p.expect(lexer.SEMI)
+					stmts = append(stmts, &IndexAssignStmt{Array: idx.Array, Index: idx.Index, Value: value})
 					continue
 				}
 			}
@@ -240,6 +265,21 @@ func (p *Parser) parseCallExpr(name string) *CallExpr {
 	}
 	p.expect(lexer.RPAREN)
 	return &CallExpr{Name: name, Args: args}
+}
+
+func (p *Parser) parseArrayLit() *ArrayLit {
+	p.expect(lexer.LBRACKET)
+	var elements []Expr
+	for p.cur.Type != lexer.RBRACKET && p.cur.Type != lexer.EOF {
+		elements = append(elements, p.ParseExpr())
+		if p.cur.Type == lexer.COMMA {
+			p.next()
+		} else {
+			break
+		}
+	}
+	p.expect(lexer.RBRACKET)
+	return &ArrayLit{Elements: elements}
 }
 
 func (p *Parser) ParseFile() *File {

@@ -81,6 +81,15 @@ type AssignStmt struct {
 func (AssignStmt) node() {}
 func (AssignStmt) stmt() {}
 
+type IndexAssignStmt struct {
+	Array Expr
+	Index Expr
+	Value Expr
+}
+
+func (IndexAssignStmt) node() {}
+func (IndexAssignStmt) stmt() {}
+
 type Block struct {
 	Stmts []Stmt
 	Expr  Expr // final expression (return value)
@@ -147,6 +156,21 @@ type CallExpr struct {
 
 func (CallExpr) node() {}
 func (CallExpr) expr() {}
+
+type ArrayLit struct {
+	Elements []Expr
+}
+
+func (ArrayLit) node() {}
+func (ArrayLit) expr() {}
+
+type IndexExpr struct {
+	Array Expr
+	Index Expr
+}
+
+func (IndexExpr) node() {}
+func (IndexExpr) expr() {}
 
 type File struct {
 	Globals []*GlobalDecl

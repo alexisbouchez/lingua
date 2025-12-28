@@ -32,6 +32,14 @@ Global variables can be declared at module level:
 global counter: i32 = 0
 ```
 
+### Arrays
+Arrays are heap-allocated and support indexing:
+```
+let arr: i32 = [1, 2, 3, 4, 5];
+let first: i32 = arr[0];
+arr[1] = 100;
+```
+
 ### Built-in Functions
 - `print(str, len)` - print string with newline
 - `println(n)` - print integer with newline

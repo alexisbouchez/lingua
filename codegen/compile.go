@@ -224,8 +224,14 @@ func generatePrintIntHelper(fdWriteIdx int) []byte {
 }
 
 func CompileFile(file *parser.File, m *Module) {
-	// Process globals first
+	// Add internal heap pointer global for array allocation
+	// Starts at 4096 to avoid conflicts with iovec (0-16), print buffer (500-600), and string table (1024+)
+	m.AddGlobal("__heap_ptr", I32, true, 4096)
+	heapPtrIdx := m.GlobalIndex("__heap_ptr")
+
+	// Process user globals
 	globalIdx := make(map[string]int)
+	globalIdx["__heap_ptr"] = heapPtrIdx
 	for _, g := range file.Globals {
 		// For now, only support i32 globals with integer literal initializers
 		var initVal int64
@@ -536,6 +542,19 @@ func (c *Compiler) compileStmt(s parser.Stmt) []byte {
 		idx := c.locals[s.Name]
 		code = append(code, OpLocalSet, byte(idx))
 		return code
+	case *parser.IndexAssignStmt:
+		// Store value at array[index]: compute addr, then store
+		var code []byte
+		// Compute address: array + index * 4
+		code = append(code, c.compileExpr(s.Array)...)
+		code = append(code, c.compileExpr(s.Index)...)
+		code = append(code, 0x41, 4) // i32.const 4
+		code = append(code, OpI32Mul)
+		code = append(code, OpI32Add)
+		// Store the value
+		code = append(code, c.compileExpr(s.Value)...)
+		code = append(code, OpI32Store, 2, 0)
+		return code
 	case *parser.ExprStmt:
 		code := c.compileExpr(s.Expr)
 		if exprProducesValue(s.Expr) {
@@ -691,6 +710,46 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 		return code
 	case *parser.Block:
 		return c.compileBlock(e)
+	case *parser.ArrayLit:
+		// Allocate space on heap and store elements
+		// Returns the base address of the array
+		var code []byte
+		heapIdx := c.globalIdx["__heap_ptr"]
+
+		// Save current heap pointer as the array base address
+		code = append(code, OpGlobalGet, byte(heapIdx))
+
+		// For each element, store it at heap_ptr + i*4
+		for i, elem := range e.Elements {
+			// Compute address: heap_ptr + i*4
+			code = append(code, OpGlobalGet, byte(heapIdx))
+			code = append(code, 0x41) // i32.const
+			code = append(code, sleb128(int64(i*4))...)
+			code = append(code, OpI32Add)
+			// Store the element value
+			code = append(code, c.compileExpr(elem)...)
+			code = append(code, OpI32Store, 2, 0)
+		}
+
+		// Update heap pointer: heap_ptr += len * 4
+		code = append(code, OpGlobalGet, byte(heapIdx))
+		code = append(code, 0x41) // i32.const
+		code = append(code, sleb128(int64(len(e.Elements)*4))...)
+		code = append(code, OpI32Add)
+		code = append(code, OpGlobalSet, byte(heapIdx))
+
+		// The base address is already on the stack from the first global.get
+		return code
+	case *parser.IndexExpr:
+		// Load value at base + index * 4
+		var code []byte
+		code = append(code, c.compileExpr(e.Array)...)
+		code = append(code, c.compileExpr(e.Index)...)
+		code = append(code, 0x41, 4) // i32.const 4
+		code = append(code, OpI32Mul)
+		code = append(code, OpI32Add)
+		code = append(code, OpI32Load, 2, 0)
+		return code
 	case *parser.CallExpr:
 		var code []byte
 		for _, arg := range e.Args {

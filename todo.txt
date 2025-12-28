@@ -45,7 +45,7 @@ PHASE 4: LANGUAGE FEATURES
 [ ] Implement memory management
 [x] Implement linear memory operations
 [ ] Implement structs/records (using WASM GC if targeting 3.0)
-[ ] Implement arrays
+[x] Implement arrays
 [x] Implement strings
 [ ] Implement error handling
 
