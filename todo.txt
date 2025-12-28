@@ -72,7 +72,7 @@ PHASE 7: STANDARD LIBRARY
 [~] Implement I/O primitives (read_char added, more needed)
 [x] Implement string utilities
 [x] Implement math functions (abs, min, max, sign, negate, clamp, square, cube, is_even, is_odd, log2)
-[ ] Implement collections (list, map, set)
+[x] Implement collections (list, map, set)
 [ ] Implement async/await primitives (WASI 0.3)
 
 PHASE 8: TESTING & DOCUMENTATION
