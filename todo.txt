@@ -6,7 +6,7 @@ PHASE 1: FOUNDATION
 [x] Set up Go project structure (go mod init)
 [ ] Define language grammar and syntax specification
 [x] Implement lexer/tokenizer
-[~] Implement parser (AST generation)
+[x] Implement parser (AST generation)
 [ ] Design type system
 [ ] Implement semantic analyzer
 
@@ -38,15 +38,15 @@ PHASE 3: WASI INTEGRATION
 
 PHASE 4: LANGUAGE FEATURES
 --------------------------
-[~] Implement basic types (i32, i64, f32, f64)
-[~] Implement control flow (if, else, loops, blocks)
+[x] Implement basic types (i32, i64, f32, f64)
+[x] Implement control flow (if, else, loops, blocks)
 [x] Implement functions and function calls
 [x] Implement local and global variables
 [ ] Implement memory management
 [x] Implement linear memory operations
 [ ] Implement structs/records (using WASM GC if targeting 3.0)
 [ ] Implement arrays
-[ ] Implement strings
+[x] Implement strings
 [ ] Implement error handling
 
 PHASE 5: COMPONENT MODEL (WASM 3.0)
