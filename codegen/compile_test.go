@@ -2467,3 +2467,44 @@ func TestNegateBuiltin(t *testing.T) {
 	}
 }
 
+func TestClampBuiltin(t *testing.T) {
+	src := `
+		fn test_clamp(n: i32, lo: i32, hi: i32): i32 { clamp(n, lo, hi) }
+	`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	testClamp := mod.ExportedFunction("test_clamp")
+
+	// clamp(5, 0, 10) = 5 (in range)
+	results, _ := testClamp.Call(ctx, 5, 0, 10)
+	if int32(results[0]) != 5 {
+		t.Errorf("clamp(5, 0, 10): expected 5, got %d", int32(results[0]))
+	}
+
+	// clamp(-5, 0, 10) = 0 (below range)
+	results, _ = testClamp.Call(ctx, uint64(0xfffffffb), 0, 10) // -5
+	if int32(results[0]) != 0 {
+		t.Errorf("clamp(-5, 0, 10): expected 0, got %d", int32(results[0]))
+	}
+
+	// clamp(15, 0, 10) = 10 (above range)
+	results, _ = testClamp.Call(ctx, 15, 0, 10)
+	if int32(results[0]) != 10 {
+		t.Errorf("clamp(15, 0, 10): expected 10, got %d", int32(results[0]))
+	}
+}
+

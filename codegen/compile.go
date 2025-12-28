@@ -3166,6 +3166,28 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 			code = append(code, 0x41, 0) // i32.const 0
 			code = append(code, c.compileExpr(e.Args[0])...)
 			code = append(code, OpI32Sub) // 0 - n
+		case "clamp":
+			// clamp(n, lo, hi) - clamp value to range [lo, hi]
+			code = nil
+			n := c.compileExpr(e.Args[0])
+			lo := c.compileExpr(e.Args[1])
+			hi := c.compileExpr(e.Args[2])
+			// if n < lo { lo } else if n > hi { hi } else { n }
+			code = append(code, n...)
+			code = append(code, lo...)
+			code = append(code, OpI32LtS)
+			code = append(code, OpIf, 0x7f) // if n < lo
+			code = append(code, lo...)
+			code = append(code, OpElse)
+			code = append(code, n...)
+			code = append(code, hi...)
+			code = append(code, OpI32GtS)
+			code = append(code, OpIf, 0x7f) // if n > hi
+			code = append(code, hi...)
+			code = append(code, OpElse)
+			code = append(code, n...)
+			code = append(code, OpEnd)
+			code = append(code, OpEnd)
 		case "print":
 			// print(str, len) - prints string with newline
 			code = nil
