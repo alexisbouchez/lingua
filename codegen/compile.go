@@ -156,6 +156,71 @@ func generateMaxHelper() []byte {
 	return code
 }
 
+// generatePowHelper generates the pow(base, exp) helper function bytecode
+// Returns base^exp for non-negative integer exponent
+// Params: base (0), exp (1)
+// Locals: result (2), i (3)
+func generatePowHelper() []byte {
+	var code []byte
+
+	// if exp == 0, return 1
+	code = append(code, OpLocalGet, 1)     // get exp
+	code = append(code, OpI32Eqz)          // exp == 0
+	code = append(code, OpIf, 0x7f)        // if (result i32)
+	code = append(code, 0x41, 1)           // return 1
+	code = append(code, OpElse)
+
+	// if exp == 1, return base
+	code = append(code, OpLocalGet, 1)     // get exp
+	code = append(code, 0x41, 1)           // i32.const 1
+	code = append(code, OpI32Eq)           // exp == 1
+	code = append(code, OpIf, 0x7f)        // if (result i32)
+	code = append(code, OpLocalGet, 0)     // return base
+	code = append(code, OpElse)
+
+	// result = 1
+	code = append(code, 0x41, 1)           // i32.const 1
+	code = append(code, OpLocalSet, 2)     // local.set result
+
+	// i = 0
+	code = append(code, 0x41, 0)           // i32.const 0
+	code = append(code, OpLocalSet, 3)     // local.set i
+
+	// loop: while i < exp
+	code = append(code, OpBlock, 0x40)     // block (no result)
+	code = append(code, OpLoop, 0x40)      // loop (no result)
+
+	// if i >= exp, break
+	code = append(code, OpLocalGet, 3)     // get i
+	code = append(code, OpLocalGet, 1)     // get exp
+	code = append(code, OpI32GeS)          // i >= exp
+	code = append(code, OpBrIf, 1)         // break if true
+
+	// result = result * base
+	code = append(code, OpLocalGet, 2)     // get result
+	code = append(code, OpLocalGet, 0)     // get base
+	code = append(code, OpI32Mul)          // result * base
+	code = append(code, OpLocalSet, 2)     // local.set result
+
+	// i++
+	code = append(code, OpLocalGet, 3)     // get i
+	code = append(code, 0x41, 1)           // i32.const 1
+	code = append(code, OpI32Add)          // i + 1
+	code = append(code, OpLocalSet, 3)     // local.set i
+
+	// continue loop
+	code = append(code, OpBr, 0)           // br 0 (continue loop)
+	code = append(code, OpEnd)             // end loop
+	code = append(code, OpEnd)             // end block
+
+	// return result
+	code = append(code, OpLocalGet, 2)     // get result
+	code = append(code, OpEnd)             // end inner if
+	code = append(code, OpEnd)             // end outer if
+
+	return code
+}
+
 // generateSqrtHelper generates the sqrt(n) helper function bytecode
 // Returns the integer square root of n using Newton's method
 // Params: n (0)
@@ -677,6 +742,7 @@ func CompileFile(file *parser.File, m *Module) {
 	needsAbs := false
 	needsMin := false
 	needsMax := false
+	needsPow := false
 	needsSqrt := false
 	needsStrEq := false
 	needsStrCopy := false
@@ -699,6 +765,9 @@ func CompileFile(file *parser.File, m *Module) {
 		}
 		if usesBuiltin(fn.Body, "max") {
 			needsMax = true
+		}
+		if usesBuiltin(fn.Body, "pow") {
+			needsPow = true
 		}
 		if usesBuiltin(fn.Body, "sqrt") {
 			needsSqrt = true
@@ -738,6 +807,9 @@ func CompileFile(file *parser.File, m *Module) {
 		helperCount++
 	}
 	if needsMax {
+		helperCount++
+	}
+	if needsPow {
 		helperCount++
 	}
 	if needsSqrt {
@@ -782,6 +854,10 @@ func CompileFile(file *parser.File, m *Module) {
 	}
 	if needsMax {
 		funcIdx["max"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsPow {
+		funcIdx["pow"] = len(m.imports) + helperIdx
 		helperIdx++
 	}
 	if needsSqrt {
@@ -836,6 +912,10 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsMax {
 		code := generateMaxHelper()
 		m.AddFunction("max", 2, code, 0) // 2 params, 0 locals
+	}
+	if needsPow {
+		code := generatePowHelper()
+		m.AddFunction("pow", 2, code, 2) // 2 params (base, exp), 2 locals (result, i)
 	}
 	if needsSqrt {
 		code := generateSqrtHelper()

@@ -638,6 +638,80 @@ func TestSqrt(t *testing.T) {
 	}
 }
 
+func TestPow(t *testing.T) {
+	src := `fn test(base: i32, exp: i32): i32 { pow(base, exp) }`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	test := mod.ExportedFunction("test")
+
+	// pow(2, 0) = 1
+	results, _ := test.Call(ctx, 2, 0)
+	if results[0] != 1 {
+		t.Fatalf("pow(2, 0): expected 1, got %d", results[0])
+	}
+
+	// pow(2, 1) = 2
+	results, _ = test.Call(ctx, 2, 1)
+	if results[0] != 2 {
+		t.Fatalf("pow(2, 1): expected 2, got %d", results[0])
+	}
+
+	// pow(2, 3) = 8
+	results, _ = test.Call(ctx, 2, 3)
+	if results[0] != 8 {
+		t.Fatalf("pow(2, 3): expected 8, got %d", results[0])
+	}
+
+	// pow(3, 2) = 9
+	results, _ = test.Call(ctx, 3, 2)
+	if results[0] != 9 {
+		t.Fatalf("pow(3, 2): expected 9, got %d", results[0])
+	}
+
+	// pow(2, 10) = 1024
+	results, _ = test.Call(ctx, 2, 10)
+	if results[0] != 1024 {
+		t.Fatalf("pow(2, 10): expected 1024, got %d", results[0])
+	}
+
+	// pow(5, 3) = 125
+	results, _ = test.Call(ctx, 5, 3)
+	if results[0] != 125 {
+		t.Fatalf("pow(5, 3): expected 125, got %d", results[0])
+	}
+
+	// pow(10, 2) = 100
+	results, _ = test.Call(ctx, 10, 2)
+	if results[0] != 100 {
+		t.Fatalf("pow(10, 2): expected 100, got %d", results[0])
+	}
+
+	// pow(1, 100) = 1
+	results, _ = test.Call(ctx, 1, 100)
+	if results[0] != 1 {
+		t.Fatalf("pow(1, 100): expected 1, got %d", results[0])
+	}
+
+	// pow(0, 5) = 0
+	results, _ = test.Call(ctx, 0, 5)
+	if results[0] != 0 {
+		t.Fatalf("pow(0, 5): expected 0, got %d", results[0])
+	}
+}
+
 func TestLogicalOps(t *testing.T) {
 	// Test && (and)
 	p := parser.New("fn test_and(a: i32, b: i32): i32 { if a > 0 && b > 0 { 1 } else { 0 } }")
