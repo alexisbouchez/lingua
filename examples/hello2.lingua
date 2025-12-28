@@ -1,0 +1,4 @@
+fn _start(): i32 {
+    print("Hello, World!", 13);
+    0
+}

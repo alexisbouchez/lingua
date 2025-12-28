@@ -183,6 +183,55 @@ func TestRunHello(t *testing.T) {
 	}
 }
 
+func TestRunCountdown(t *testing.T) {
+	wasm, err := os.ReadFile("countdown.wasm")
+	if err != nil {
+		t.Skip("countdown.wasm not found")
+	}
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	var stdout bytes.Buffer
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+
+	config := wazero.NewModuleConfig().WithStdout(&stdout)
+	_, err = r.InstantiateWithConfig(ctx, wasm, config)
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	expected := "10\n9\n8\n7\n6\n5\n4\n3\n2\n1\nLiftoff!\n"
+	if stdout.String() != expected {
+		t.Fatalf("expected %q, got %q", expected, stdout.String())
+	}
+}
+
+func TestRunHello2(t *testing.T) {
+	wasm, err := os.ReadFile("hello2.wasm")
+	if err != nil {
+		t.Skip("hello2.wasm not found")
+	}
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	var stdout bytes.Buffer
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+
+	config := wazero.NewModuleConfig().WithStdout(&stdout)
+	_, err = r.InstantiateWithConfig(ctx, wasm, config)
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	if stdout.String() != "Hello, World!\n" {
+		t.Fatalf("expected 'Hello, World!\\n', got %q", stdout.String())
+	}
+}
+
 func TestRunFizzBuzz(t *testing.T) {
 	wasm, err := os.ReadFile("fizzbuzz.wasm")
 	if err != nil {

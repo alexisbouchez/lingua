@@ -1,0 +1,9 @@
+fn _start(): i32 {
+    let i: i32 = 10;
+    loop i > 0 {
+        println(i);
+        i = i - 1;
+    };
+    print("Liftoff!", 8);
+    0
+}
