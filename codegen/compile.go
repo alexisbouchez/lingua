@@ -1606,6 +1606,41 @@ func generateMallocHelper(heapPtrIdx int) []byte {
 	return code
 }
 
+// generateFreeHelper generates the free(ptr) helper function bytecode
+// Deallocates memory at the given pointer
+// For now, this is a stub - real implementation would require memory tracking
+func generateFreeHelper() []byte {
+	var code []byte
+	// For now, just return 0 (success)
+	// In a real implementation, this would:
+	// 1. Validate the pointer
+	// 2. Mark memory as free
+	// 3. Optionally coalesce free blocks
+	code = append(code, 0x41, 0) // i32.const 0 (success)
+	return code
+}
+
+// generateMemoryStatsHelper generates the memory_stats() helper function bytecode
+// Returns memory usage statistics
+func generateMemoryStatsHelper(heapPtrIdx int) []byte {
+	var code []byte
+	// Return current heap pointer as memory usage
+	code = append(code, OpGlobalGet, byte(heapPtrIdx))
+	return code
+}
+
+// generateMemoryInitHelper generates the memory_init() helper function bytecode
+// Initializes memory management system
+func generateMemoryInitHelper(heapPtrIdx int) []byte {
+	var code []byte
+	// Initialize heap pointer to start of memory
+	code = append(code, 0x41, 0) // i32.const 0 (start of memory)
+	code = append(code, OpGlobalSet, byte(heapPtrIdx))
+	// Return success
+	code = append(code, 0x41, 0) // i32.const 0 (success)
+	return code
+}
+
 // generateAsyncSleepHelper generates the async_sleep(ms) helper function bytecode
 // Simulates async sleep using poll_oneoff
 // For now, this is just a stub that returns immediately
@@ -3369,6 +3404,30 @@ func CompileFile(file *parser.File, m *Module) {
 		m.AddFunction("millis", 0, code, 0) // 0 params, 0 locals, returns i32 (milliseconds)
 	}
 
+	// Add memory management functions
+	var code []byte
+	
+	// Initialize memory management system
+	code = generateMemoryInitHelper(heapPtrIdx)
+	m.AddFunction("memory_init", 0, code, 0) // 0 params, returns i32 (success)
+	funcIdx["memory_init"] = len(m.imports) + helperIdx
+	helperIdx++
+
+	// Note: malloc is already added above, so we don't duplicate it here
+	// funcIdx["malloc"] is already set
+
+	// Add memory deallocation function
+	code = generateFreeHelper()
+	m.AddFunction("free", 1, code, 0) // 1 param (ptr), returns i32 (success)
+	funcIdx["free"] = len(m.imports) + helperIdx
+	helperIdx++
+
+	// Add memory statistics function
+	code = generateMemoryStatsHelper(heapPtrIdx)
+	m.AddFunction("memory_stats", 0, code, 0) // 0 params, returns i32 (memory usage)
+	funcIdx["memory_stats"] = len(m.imports) + helperIdx
+	helperIdx++
+
 	// Add async helper functions if needed
 	if hasAsyncFunctions {
 		// Add async runtime initialization
@@ -4106,6 +4165,18 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 			code = append(code, OpI32Store, 2, 0)
 		case "drop":
 			code = append(code, 0x1a) // drop opcode
+		case "memory_init":
+			// memory_init() - initialize memory management
+			idx := c.funcIdx["memory_init"]
+			code = append(code, OpCall, byte(idx))
+		case "free":
+			// free(ptr) - deallocate memory
+			idx := c.funcIdx["free"]
+			code = append(code, OpCall, byte(idx))
+		case "memory_stats":
+			// memory_stats() - returns memory usage
+			idx := c.funcIdx["memory_stats"]
+			code = append(code, OpCall, byte(idx))
 		case "print_str":
 			// Args on stack: addr, len
 			// Set up iovec at addr 0: store addr at 0, len at 4
