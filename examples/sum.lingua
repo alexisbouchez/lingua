@@ -1,0 +1,9 @@
+fn sum(n: i32, x: i32): i32 {
+    let i: i32 = 0;
+    let s: i32 = 0;
+    loop i < n {
+        s = s + i;
+        i = i + 1;
+    };
+    s
+}

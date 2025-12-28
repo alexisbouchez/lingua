@@ -94,3 +94,39 @@ func TestRunMax(t *testing.T) {
 		t.Fatalf("expected 7, got %d", results[0])
 	}
 }
+
+func TestRunSum(t *testing.T) {
+	wasm, err := os.ReadFile("sum.wasm")
+	if err != nil {
+		t.Skip("sum.wasm not found")
+	}
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, wasm)
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	sum := mod.ExportedFunction("sum")
+
+	// sum(5) = 0+1+2+3+4 = 10
+	results, err := sum.Call(ctx, 5, 0)
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+	if results[0] != 10 {
+		t.Fatalf("expected 10, got %d", results[0])
+	}
+
+	// sum(10) = 0+1+2+...+9 = 45
+	results, err = sum.Call(ctx, 10, 0)
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+	if results[0] != 45 {
+		t.Fatalf("expected 45, got %d", results[0])
+	}
+}
