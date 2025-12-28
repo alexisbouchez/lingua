@@ -2,7 +2,10 @@ package codegen
 
 import (
 	"bytes"
+	"context"
 	"testing"
+
+	"github.com/tetratelabs/wazero"
 )
 
 func TestModuleHeader(t *testing.T) {
@@ -45,5 +48,40 @@ func TestAddFunction(t *testing.T) {
 	if !hasType || !hasFunc || !hasExport || !hasCode {
 		t.Fatalf("missing sections: type=%v func=%v export=%v code=%v",
 			hasType, hasFunc, hasExport, hasCode)
+	}
+}
+
+func TestWazeroExecution(t *testing.T) {
+	m := NewModule()
+
+	// add(a, b) = a + b
+	code := []byte{
+		0x20, 0x00, // local.get 0
+		0x20, 0x01, // local.get 1
+		0x6a,       // i32.add
+	}
+	m.AddFunction("add", code)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate failed: %v", err)
+	}
+
+	add := mod.ExportedFunction("add")
+	if add == nil {
+		t.Fatal("add not exported")
+	}
+
+	results, err := add.Call(ctx, 3, 5)
+	if err != nil {
+		t.Fatalf("call failed: %v", err)
+	}
+
+	if len(results) != 1 || results[0] != 8 {
+		t.Fatalf("expected 8, got %v", results)
 	}
 }
