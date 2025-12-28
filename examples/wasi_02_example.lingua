@@ -1,0 +1,13 @@
+// Example demonstrating WASI 0.2 compatibility
+// This example can be compiled with WASI 0.2 support
+
+fn _start(): i32 {
+    // Basic WASI operations that work with both versions
+    println(42);
+    
+    // Note: WASI 0.2 has different module organization
+    // but many functions have similar signatures
+    // The compiler can target either version
+    
+    0
+}

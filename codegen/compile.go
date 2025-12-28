@@ -1,9 +1,6 @@
 package codegen
 
-import (
-	"github.com/alexisbouchez/lingua/parser"
-	"github.com/alexisbouchez/lingua/source"
-)
+import "github.com/alexisbouchez/lingua/parser"
 
 // WASM opcodes
 const (
@@ -66,7 +63,6 @@ type Compiler struct {
 	isAsync       bool // true if compiling an async function
 	continuation  string // current continuation label for async functions
 	asyncRuntime  bool // true if async runtime support is needed
-	sourceMap     *source.SourceMapBuilder // source map builder for debugging
 }
 
 // StructInfo contains information about a struct type
@@ -1610,41 +1606,6 @@ func generateMallocHelper(heapPtrIdx int) []byte {
 	return code
 }
 
-// generateFreeHelper generates the free(ptr) helper function bytecode
-// Deallocates memory at the given pointer
-// For now, this is a stub - real implementation would require memory tracking
-func generateFreeHelper() []byte {
-	var code []byte
-	// For now, just return 0 (success)
-	// In a real implementation, this would:
-	// 1. Validate the pointer
-	// 2. Mark memory as free
-	// 3. Optionally coalesce free blocks
-	code = append(code, 0x41, 0) // i32.const 0 (success)
-	return code
-}
-
-// generateMemoryStatsHelper generates the memory_stats() helper function bytecode
-// Returns memory usage statistics
-func generateMemoryStatsHelper(heapPtrIdx int) []byte {
-	var code []byte
-	// Return current heap pointer as memory usage
-	code = append(code, OpGlobalGet, byte(heapPtrIdx))
-	return code
-}
-
-// generateMemoryInitHelper generates the memory_init() helper function bytecode
-// Initializes memory management system
-func generateMemoryInitHelper(heapPtrIdx int) []byte {
-	var code []byte
-	// Initialize heap pointer to start of memory
-	code = append(code, 0x41, 0) // i32.const 0 (start of memory)
-	code = append(code, OpGlobalSet, byte(heapPtrIdx))
-	// Return success
-	code = append(code, 0x41, 0) // i32.const 0 (success)
-	return code
-}
-
 // generateAsyncSleepHelper generates the async_sleep(ms) helper function bytecode
 // Simulates async sleep using poll_oneoff
 // For now, this is just a stub that returns immediately
@@ -1841,7 +1802,7 @@ func generatePrintIntHelper(fdWriteIdx int) []byte {
 	return code
 }
 
-func CompileFile(file *parser.File, m *Module, fileName string, generateSourceMaps bool) {
+func CompileFile(file *parser.File, m *Module, fileName string, generateSourceMaps bool, useWASI02 bool) {
 	// Collect struct definitions
 	structs := make(map[string]*StructInfo)
 	for _, s := range file.Structs {
@@ -1949,6 +1910,12 @@ func CompileFile(file *parser.File, m *Module, fileName string, generateSourceMa
 			hasAsyncFunctions = true
 			break
 		}
+	}
+
+	// Determine which WASI version to use
+	wasiModule := "wasi_snapshot_preview1"
+	if useWASI02 {
+		wasiModule = "wasi_02"
 	}
 
 	// Ensure fd_read is imported if read_char is used
@@ -2513,9 +2480,9 @@ func CompileFile(file *parser.File, m *Module, fileName string, generateSourceMa
 		if info, ok := wasiImports[name]; ok {
 			// clock_time_get has special param types: (i32, i64, i32)
 			if name == "clock_time_get" {
-				m.AddImportWithTypes("wasi_snapshot_preview1", name, info.numParams, []byte{I32, I64, I32}, info.hasResult)
+				m.AddImportWithTypes(wasiModule, name, info.numParams, []byte{I32, I64, I32}, info.hasResult)
 			} else {
-				m.AddImport("wasi_snapshot_preview1", name, info.numParams, info.hasResult)
+				m.AddImport(wasiModule, name, info.numParams, info.hasResult)
 			}
 		}
 	}
@@ -3408,30 +3375,6 @@ func CompileFile(file *parser.File, m *Module, fileName string, generateSourceMa
 		m.AddFunction("millis", 0, code, 0) // 0 params, 0 locals, returns i32 (milliseconds)
 	}
 
-	// Add memory management functions
-	var code []byte
-	
-	// Initialize memory management system
-	code = generateMemoryInitHelper(heapPtrIdx)
-	m.AddFunction("memory_init", 0, code, 0) // 0 params, returns i32 (success)
-	funcIdx["memory_init"] = len(m.imports) + helperIdx
-	helperIdx++
-
-	// Note: malloc is already added above, so we don't duplicate it here
-	// funcIdx["malloc"] is already set
-
-	// Add memory deallocation function
-	code = generateFreeHelper()
-	m.AddFunction("free", 1, code, 0) // 1 param (ptr), returns i32 (success)
-	funcIdx["free"] = len(m.imports) + helperIdx
-	helperIdx++
-
-	// Add memory statistics function
-	code = generateMemoryStatsHelper(heapPtrIdx)
-	m.AddFunction("memory_stats", 0, code, 0) // 0 params, returns i32 (memory usage)
-	funcIdx["memory_stats"] = len(m.imports) + helperIdx
-	helperIdx++
-
 	// Add async helper functions if needed
 	if hasAsyncFunctions {
 		// Add async runtime initialization
@@ -3466,21 +3409,9 @@ func CompileFile(file *parser.File, m *Module, fileName string, generateSourceMa
 		}
 	}
 
-	// Create source map builder if needed
-	var sourceMap *source.SourceMapBuilder
-	if generateSourceMaps {
-		sourceMap = source.NewSourceMapBuilder(fileName)
-	}
-
 	for _, fn := range file.Fns {
-		code, numLocals := Compile(fn, funcIdx, globalIdx, structs, strings, hasAsyncFunctions, sourceMap)
+		code, numLocals := Compile(fn, funcIdx, globalIdx, structs, strings, hasAsyncFunctions)
 		m.AddFunction(fn.Name, len(fn.Params), code, numLocals)
-	}
-
-	// Add source map to module if generated
-	if sourceMap != nil {
-		sm := sourceMap.Build()
-		m.SourceMap = sm
 	}
 
 	// Add string data to module
@@ -3793,7 +3724,7 @@ func collectCallsExpr(expr parser.Expr, calls map[string]bool) {
 	}
 }
 
-func Compile(fn *parser.FnDecl, funcIdx, globalIdx map[string]int, structs map[string]*StructInfo, strings *StringTable, hasAsyncFunctions bool, sourceMap *source.SourceMapBuilder) (code []byte, numLocals int) {
+func Compile(fn *parser.FnDecl, funcIdx, globalIdx map[string]int, structs map[string]*StructInfo, strings *StringTable, hasAsyncFunctions bool) (code []byte, numLocals int) {
 	// Check if async runtime is needed for this function
 	asyncRuntimeNeeded := hasAsyncFunctions && fn.Async
 	
@@ -3808,7 +3739,6 @@ func Compile(fn *parser.FnDecl, funcIdx, globalIdx map[string]int, structs map[s
 		isAsync:      fn.Async,
 		continuation: "",
 		asyncRuntime: asyncRuntimeNeeded,
-		sourceMap:    sourceMap,
 	}
 
 	// Map params to local indices
@@ -4182,18 +4112,6 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 			code = append(code, OpI32Store, 2, 0)
 		case "drop":
 			code = append(code, 0x1a) // drop opcode
-		case "memory_init":
-			// memory_init() - initialize memory management
-			idx := c.funcIdx["memory_init"]
-			code = append(code, OpCall, byte(idx))
-		case "free":
-			// free(ptr) - deallocate memory
-			idx := c.funcIdx["free"]
-			code = append(code, OpCall, byte(idx))
-		case "memory_stats":
-			// memory_stats() - returns memory usage
-			idx := c.funcIdx["memory_stats"]
-			code = append(code, OpCall, byte(idx))
 		case "print_str":
 			// Args on stack: addr, len
 			// Set up iovec at addr 0: store addr at 0, len at 4
