@@ -24,3 +24,24 @@ type BinaryExpr struct {
 
 func (BinaryExpr) node() {}
 func (BinaryExpr) expr() {}
+
+type Ident struct {
+	Name string
+}
+
+func (Ident) node() {}
+func (Ident) expr() {}
+
+type Param struct {
+	Name string
+	Type string
+}
+
+type FnDecl struct {
+	Name   string
+	Params []Param
+	Return string
+	Body   Expr
+}
+
+func (FnDecl) node() {}

@@ -54,10 +54,64 @@ func (p *Parser) precedence() int {
 }
 
 func (p *Parser) parsePrimary() Expr {
-	if p.cur.Type == lexer.INT {
+	switch p.cur.Type {
+	case lexer.INT:
 		val, _ := strconv.ParseInt(p.cur.Literal, 10, 64)
 		p.next()
 		return &IntLit{Value: val}
+	case lexer.IDENT:
+		name := p.cur.Literal
+		p.next()
+		return &Ident{Name: name}
 	}
 	return nil
+}
+
+func (p *Parser) expect(t lexer.TokenType) {
+	if p.cur.Type != t {
+		return
+	}
+	p.next()
+}
+
+func (p *Parser) ParseFn() *FnDecl {
+	p.expect(lexer.FN)
+
+	name := p.cur.Literal
+	p.next()
+
+	p.expect(lexer.LPAREN)
+	params := p.parseParams()
+	p.expect(lexer.RPAREN)
+
+	var ret string
+	if p.cur.Type == lexer.COLON {
+		p.next()
+		ret = p.cur.Literal
+		p.next()
+	}
+
+	p.expect(lexer.LBRACE)
+	body := p.ParseExpr()
+	p.expect(lexer.RBRACE)
+
+	return &FnDecl{Name: name, Params: params, Return: ret, Body: body}
+}
+
+func (p *Parser) parseParams() []Param {
+	var params []Param
+	for p.cur.Type == lexer.IDENT {
+		name := p.cur.Literal
+		p.next()
+		p.expect(lexer.COLON)
+		typ := p.cur.Literal
+		p.next()
+		params = append(params, Param{Name: name, Type: typ})
+		if p.cur.Type == lexer.COMMA {
+			p.next()
+		} else {
+			break
+		}
+	}
+	return params
 }

@@ -58,3 +58,23 @@ func TestParsePrecedence(t *testing.T) {
 		t.Fatalf("expected right to be 2*3")
 	}
 }
+
+func TestParseFnDecl(t *testing.T) {
+	p := New("fn add(a: i32, b: i32): i32 { a + b }")
+	fn := p.ParseFn()
+	if fn.Name != "add" {
+		t.Fatalf("expected name=add, got %s", fn.Name)
+	}
+	if len(fn.Params) != 2 {
+		t.Fatalf("expected 2 params, got %d", len(fn.Params))
+	}
+	if fn.Params[0].Name != "a" || fn.Params[0].Type != "i32" {
+		t.Fatalf("wrong param 0: %+v", fn.Params[0])
+	}
+	if fn.Return != "i32" {
+		t.Fatalf("expected return=i32, got %s", fn.Return)
+	}
+	if fn.Body == nil {
+		t.Fatalf("expected body")
+	}
+}
