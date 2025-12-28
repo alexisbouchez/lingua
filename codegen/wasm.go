@@ -9,6 +9,7 @@ var version = []byte{0x01, 0x00, 0x00, 0x00}
 // Section IDs
 const (
 	SectionType     = 1
+	SectionImport   = 2
 	SectionFunction = 3
 	SectionMemory   = 5
 	SectionExport   = 7
@@ -30,11 +31,18 @@ type FuncDef struct {
 	Code      []byte
 }
 
+type ImportDef struct {
+	Module    string
+	Name      string
+	NumParams int
+}
+
 type Module struct {
-	funcs     []FuncDef
-	funcIdx   map[string]int
-	hasMemory bool
-	memPages  int
+	imports    []ImportDef
+	funcs      []FuncDef
+	funcIdx    map[string]int
+	hasMemory  bool
+	memPages   int
 }
 
 func NewModule() *Module {
@@ -43,8 +51,21 @@ func NewModule() *Module {
 	}
 }
 
+func (m *Module) AddImport(module, name string, numParams int) {
+	m.funcIdx[name] = len(m.imports) + len(m.funcs)
+	m.imports = append(m.imports, ImportDef{
+		Module:    module,
+		Name:      name,
+		NumParams: numParams,
+	})
+	// Re-index: imports come first, then local funcs
+	for i := range m.funcs {
+		m.funcIdx[m.funcs[i].Name] = len(m.imports) + i
+	}
+}
+
 func (m *Module) AddFunction(name string, numParams int, code []byte, numLocals int) {
-	m.funcIdx[name] = len(m.funcs)
+	m.funcIdx[name] = len(m.imports) + len(m.funcs)
 	m.funcs = append(m.funcs, FuncDef{
 		Name:      name,
 		NumParams: numParams,
@@ -70,6 +91,12 @@ func (m *Module) Bytes() []byte {
 	// Type section - one type per function based on param count
 	typeMap := make(map[int]int) // numParams -> typeIdx
 	var types []int
+	for _, imp := range m.imports {
+		if _, ok := typeMap[imp.NumParams]; !ok {
+			typeMap[imp.NumParams] = len(types)
+			types = append(types, imp.NumParams)
+		}
+	}
 	for _, f := range m.funcs {
 		if _, ok := typeMap[f.NumParams]; !ok {
 			typeMap[f.NumParams] = len(types)
@@ -89,6 +116,21 @@ func (m *Module) Bytes() []byte {
 		typeSec.WriteByte(I32) // i32
 	}
 	writeSection(&buf, SectionType, typeSec.Bytes())
+
+	// Import section
+	if len(m.imports) > 0 {
+		var impSec bytes.Buffer
+		impSec.Write(uleb128(uint64(len(m.imports))))
+		for _, imp := range m.imports {
+			impSec.Write(uleb128(uint64(len(imp.Module))))
+			impSec.WriteString(imp.Module)
+			impSec.Write(uleb128(uint64(len(imp.Name))))
+			impSec.WriteString(imp.Name)
+			impSec.WriteByte(0x00) // func import
+			impSec.Write(uleb128(uint64(typeMap[imp.NumParams])))
+		}
+		writeSection(&buf, SectionImport, impSec.Bytes())
+	}
 
 	// Function section
 	var funcSec bytes.Buffer
@@ -118,7 +160,7 @@ func (m *Module) Bytes() []byte {
 		expSec.Write(uleb128(uint64(len(f.Name))))
 		expSec.WriteString(f.Name)
 		expSec.WriteByte(0x00) // func export
-		expSec.Write(uleb128(uint64(i)))
+		expSec.Write(uleb128(uint64(len(m.imports) + i)))
 	}
 	if m.hasMemory {
 		expSec.Write(uleb128(uint64(len("memory"))))

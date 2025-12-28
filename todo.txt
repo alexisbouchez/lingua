@@ -19,7 +19,7 @@ PHASE 2: WASM CODE GENERATION
 [x] Implement function section generation
 [x] Implement export section generation
 [x] Implement code section generation
-[ ] Implement memory section generation
+[x] Implement memory section generation
 [ ] Implement global section generation
 [ ] Implement table section generation
 [ ] Implement import section generation
@@ -43,7 +43,7 @@ PHASE 4: LANGUAGE FEATURES
 [x] Implement functions and function calls
 [x] Implement local and global variables
 [ ] Implement memory management
-[ ] Implement linear memory operations
+[x] Implement linear memory operations
 [ ] Implement structs/records (using WASM GC if targeting 3.0)
 [ ] Implement arrays
 [ ] Implement strings
