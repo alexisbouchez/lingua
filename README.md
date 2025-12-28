@@ -60,6 +60,7 @@ arr[1] = 100;
 
 #### Memory Functions
 - `malloc(size)` - allocate size bytes on heap, returns address
+- `memcpy(dest, src, len)` - copy len bytes from src to dest, returns dest
 - `load(addr)` - load i32 from memory
 - `store(addr, val)` - store i32 to memory
 - `drop(val)` - discard a value

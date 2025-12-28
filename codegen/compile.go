@@ -272,6 +272,56 @@ func generateStrCopyHelper() []byte {
 	return code
 }
 
+// generateMemcpyHelper generates the memcpy(dest, src, len) helper function bytecode
+// Copies len bytes from src to dest, returns dest
+// Params: dest (0), src (1), len (2)
+// Locals: i (3)
+func generateMemcpyHelper() []byte {
+	var code []byte
+
+	// i = 0 (local 3)
+	code = append(code, 0x41, 0)           // i32.const 0
+	code = append(code, OpLocalSet, 3)     // local.set i
+
+	// loop: while i < len
+	code = append(code, OpBlock, 0x40)     // block (no result)
+	code = append(code, OpLoop, 0x40)      // loop (no result)
+
+	// if i >= len, break
+	code = append(code, OpLocalGet, 3)     // get i
+	code = append(code, OpLocalGet, 2)     // get len
+	code = append(code, OpI32GeS)          // i >= len
+	code = append(code, OpBrIf, 1)         // break if true
+
+	// dest[i] = src[i]
+	code = append(code, OpLocalGet, 0)     // get dest
+	code = append(code, OpLocalGet, 3)     // get i
+	code = append(code, OpI32Add)          // dest + i
+
+	code = append(code, OpLocalGet, 1)     // get src
+	code = append(code, OpLocalGet, 3)     // get i
+	code = append(code, OpI32Add)          // src + i
+	code = append(code, 0x2d, 0, 0)        // i32.load8_u (load byte)
+
+	code = append(code, 0x3a, 0, 0)        // i32.store8 (store byte)
+
+	// i++
+	code = append(code, OpLocalGet, 3)     // get i
+	code = append(code, 0x41, 1)           // i32.const 1
+	code = append(code, OpI32Add)          // i + 1
+	code = append(code, OpLocalSet, 3)     // local.set i
+
+	// continue loop
+	code = append(code, OpBr, 0)           // br 0 (continue loop)
+	code = append(code, OpEnd)             // end loop
+	code = append(code, OpEnd)             // end block
+
+	// Return dest
+	code = append(code, OpLocalGet, 0)     // get dest
+
+	return code
+}
+
 // generateReadCharHelper generates the read_char() helper function bytecode
 // Returns the character read from stdin, or -1 on EOF/error
 // Uses memory at address 700 for the 1-byte read buffer
@@ -528,6 +578,7 @@ func CompileFile(file *parser.File, m *Module) {
 	needsStrCopy := false
 	needsReadChar := false
 	needsMalloc := false
+	needsMemcpy := false
 	for _, fn := range file.Fns {
 		if usesPrintInt(fn.Body) {
 			needsPrintInt = true
@@ -555,6 +606,9 @@ func CompileFile(file *parser.File, m *Module) {
 		}
 		if usesBuiltin(fn.Body, "malloc") {
 			needsMalloc = true
+		}
+		if usesBuiltin(fn.Body, "memcpy") {
+			needsMemcpy = true
 		}
 	}
 
@@ -585,6 +639,9 @@ func CompileFile(file *parser.File, m *Module) {
 		helperCount++
 	}
 	if needsMalloc {
+		helperCount++
+	}
+	if needsMemcpy {
 		helperCount++
 	}
 
@@ -624,6 +681,10 @@ func CompileFile(file *parser.File, m *Module) {
 	}
 	if needsMalloc {
 		funcIdx["malloc"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsMemcpy {
+		funcIdx["memcpy"] = len(m.imports) + helperIdx
 		helperIdx++
 	}
 	for i, fn := range file.Fns {
@@ -666,6 +727,10 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsMalloc {
 		code := generateMallocHelper(heapPtrIdx)
 		m.AddFunction("malloc", 1, code, 0) // 1 param (size), 0 locals
+	}
+	if needsMemcpy {
+		code := generateMemcpyHelper()
+		m.AddFunction("memcpy", 3, code, 1) // 3 params (dest, src, len), 1 local
 	}
 
 	for _, fn := range file.Fns {

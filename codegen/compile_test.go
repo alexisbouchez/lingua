@@ -1337,3 +1337,111 @@ func TestMallocMemoryOperations(t *testing.T) {
 		t.Fatalf("expected 150, got %d", results[0])
 	}
 }
+
+func TestMemcpy(t *testing.T) {
+	src := `fn _start(): i32 {
+		let src: i32 = malloc(20);
+		let dest: i32 = malloc(20);
+		store(src, 100);
+		store(src + 4, 200);
+		store(src + 8, 300);
+		memcpy(dest, src, 12);
+		load(dest) + load(dest + 4) + load(dest + 8)
+	}`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	start := mod.ExportedFunction("_start")
+	results, err := start.Call(ctx)
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+
+	if results[0] != 600 {
+		t.Fatalf("expected 600, got %d", results[0])
+	}
+}
+
+func TestMemcpyLargeBlock(t *testing.T) {
+	src := `fn _start(): i32 {
+		let src: i32 = malloc(100);
+		let dest: i32 = malloc(100);
+		store(src, 42);
+		store(src + 50, 99);
+		memcpy(dest, src, 100);
+		load(dest) + load(dest + 50)
+	}`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	start := mod.ExportedFunction("_start")
+	results, err := start.Call(ctx)
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+
+	if results[0] != 141 {
+		t.Fatalf("expected 141, got %d", results[0])
+	}
+}
+
+func TestMemcpyReturnValue(t *testing.T) {
+	src := `fn _start(): i32 {
+		let src: i32 = malloc(10);
+		let dest: i32 = malloc(10);
+		let ret: i32 = memcpy(dest, src, 10);
+		if ret != dest { return 1 };
+		0
+	}`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	start := mod.ExportedFunction("_start")
+	results, err := start.Call(ctx)
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+
+	if results[0] != 0 {
+		t.Fatalf("expected 0 (success), got %d", results[0])
+	}
+}
