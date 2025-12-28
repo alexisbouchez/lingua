@@ -60,3 +60,37 @@ func TestRunDoubleAdd(t *testing.T) {
 		t.Fatalf("expected 14, got %d", results[0])
 	}
 }
+
+func TestRunMax(t *testing.T) {
+	wasm, err := os.ReadFile("max.wasm")
+	if err != nil {
+		t.Skip("max.wasm not found")
+	}
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, wasm)
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	max := mod.ExportedFunction("max")
+
+	results, err := max.Call(ctx, 10, 5)
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+	if results[0] != 10 {
+		t.Fatalf("expected 10, got %d", results[0])
+	}
+
+	results, err = max.Call(ctx, 3, 7)
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+	if results[0] != 7 {
+		t.Fatalf("expected 7, got %d", results[0])
+	}
+}
