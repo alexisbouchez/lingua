@@ -1,0 +1,93 @@
+LINGUA - WASM/WASI Native Programming Language
+==============================================
+
+PHASE 1: FOUNDATION
+-------------------
+[x] Set up Go project structure (go mod init)
+[ ] Define language grammar and syntax specification
+[ ] Implement lexer/tokenizer
+[ ] Implement parser (AST generation)
+[ ] Design type system
+[ ] Implement semantic analyzer
+
+PHASE 2: WASM CODE GENERATION
+-----------------------------
+[ ] Study WebAssembly 3.0 binary format specification
+[ ] Implement WASM binary encoder
+[ ] Generate WASM module structure (magic number, version, sections)
+[ ] Implement type section generation
+[ ] Implement function section generation
+[ ] Implement export section generation
+[ ] Implement code section generation
+[ ] Implement memory section generation
+[ ] Implement global section generation
+[ ] Implement table section generation
+[ ] Implement import section generation
+[ ] Support WASM text format (.wat) output for debugging
+
+PHASE 3: WASI INTEGRATION
+-------------------------
+[ ] Study WASI 0.2 specification (current stable)
+[ ] Implement WASI imports (wasi_snapshot_preview1)
+[ ] Support wasi:cli for command-line programs
+[ ] Support wasi:filesystem for file I/O
+[ ] Support wasi:sockets for networking
+[ ] Support wasi:random for random number generation
+[ ] Support wasi:clocks for time operations
+[ ] Support wasi:http for HTTP client/server
+
+PHASE 4: LANGUAGE FEATURES
+--------------------------
+[ ] Implement basic types (i32, i64, f32, f64)
+[ ] Implement control flow (if, else, loops, blocks)
+[ ] Implement functions and function calls
+[ ] Implement local and global variables
+[ ] Implement memory management
+[ ] Implement linear memory operations
+[ ] Implement structs/records (using WASM GC if targeting 3.0)
+[ ] Implement arrays
+[ ] Implement strings
+[ ] Implement error handling
+
+PHASE 5: COMPONENT MODEL (WASM 3.0)
+-----------------------------------
+[ ] Study WebAssembly Component Model specification
+[ ] Study WIT (WebAssembly Interface Types) format
+[ ] Implement component generation
+[ ] Support interface imports/exports
+[ ] Support component composition
+
+PHASE 6: TOOLING
+----------------
+[ ] Build CLI compiler tool
+[ ] Implement source maps for debugging
+[ ] Add error reporting with line/column info
+[ ] Create REPL for interactive development
+[ ] Add language server protocol (LSP) support
+[ ] Create VS Code extension
+
+PHASE 7: STANDARD LIBRARY
+-------------------------
+[ ] Implement I/O primitives
+[ ] Implement string utilities
+[ ] Implement math functions
+[ ] Implement collections (list, map, set)
+[ ] Implement async/await primitives (WASI 0.3)
+
+PHASE 8: TESTING & DOCUMENTATION
+--------------------------------
+[ ] Set up test framework
+[ ] Write unit tests for lexer/parser
+[ ] Write integration tests with WASM runtimes
+[ ] Test with Wasmtime
+[ ] Test with WasmEdge
+[ ] Test with wazero (Go native runtime)
+[ ] Write language documentation
+[ ] Create tutorials and examples
+
+RESOURCES TO STUDY
+------------------
+- WebAssembly 3.0 Core Spec: https://webassembly.github.io/spec/core/
+- WASI Documentation: https://wasi.dev/
+- Component Model: https://component-model.bytecodealliance.org/
+- Go WASM packages: github.com/aspect-build/aspect/toolchains/go/
