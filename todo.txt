@@ -54,8 +54,8 @@ PHASE 5: COMPONENT MODEL (WASM 3.0)
 [x] Study WebAssembly Component Model specification
 [x] Study WIT (WebAssembly Interface Types) format
 [x] Implement component generation (basic)
-[ ] Support interface imports/exports
-[ ] Support component composition
+[~] Support interface imports/exports (basic implementation added)
+[~] Support component composition (basic implementation added)
 
 PHASE 6: TOOLING
 ----------------

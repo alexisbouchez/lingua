@@ -1,6 +1,9 @@
 package codegen
 
-import "bytes"
+import (
+	"bytes"
+	"github.com/alexisbouchez/lingua/source"
+)
 
 // WASM magic number and version
 var magic = []byte{0x00, 0x61, 0x73, 0x6d} // \0asm
@@ -73,6 +76,7 @@ type Module struct {
 	hasMemory  bool
 	memPages   int
 	data       []DataSeg
+	SourceMap  *source.SourceMap // Optional source map for debugging
 }
 
 func NewModule() *Module {

@@ -1,0 +1,27 @@
+// Memory management test
+
+fn _start(): i32 {
+    // Initialize memory management
+    memory_init();
+    
+    // Allocate some memory
+    let ptr: i32 = malloc(100);
+    
+    // Store a value in the allocated memory
+    store(ptr, 42);
+    
+    // Load the value back
+    let value: i32 = load(ptr);
+    
+    // Print the value
+    println(value);
+    
+    // Get memory statistics
+    let stats: i32 = memory_stats();
+    println(stats);
+    
+    // Free the memory
+    free(ptr);
+    
+    0
+}

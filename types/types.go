@@ -492,7 +492,7 @@ func (c *Checker) builtinType(name string, args []parser.Expr) Type {
 		return I32
 
 	// Memory builtins
-	case "load", "malloc":
+	case "load":
 		return I32
 
 	case "store", "memcpy":
@@ -511,6 +511,10 @@ func (c *Checker) builtinType(name string, args []parser.Expr) Type {
 
 	// Async builtins
 	case "async_sleep", "async_read", "_async_init", "_async_yield", "_async_resume":
+		return I32
+
+	// Memory management builtins
+	case "memory_init", "malloc", "free", "memory_stats":
 		return I32
 
 	// String builtins

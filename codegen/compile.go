@@ -1802,7 +1802,7 @@ func generatePrintIntHelper(fdWriteIdx int) []byte {
 	return code
 }
 
-func CompileFile(file *parser.File, m *Module) {
+func CompileFile(file *parser.File, m *Module, fileName string, generateSourceMaps bool, useWASI02 bool) {
 	// Collect struct definitions
 	structs := make(map[string]*StructInfo)
 	for _, s := range file.Structs {
@@ -1910,6 +1910,12 @@ func CompileFile(file *parser.File, m *Module) {
 			hasAsyncFunctions = true
 			break
 		}
+	}
+
+	// Determine which WASI version to use
+	wasiModule := "wasi_snapshot_preview1"
+	if useWASI02 {
+		wasiModule = "wasi_02"
 	}
 
 	// Ensure fd_read is imported if read_char is used
@@ -2474,9 +2480,9 @@ func CompileFile(file *parser.File, m *Module) {
 		if info, ok := wasiImports[name]; ok {
 			// clock_time_get has special param types: (i32, i64, i32)
 			if name == "clock_time_get" {
-				m.AddImportWithTypes("wasi_snapshot_preview1", name, info.numParams, []byte{I32, I64, I32}, info.hasResult)
+				m.AddImportWithTypes(wasiModule, name, info.numParams, []byte{I32, I64, I32}, info.hasResult)
 			} else {
-				m.AddImport("wasi_snapshot_preview1", name, info.numParams, info.hasResult)
+				m.AddImport(wasiModule, name, info.numParams, info.hasResult)
 			}
 		}
 	}
