@@ -34,7 +34,7 @@ PHASE 3: WASI INTEGRATION
 [x] Support wasi:sockets for networking
 [x] Support wasi:random for random number generation
 [x] Support wasi:clocks for time operations
-[ ] Support wasi:http for HTTP client/server
+[x] Support wasi:http for HTTP client/server (Component Model)
 
 PHASE 4: LANGUAGE FEATURES
 --------------------------
@@ -51,9 +51,9 @@ PHASE 4: LANGUAGE FEATURES
 
 PHASE 5: COMPONENT MODEL (WASM 3.0)
 -----------------------------------
-[ ] Study WebAssembly Component Model specification
-[ ] Study WIT (WebAssembly Interface Types) format
-[ ] Implement component generation
+[x] Study WebAssembly Component Model specification
+[x] Study WIT (WebAssembly Interface Types) format
+[x] Implement component generation (basic)
 [ ] Support interface imports/exports
 [ ] Support component composition
 

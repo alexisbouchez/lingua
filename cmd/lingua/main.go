@@ -6,13 +6,14 @@ import (
 	"strings"
 
 	"github.com/alexisbouchez/lingua/codegen"
+	"github.com/alexisbouchez/lingua/component"
 	"github.com/alexisbouchez/lingua/parser"
 	"github.com/alexisbouchez/lingua/types"
 )
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: lingua <file.lingua> [output.wasm|output.wat]")
+		fmt.Fprintln(os.Stderr, "usage: lingua <file.lingua> [output.wasm|output.wat|output.component.wasm]")
 		os.Exit(1)
 	}
 
@@ -49,13 +50,23 @@ func main() {
 		outFile = os.Args[2]
 	}
 
-	// Output WAT if .wat extension, otherwise binary WASM
+	// Output format based on extension
 	if strings.HasSuffix(outFile, ".wat") {
+		// WAT text format
 		if err := os.WriteFile(outFile, []byte(m.WAT()), 0644); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+	} else if strings.HasSuffix(outFile, ".component.wasm") {
+		// Component Model format (wraps core module)
+		comp := component.New()
+		comp.SetCoreModule(m.Bytes())
+		if err := os.WriteFile(outFile, comp.Bytes(), 0644); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	} else {
+		// Binary WASM (core module)
 		if err := os.WriteFile(outFile, m.Bytes(), 0644); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)

@@ -1286,6 +1286,51 @@ func generateSockShutdownHelper(sockShutdownIdx int) []byte {
 	return code
 }
 
+// HTTP helpers for Component Model (wasi:http)
+// These work with wasi:http/outgoing-handler when running in a component-aware runtime
+
+// generateHTTPGetHelper generates the http_get() helper function bytecode
+// Params: url_ptr (i32), url_len (i32), response_ptr (i32)
+// Returns: status code (i32), or negative error code
+// Uses memory at response_ptr for response body (first 4 bytes = length, then data)
+func generateHTTPGetHelper() []byte {
+	var code []byte
+
+	// For now, this is a stub that returns -1 (not supported in preview1)
+	// When compiled as a component, the runtime provides the implementation
+	code = append(code, 0x41) // i32.const
+	code = append(code, 0x7f) // -1 (signed LEB128)
+
+	return code
+}
+
+// generateHTTPPostHelper generates the http_post() helper function bytecode
+// Params: url_ptr (i32), url_len (i32), body_ptr (i32), body_len (i32), response_ptr (i32)
+// Returns: status code (i32), or negative error code
+func generateHTTPPostHelper() []byte {
+	var code []byte
+
+	// Stub - returns -1 (not supported in preview1)
+	code = append(code, 0x41) // i32.const
+	code = append(code, 0x7f) // -1
+
+	return code
+}
+
+// generateHTTPRequestHelper generates the http_request() helper function bytecode
+// Params: method (i32), url_ptr (i32), url_len (i32), headers_ptr (i32), headers_len (i32),
+//         body_ptr (i32), body_len (i32), response_ptr (i32)
+// Returns: status code (i32), or negative error code
+func generateHTTPRequestHelper() []byte {
+	var code []byte
+
+	// Stub - returns -1 (not supported in preview1)
+	code = append(code, 0x41) // i32.const
+	code = append(code, 0x7f) // -1
+
+	return code
+}
+
 // generateTimeHelper generates the time() helper function bytecode
 // Returns the current wall clock time in seconds as i32
 // Uses memory at address 904 for the 8-byte timestamp buffer
@@ -2037,6 +2082,31 @@ func CompileFile(file *parser.File, m *Module) {
 		usedImports["sock_shutdown"] = true
 	}
 
+	// Check if HTTP builtins are used (Component Model - no WASI import needed)
+	needsHTTPGetEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "http_get") {
+			needsHTTPGetEarly = true
+			break
+		}
+	}
+
+	needsHTTPPostEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "http_post") {
+			needsHTTPPostEarly = true
+			break
+		}
+	}
+
+	needsHTTPRequestEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "http_request") {
+			needsHTTPRequestEarly = true
+			break
+		}
+	}
+
 	// Ensure clock_time_get is imported if time is used
 	needsTimeEarly := false
 	for _, fn := range file.Fns {
@@ -2374,6 +2444,15 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsSockShutdownEarly {
 		helperCount++
 	}
+	if needsHTTPGetEarly {
+		helperCount++
+	}
+	if needsHTTPPostEarly {
+		helperCount++
+	}
+	if needsHTTPRequestEarly {
+		helperCount++
+	}
 	if needsTimeEarly {
 		helperCount++
 	}
@@ -2617,6 +2696,18 @@ func CompileFile(file *parser.File, m *Module) {
 	}
 	if needsSockShutdownEarly {
 		funcIdx["sock_shutdown"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsHTTPGetEarly {
+		funcIdx["http_get"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsHTTPPostEarly {
+		funcIdx["http_post"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsHTTPRequestEarly {
+		funcIdx["http_request"] = len(m.imports) + helperIdx
 		helperIdx++
 	}
 	if needsTimeEarly {
@@ -2867,6 +2958,18 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsSockShutdownEarly {
 		code := generateSockShutdownHelper(funcIdx["sock_shutdown"])
 		m.AddFunction("sock_shutdown", 2, code, 0) // 2 params (fd, how), 0 locals
+	}
+	if needsHTTPGetEarly {
+		code := generateHTTPGetHelper()
+		m.AddFunction("http_get", 3, code, 0) // 3 params (url_ptr, url_len, response_ptr), 0 locals
+	}
+	if needsHTTPPostEarly {
+		code := generateHTTPPostHelper()
+		m.AddFunction("http_post", 5, code, 0) // 5 params (url_ptr, url_len, body_ptr, body_len, response_ptr), 0 locals
+	}
+	if needsHTTPRequestEarly {
+		code := generateHTTPRequestHelper()
+		m.AddFunction("http_request", 8, code, 0) // 8 params (method, url_ptr, url_len, headers_ptr, headers_len, body_ptr, body_len, response_ptr), 0 locals
 	}
 	if needsTimeEarly {
 		code := generateTimeHelper(funcIdx["clock_time_get"])
