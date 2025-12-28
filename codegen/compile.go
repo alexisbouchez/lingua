@@ -11,7 +11,9 @@ const (
 	OpEnd       = 0x0b
 	OpBr        = 0x0c
 	OpBrIf      = 0x0d
+	OpReturn    = 0x0f
 	OpCall      = 0x10
+	OpDrop      = 0x1a
 	OpLocalGet  = 0x20
 	OpLocalSet  = 0x21
 	OpLocalTee  = 0x22
@@ -978,6 +980,146 @@ func generateGetEnvironHelper(environGetIdx int) []byte {
 	return code
 }
 
+// generateArgcHelper generates the argc() helper function bytecode
+// Returns the number of command-line arguments
+// Uses memory at address 920-927 for the args_sizes_get output
+func generateArgcHelper(argsSizesGetIdx int) []byte {
+	var code []byte
+
+	// args_sizes_get(920, 924) - store argc at 920, argv_buf_size at 924
+	code = append(code, 0x41, 0x98, 0x07) // i32.const 920
+	code = append(code, 0x41, 0x9c, 0x07) // i32.const 924
+	code = append(code, OpCall, byte(argsSizesGetIdx))
+	code = append(code, OpDrop) // discard errno
+
+	// Load and return argc from 920
+	code = append(code, 0x41, 0x98, 0x07) // i32.const 920
+	code = append(code, OpI32Load, 0x02, 0x00) // i32.load align=4 offset=0
+
+	return code
+}
+
+// generateEnvcHelper generates the envc() helper function bytecode
+// Returns the number of environment variables
+// Uses memory at address 928-935 for the environ_sizes_get output
+func generateEnvcHelper(environSizesGetIdx int) []byte {
+	var code []byte
+
+	// environ_sizes_get(928, 932) - store environc at 928, environ_buf_size at 932
+	code = append(code, 0x41, 0xa0, 0x07) // i32.const 928
+	code = append(code, 0x41, 0xa4, 0x07) // i32.const 932
+	code = append(code, OpCall, byte(environSizesGetIdx))
+	code = append(code, OpDrop) // discard errno
+
+	// Load and return environc from 928
+	code = append(code, 0x41, 0xa0, 0x07) // i32.const 928
+	code = append(code, OpI32Load, 0x02, 0x00) // i32.load align=4 offset=0
+
+	return code
+}
+
+// generateStdinReadHelper generates the stdin_read(buf, len) helper function bytecode
+// Reads from stdin (fd=0) into buffer
+// Params: buf (i32), len (i32)
+// Returns: bytes read (i32), or -1 on error
+func generateStdinReadHelper(fdReadIdx int) []byte {
+	var code []byte
+
+	// Set up iovec at address 0: {buf, len}
+	code = append(code, 0x41, 0x00)           // i32.const 0 (iovec address)
+	code = append(code, OpLocalGet, 0)        // get buf param
+	code = append(code, OpI32Store, 0x02, 0x00) // store buf at offset 0
+
+	code = append(code, 0x41, 0x04)           // i32.const 4
+	code = append(code, OpLocalGet, 1)        // get len param
+	code = append(code, OpI32Store, 0x02, 0x00) // store len at offset 4
+
+	// fd_read(0, 0, 1, 8) - fd=0 (stdin), iovec at 0, 1 iovec, result at 8
+	code = append(code, 0x41, 0x00)           // i32.const 0 (stdin)
+	code = append(code, 0x41, 0x00)           // i32.const 0 (iovec ptr)
+	code = append(code, 0x41, 0x01)           // i32.const 1 (iovec count)
+	code = append(code, 0x41, 0x08)           // i32.const 8 (result ptr)
+	code = append(code, OpCall, byte(fdReadIdx))
+
+	// If errno != 0, return -1
+	code = append(code, OpIf, 0x7f)           // if (errno) : i32
+	code = append(code, 0x41, 0x7f)           // i32.const -1
+	code = append(code, OpElse)
+	code = append(code, 0x41, 0x08)           // i32.const 8
+	code = append(code, OpI32Load, 0x02, 0x00) // i32.load (bytes read)
+	code = append(code, OpEnd)
+
+	return code
+}
+
+// generateStdoutWriteHelper generates the stdout_write(buf, len) helper function bytecode
+// Writes buffer to stdout (fd=1)
+// Params: buf (i32), len (i32)
+// Returns: bytes written (i32), or -1 on error
+func generateStdoutWriteHelper(fdWriteIdx int) []byte {
+	var code []byte
+
+	// Set up iovec at address 0: {buf, len}
+	code = append(code, 0x41, 0x00)           // i32.const 0 (iovec address)
+	code = append(code, OpLocalGet, 0)        // get buf param
+	code = append(code, OpI32Store, 0x02, 0x00) // store buf at offset 0
+
+	code = append(code, 0x41, 0x04)           // i32.const 4
+	code = append(code, OpLocalGet, 1)        // get len param
+	code = append(code, OpI32Store, 0x02, 0x00) // store len at offset 4
+
+	// fd_write(1, 0, 1, 8) - fd=1 (stdout), iovec at 0, 1 iovec, result at 8
+	code = append(code, 0x41, 0x01)           // i32.const 1 (stdout)
+	code = append(code, 0x41, 0x00)           // i32.const 0 (iovec ptr)
+	code = append(code, 0x41, 0x01)           // i32.const 1 (iovec count)
+	code = append(code, 0x41, 0x08)           // i32.const 8 (result ptr)
+	code = append(code, OpCall, byte(fdWriteIdx))
+
+	// If errno != 0, return -1
+	code = append(code, OpIf, 0x7f)           // if (errno) : i32
+	code = append(code, 0x41, 0x7f)           // i32.const -1
+	code = append(code, OpElse)
+	code = append(code, 0x41, 0x08)           // i32.const 8
+	code = append(code, OpI32Load, 0x02, 0x00) // i32.load (bytes written)
+	code = append(code, OpEnd)
+
+	return code
+}
+
+// generateStderrWriteHelper generates the stderr_write(buf, len) helper function bytecode
+// Writes buffer to stderr (fd=2)
+// Params: buf (i32), len (i32)
+// Returns: bytes written (i32), or -1 on error
+func generateStderrWriteHelper(fdWriteIdx int) []byte {
+	var code []byte
+
+	// Set up iovec at address 0: {buf, len}
+	code = append(code, 0x41, 0x00)           // i32.const 0 (iovec address)
+	code = append(code, OpLocalGet, 0)        // get buf param
+	code = append(code, OpI32Store, 0x02, 0x00) // store buf at offset 0
+
+	code = append(code, 0x41, 0x04)           // i32.const 4
+	code = append(code, OpLocalGet, 1)        // get len param
+	code = append(code, OpI32Store, 0x02, 0x00) // store len at offset 4
+
+	// fd_write(2, 0, 1, 8) - fd=2 (stderr), iovec at 0, 1 iovec, result at 8
+	code = append(code, 0x41, 0x02)           // i32.const 2 (stderr)
+	code = append(code, 0x41, 0x00)           // i32.const 0 (iovec ptr)
+	code = append(code, 0x41, 0x01)           // i32.const 1 (iovec count)
+	code = append(code, 0x41, 0x08)           // i32.const 8 (result ptr)
+	code = append(code, OpCall, byte(fdWriteIdx))
+
+	// If errno != 0, return -1
+	code = append(code, OpIf, 0x7f)           // if (errno) : i32
+	code = append(code, 0x41, 0x7f)           // i32.const -1
+	code = append(code, OpElse)
+	code = append(code, 0x41, 0x08)           // i32.const 8
+	code = append(code, OpI32Load, 0x02, 0x00) // i32.load (bytes written)
+	code = append(code, OpEnd)
+
+	return code
+}
+
 // generateFdstatHelper generates the fdstat(fd, buf) helper function bytecode
 // Gets file descriptor stats using WASI fd_fdstat_get
 // Params: fd (i32), buf (i32)
@@ -1866,6 +2008,66 @@ func CompileFile(file *parser.File, m *Module) {
 		usedImports["environ_get"] = true
 	}
 
+	// Check if argc is used
+	needsArgcEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "argc") {
+			needsArgcEarly = true
+			break
+		}
+	}
+	if needsArgcEarly {
+		usedImports["args_sizes_get"] = true
+	}
+
+	// Check if envc is used
+	needsEnvcEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "envc") {
+			needsEnvcEarly = true
+			break
+		}
+	}
+	if needsEnvcEarly {
+		usedImports["environ_sizes_get"] = true
+	}
+
+	// Check if stdin_read is used
+	needsStdinReadEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "stdin_read") {
+			needsStdinReadEarly = true
+			break
+		}
+	}
+	if needsStdinReadEarly {
+		usedImports["fd_read"] = true
+	}
+
+	// Check if stdout_write is used
+	needsStdoutWriteEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "stdout_write") {
+			needsStdoutWriteEarly = true
+			break
+		}
+	}
+	if needsStdoutWriteEarly {
+		usedImports["fd_write"] = true
+	}
+
+	// Check if stderr_write is used
+	needsStderrWriteEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "stderr_write") {
+			needsStderrWriteEarly = true
+			break
+		}
+	}
+	if needsStderrWriteEarly {
+		usedImports["fd_write"] = true
+	}
+
 	// Ensure fd_fdstat_get is imported if fdstat is used
 	needsFdstatEarly := false
 	for _, fn := range file.Fns {
@@ -2390,6 +2592,21 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsGetEnvironEarly {
 		helperCount++
 	}
+	if needsArgcEarly {
+		helperCount++
+	}
+	if needsEnvcEarly {
+		helperCount++
+	}
+	if needsStdinReadEarly {
+		helperCount++
+	}
+	if needsStdoutWriteEarly {
+		helperCount++
+	}
+	if needsStderrWriteEarly {
+		helperCount++
+	}
 	if needsFdstatEarly {
 		helperCount++
 	}
@@ -2624,6 +2841,26 @@ func CompileFile(file *parser.File, m *Module) {
 	}
 	if needsGetEnvironEarly {
 		funcIdx["get_environ"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsArgcEarly {
+		funcIdx["argc"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsEnvcEarly {
+		funcIdx["envc"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsStdinReadEarly {
+		funcIdx["stdin_read"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsStdoutWriteEarly {
+		funcIdx["stdout_write"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsStderrWriteEarly {
+		funcIdx["stderr_write"] = len(m.imports) + helperIdx
 		helperIdx++
 	}
 	if needsFdstatEarly {
@@ -2886,6 +3123,26 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsGetEnvironEarly {
 		code := generateGetEnvironHelper(funcIdx["environ_get"])
 		m.AddFunction("get_environ", 2, code, 0) // 2 params (environ_ptr, environ_buf_ptr), 0 locals
+	}
+	if needsArgcEarly {
+		code := generateArgcHelper(funcIdx["args_sizes_get"])
+		m.AddFunction("argc", 0, code, 0) // 0 params, returns argc
+	}
+	if needsEnvcEarly {
+		code := generateEnvcHelper(funcIdx["environ_sizes_get"])
+		m.AddFunction("envc", 0, code, 0) // 0 params, returns envc
+	}
+	if needsStdinReadEarly {
+		code := generateStdinReadHelper(funcIdx["fd_read"])
+		m.AddFunction("stdin_read", 2, code, 0) // 2 params (buf, len), returns bytes read
+	}
+	if needsStdoutWriteEarly {
+		code := generateStdoutWriteHelper(funcIdx["fd_write"])
+		m.AddFunction("stdout_write", 2, code, 0) // 2 params (buf, len), returns bytes written
+	}
+	if needsStderrWriteEarly {
+		code := generateStderrWriteHelper(funcIdx["fd_write"])
+		m.AddFunction("stderr_write", 2, code, 0) // 2 params (buf, len), returns bytes written
 	}
 	if needsFdstatEarly {
 		code := generateFdstatHelper(funcIdx["fd_fdstat_get"])

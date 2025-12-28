@@ -415,7 +415,8 @@ func (c *Checker) builtinType(name string, args []parser.Expr) Type {
 		"tell", "symlink", "readlink", "prestat_get", "prestat_dir_name",
 		"set_fd_flags", "get_args_sizes", "get_args", "get_environ_sizes", "get_environ",
 		"sock_recv", "sock_send", "sock_shutdown",
-		"http_get", "http_post", "http_request":
+		"http_get", "http_post", "http_request",
+		"argc", "envc", "stdin_read", "stdout_write", "stderr_write":
 		return I32
 
 	// String builtins
