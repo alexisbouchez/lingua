@@ -192,7 +192,7 @@ fn double(x: i32): i32 { add(x, x) }`
 	f := p.ParseFile()
 
 	m := NewModule()
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -222,7 +222,7 @@ func TestCompileMemory(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1) // 1 page = 64KB
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -253,7 +253,7 @@ func TestCompileData(t *testing.T) {
 	m := NewModule()
 	m.AddMemory(1)
 	m.AddData(0, []byte{42, 0, 0, 0}) // little-endian i32 = 42
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -294,7 +294,7 @@ func TestWASIHello(t *testing.T) {
 	data.WriteString("Hello, World!\n")
 	m.AddData(0, data.Bytes())
 
-	CompileFile(f, m) // auto-imports fd_write
+	CompileFile(f, m, "test.lingua", false, false) // auto-imports fd_write
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -321,7 +321,7 @@ func TestPrintStr(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -348,7 +348,7 @@ func TestExit(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -370,7 +370,7 @@ func TestPrintInt(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -397,7 +397,7 @@ func TestPrintIntNegative(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -424,7 +424,7 @@ func TestPrintIntZero(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -451,7 +451,7 @@ func TestPrintln(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -478,7 +478,7 @@ func TestPrint(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -504,7 +504,7 @@ func TestAbs(t *testing.T) {
 	f := p.ParseFile()
 
 	m := NewModule()
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -541,7 +541,7 @@ func TestMinMax(t *testing.T) {
 	f := p.ParseFile()
 
 	m := NewModule()
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -575,7 +575,7 @@ func TestSqrt(t *testing.T) {
 	f := p.ParseFile()
 
 	m := NewModule()
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -650,7 +650,7 @@ func TestPow(t *testing.T) {
 	f := p.ParseFile()
 
 	m := NewModule()
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -725,7 +725,7 @@ func TestMod(t *testing.T) {
 	f := p.ParseFile()
 
 	m := NewModule()
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -783,7 +783,7 @@ func TestRandom(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -828,7 +828,7 @@ func TestBitwiseBuiltins(t *testing.T) {
 	f := p.ParseFile()
 
 	m := NewModule()
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -970,7 +970,7 @@ func TestBitwiseLogicalBuiltins(t *testing.T) {
 	f := p.ParseFile()
 
 	m := NewModule()
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -1232,7 +1232,7 @@ fn test_shr(a: i32, b: i32): i32 { a >> b }`
 	f := p.ParseFile()
 
 	m := NewModule()
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -1291,7 +1291,7 @@ func TestReturn(t *testing.T) {
 	f := p.ParseFile()
 
 	m := NewModule()
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -1376,7 +1376,7 @@ fn get_counter(): i32 {
 	f := p.ParseFile()
 
 	m := NewModule()
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -1427,7 +1427,7 @@ func TestArrayLiteral(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -1462,7 +1462,7 @@ func TestArrayIndexAssign(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -1502,7 +1502,7 @@ func TestArraySum(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -1537,7 +1537,7 @@ func TestStrEq(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	// Add test strings to memory manually
 	// "hello" at address 100
@@ -1589,7 +1589,7 @@ func TestStrCopy(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	// Add source string "test!" at address 100
 	m.AddData(100, []byte("test!"))
@@ -1630,7 +1630,7 @@ func TestReadChar(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -1663,7 +1663,7 @@ func TestReadCharEOF(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -1701,7 +1701,7 @@ func TestReadCharTwo(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	// Note: wazero fd_read has a quirk with multiple calls
 	// Expected: 'A' + 'B' = 65 + 66 = 131, but get 132
@@ -1721,7 +1721,7 @@ func TestReadCharMultiple(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -1739,7 +1739,7 @@ func TestWriteChar(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -1770,7 +1770,7 @@ func TestWriteCharMultiple(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -1805,7 +1805,7 @@ func TestMalloc(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -1845,7 +1845,7 @@ func TestMallocSequential(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -1884,7 +1884,7 @@ func TestMallocMemoryOperations(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -1923,7 +1923,7 @@ func TestMemcpy(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -1960,7 +1960,7 @@ func TestMemcpyLargeBlock(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -1996,7 +1996,7 @@ func TestMemcpyReturnValue(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -2030,7 +2030,7 @@ func TestWASIBuiltins(t *testing.T) {
 	f := p.ParseFile()
 
 	m := NewModule()
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -2067,7 +2067,7 @@ func TestWASIFileIOBuiltins(t *testing.T) {
 	f := p.ParseFile()
 
 	m := NewModule()
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -2104,7 +2104,7 @@ func TestWASIPathBuiltins(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -2146,7 +2146,7 @@ func TestWASIEnvironmentBuiltins(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -2195,7 +2195,7 @@ func TestWASIFdStatBuiltins(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -2237,7 +2237,7 @@ func TestWASIYieldBuiltin(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -2279,7 +2279,7 @@ func TestWASIAdvancedFileBuiltins(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -2316,7 +2316,7 @@ func TestTimeBuiltin(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -2355,7 +2355,7 @@ func TestMillisBuiltin(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -2393,7 +2393,7 @@ func TestSignBuiltin(t *testing.T) {
 	f := p.ParseFile()
 
 	m := NewModule()
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -2434,7 +2434,7 @@ func TestNegateBuiltin(t *testing.T) {
 	f := p.ParseFile()
 
 	m := NewModule()
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -2475,7 +2475,7 @@ func TestClampBuiltin(t *testing.T) {
 	f := p.ParseFile()
 
 	m := NewModule()
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -2517,7 +2517,7 @@ func TestIsEvenOddBuiltins(t *testing.T) {
 	f := p.ParseFile()
 
 	m := NewModule()
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -2572,7 +2572,7 @@ func TestSquareCubeBuiltins(t *testing.T) {
 	f := p.ParseFile()
 
 	m := NewModule()
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -2620,7 +2620,7 @@ func TestLog2Builtin(t *testing.T) {
 	f := p.ParseFile()
 
 	m := NewModule()
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -2681,7 +2681,7 @@ func TestAsyncFunctions(t *testing.T) {
 
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 
 	// For now, just check that it compiles without error
 	// In a real implementation, we'd test the async behavior
@@ -2723,7 +2723,7 @@ func TestAwaitExpressions(t *testing.T) {
 	f := p.ParseFile()
 	m := NewModule()
 	m.AddMemory(1)
-	CompileFile(f, m)
+	CompileFile(f, m, "test.lingua", false, false)
 	
 	t.Errorf("should have panicked")
 }
