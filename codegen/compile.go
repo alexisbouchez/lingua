@@ -29,6 +29,17 @@ const (
 	OpI32Mul    = 0x6c
 	OpI32Div    = 0x6d
 	OpI32RemS   = 0x6f
+	OpI32And    = 0x71
+	OpI32Or     = 0x72
+	OpI32Xor    = 0x73
+	OpI32Shl    = 0x74
+	OpI32ShrS   = 0x75
+	OpI32ShrU   = 0x76
+	OpI32Rotl   = 0x77
+	OpI32Rotr   = 0x78
+	OpI32Clz    = 0x67
+	OpI32Ctz    = 0x68
+	OpI32Popcnt = 0x69
 
 	OpI32Load  = 0x28
 	OpI32Store = 0x36
@@ -167,6 +178,68 @@ func generateModHelper() []byte {
 	code = append(code, OpLocalGet, 0)     // get a
 	code = append(code, OpLocalGet, 1)     // get b
 	code = append(code, OpI32RemS)         // a % b
+
+	return code
+}
+
+// generateClzHelper generates the clz(n) helper function bytecode
+// Returns count of leading zero bits
+// Params: n (0)
+func generateClzHelper() []byte {
+	var code []byte
+
+	code = append(code, OpLocalGet, 0)     // get n
+	code = append(code, OpI32Clz)          // i32.clz
+
+	return code
+}
+
+// generateCtzHelper generates the ctz(n) helper function bytecode
+// Returns count of trailing zero bits
+// Params: n (0)
+func generateCtzHelper() []byte {
+	var code []byte
+
+	code = append(code, OpLocalGet, 0)     // get n
+	code = append(code, OpI32Ctz)          // i32.ctz
+
+	return code
+}
+
+// generatePopcntHelper generates the popcnt(n) helper function bytecode
+// Returns count of 1 bits (population count)
+// Params: n (0)
+func generatePopcntHelper() []byte {
+	var code []byte
+
+	code = append(code, OpLocalGet, 0)     // get n
+	code = append(code, OpI32Popcnt)       // i32.popcnt
+
+	return code
+}
+
+// generateRotlHelper generates the rotl(n, k) helper function bytecode
+// Returns n rotated left by k bits
+// Params: n (0), k (1)
+func generateRotlHelper() []byte {
+	var code []byte
+
+	code = append(code, OpLocalGet, 0)     // get n
+	code = append(code, OpLocalGet, 1)     // get k
+	code = append(code, OpI32Rotl)         // i32.rotl
+
+	return code
+}
+
+// generateRotrHelper generates the rotr(n, k) helper function bytecode
+// Returns n rotated right by k bits
+// Params: n (0), k (1)
+func generateRotrHelper() []byte {
+	var code []byte
+
+	code = append(code, OpLocalGet, 0)     // get n
+	code = append(code, OpLocalGet, 1)     // get k
+	code = append(code, OpI32Rotr)         // i32.rotr
 
 	return code
 }
@@ -794,6 +867,11 @@ func CompileFile(file *parser.File, m *Module) {
 	needsMod := false
 	needsPow := false
 	needsSqrt := false
+	needsClz := false
+	needsCtz := false
+	needsPopcnt := false
+	needsRotl := false
+	needsRotr := false
 	needsStrEq := false
 	needsStrCopy := false
 	needsReadChar := false
@@ -825,6 +903,21 @@ func CompileFile(file *parser.File, m *Module) {
 		}
 		if usesBuiltin(fn.Body, "sqrt") {
 			needsSqrt = true
+		}
+		if usesBuiltin(fn.Body, "clz") {
+			needsClz = true
+		}
+		if usesBuiltin(fn.Body, "ctz") {
+			needsCtz = true
+		}
+		if usesBuiltin(fn.Body, "popcnt") {
+			needsPopcnt = true
+		}
+		if usesBuiltin(fn.Body, "rotl") {
+			needsRotl = true
+		}
+		if usesBuiltin(fn.Body, "rotr") {
+			needsRotr = true
 		}
 		if usesBuiltin(fn.Body, "str_eq") {
 			needsStrEq = true
@@ -873,6 +966,21 @@ func CompileFile(file *parser.File, m *Module) {
 		helperCount++
 	}
 	if needsSqrt {
+		helperCount++
+	}
+	if needsClz {
+		helperCount++
+	}
+	if needsCtz {
+		helperCount++
+	}
+	if needsPopcnt {
+		helperCount++
+	}
+	if needsRotl {
+		helperCount++
+	}
+	if needsRotr {
 		helperCount++
 	}
 	if needsStrEq {
@@ -929,6 +1037,26 @@ func CompileFile(file *parser.File, m *Module) {
 	}
 	if needsSqrt {
 		funcIdx["sqrt"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsClz {
+		funcIdx["clz"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsCtz {
+		funcIdx["ctz"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsPopcnt {
+		funcIdx["popcnt"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsRotl {
+		funcIdx["rotl"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsRotr {
+		funcIdx["rotr"] = len(m.imports) + helperIdx
 		helperIdx++
 	}
 	if needsStrEq {
@@ -995,6 +1123,26 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsSqrt {
 		code := generateSqrtHelper()
 		m.AddFunction("sqrt", 1, code, 2) // 1 param, 2 locals (x, next)
+	}
+	if needsClz {
+		code := generateClzHelper()
+		m.AddFunction("clz", 1, code, 0) // 1 param, 0 locals
+	}
+	if needsCtz {
+		code := generateCtzHelper()
+		m.AddFunction("ctz", 1, code, 0) // 1 param, 0 locals
+	}
+	if needsPopcnt {
+		code := generatePopcntHelper()
+		m.AddFunction("popcnt", 1, code, 0) // 1 param, 0 locals
+	}
+	if needsRotl {
+		code := generateRotlHelper()
+		m.AddFunction("rotl", 2, code, 0) // 2 params, 0 locals
+	}
+	if needsRotr {
+		code := generateRotrHelper()
+		m.AddFunction("rotr", 2, code, 0) // 2 params, 0 locals
 	}
 	if needsStrEq {
 		code := generateStrEqHelper()

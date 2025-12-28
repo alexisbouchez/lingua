@@ -808,6 +808,147 @@ func TestRandom(t *testing.T) {
 	}
 }
 
+func TestBitwiseBuiltins(t *testing.T) {
+	src := `
+		fn test_clz(n: i32): i32 { clz(n) }
+		fn test_ctz(n: i32): i32 { ctz(n) }
+		fn test_popcnt(n: i32): i32 { popcnt(n) }
+		fn test_rotl(n: i32, k: i32): i32 { rotl(n, k) }
+		fn test_rotr(n: i32, k: i32): i32 { rotr(n, k) }
+	`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	// Test clz (count leading zeros)
+	clz := mod.ExportedFunction("test_clz")
+
+	// clz(0) = 32
+	results, _ := clz.Call(ctx, 0)
+	if results[0] != 32 {
+		t.Fatalf("clz(0): expected 32, got %d", results[0])
+	}
+
+	// clz(1) = 31
+	results, _ = clz.Call(ctx, 1)
+	if results[0] != 31 {
+		t.Fatalf("clz(1): expected 31, got %d", results[0])
+	}
+
+	// clz(8) = 28 (binary: 1000)
+	results, _ = clz.Call(ctx, 8)
+	if results[0] != 28 {
+		t.Fatalf("clz(8): expected 28, got %d", results[0])
+	}
+
+	// clz(0x80000000) = 0 (highest bit set)
+	results, _ = clz.Call(ctx, 0x80000000)
+	if results[0] != 0 {
+		t.Fatalf("clz(0x80000000): expected 0, got %d", results[0])
+	}
+
+	// Test ctz (count trailing zeros)
+	ctz := mod.ExportedFunction("test_ctz")
+
+	// ctz(0) = 32
+	results, _ = ctz.Call(ctx, 0)
+	if results[0] != 32 {
+		t.Fatalf("ctz(0): expected 32, got %d", results[0])
+	}
+
+	// ctz(1) = 0
+	results, _ = ctz.Call(ctx, 1)
+	if results[0] != 0 {
+		t.Fatalf("ctz(1): expected 0, got %d", results[0])
+	}
+
+	// ctz(8) = 3 (binary: 1000)
+	results, _ = ctz.Call(ctx, 8)
+	if results[0] != 3 {
+		t.Fatalf("ctz(8): expected 3, got %d", results[0])
+	}
+
+	// ctz(16) = 4
+	results, _ = ctz.Call(ctx, 16)
+	if results[0] != 4 {
+		t.Fatalf("ctz(16): expected 4, got %d", results[0])
+	}
+
+	// Test popcnt (population count - count of 1 bits)
+	popcnt := mod.ExportedFunction("test_popcnt")
+
+	// popcnt(0) = 0
+	results, _ = popcnt.Call(ctx, 0)
+	if results[0] != 0 {
+		t.Fatalf("popcnt(0): expected 0, got %d", results[0])
+	}
+
+	// popcnt(1) = 1
+	results, _ = popcnt.Call(ctx, 1)
+	if results[0] != 1 {
+		t.Fatalf("popcnt(1): expected 1, got %d", results[0])
+	}
+
+	// popcnt(7) = 3 (binary: 111)
+	results, _ = popcnt.Call(ctx, 7)
+	if results[0] != 3 {
+		t.Fatalf("popcnt(7): expected 3, got %d", results[0])
+	}
+
+	// popcnt(15) = 4 (binary: 1111)
+	results, _ = popcnt.Call(ctx, 15)
+	if results[0] != 4 {
+		t.Fatalf("popcnt(15): expected 4, got %d", results[0])
+	}
+
+	// popcnt(0xFF) = 8
+	results, _ = popcnt.Call(ctx, 0xFF)
+	if results[0] != 8 {
+		t.Fatalf("popcnt(0xFF): expected 8, got %d", results[0])
+	}
+
+	// Test rotl (rotate left)
+	rotl := mod.ExportedFunction("test_rotl")
+
+	// rotl(1, 1) = 2
+	results, _ = rotl.Call(ctx, 1, 1)
+	if results[0] != 2 {
+		t.Fatalf("rotl(1, 1): expected 2, got %d", results[0])
+	}
+
+	// rotl(1, 31) = 0x80000000 (wraps around)
+	results, _ = rotl.Call(ctx, 1, 31)
+	if uint32(results[0]) != 0x80000000 {
+		t.Fatalf("rotl(1, 31): expected 0x80000000, got 0x%08x", results[0])
+	}
+
+	// Test rotr (rotate right)
+	rotr := mod.ExportedFunction("test_rotr")
+
+	// rotr(2, 1) = 1
+	results, _ = rotr.Call(ctx, 2, 1)
+	if results[0] != 1 {
+		t.Fatalf("rotr(2, 1): expected 1, got %d", results[0])
+	}
+
+	// rotr(0x80000000, 31) = 1 (wraps around)
+	results, _ = rotr.Call(ctx, 0x80000000, 31)
+	if results[0] != 1 {
+		t.Fatalf("rotr(0x80000000, 31): expected 1, got %d", results[0])
+	}
+}
+
 func TestLogicalOps(t *testing.T) {
 	// Test && (and)
 	p := parser.New("fn test_and(a: i32, b: i32): i32 { if a > 0 && b > 0 { 1 } else { 0 } }")
