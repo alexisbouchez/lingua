@@ -1178,6 +1178,33 @@ func generateTimeHelper(clockTimeGetIdx int) []byte {
 	return code
 }
 
+// generateMillisHelper generates the millis() helper function bytecode
+// Returns the current wall clock time in milliseconds as i32
+// Uses memory at address 904 for the 8-byte timestamp buffer
+func generateMillisHelper(clockTimeGetIdx int) []byte {
+	var code []byte
+
+	// clock_time_get(0, 0, 904) - get realtime clock with best precision, store at 904
+	code = append(code, 0x41, 0)           // i32.const 0 (CLOCK_REALTIME)
+	code = append(code, 0x42, 0)           // i64.const 0 (precision - best available)
+	code = append(code, 0x41, 0x88, 0x07)  // i32.const 904 (LEB128)
+	code = append(code, OpCall, byte(clockTimeGetIdx))
+	code = append(code, 0x1a)              // drop result (errno)
+
+	// Load the timestamp as i64
+	code = append(code, 0x41, 0x88, 0x07)  // i32.const 904
+	code = append(code, OpI64Load, 3, 0)   // i64.load (align=3 for 8 bytes)
+
+	// Divide by 1,000,000 to convert nanoseconds to milliseconds
+	code = append(code, 0x42, 0xc0, 0x84, 0x3d) // i64.const 1000000 (LEB128)
+	code = append(code, 0x7f)                   // i64.div_s
+
+	// Wrap to i32
+	code = append(code, 0xa7) // i32.wrap_i64
+
+	return code
+}
+
 // generateWriteCharHelper generates the write_char(c) helper function bytecode
 // Writes a single character to stdout
 // Params: c (i32) - the character to write
@@ -1791,6 +1818,18 @@ func CompileFile(file *parser.File, m *Module) {
 		usedImports["clock_time_get"] = true
 	}
 
+	// Ensure clock_time_get is imported if millis is used
+	needsMillisEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "millis") {
+			needsMillisEarly = true
+			break
+		}
+	}
+	if needsMillisEarly {
+		usedImports["clock_time_get"] = true
+	}
+
 	// Always include proc_exit for WASI runtime compatibility (e.g., Bun, wasmtime)
 	// WASI runtimes require at least one import from wasi_snapshot_preview1
 	usedImports["proc_exit"] = true
@@ -2083,6 +2122,9 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsTimeEarly {
 		helperCount++
 	}
+	if needsMillisEarly {
+		helperCount++
+	}
 
 	// Adjust function indices for helpers
 	helperIdx := 0
@@ -2292,6 +2334,10 @@ func CompileFile(file *parser.File, m *Module) {
 	}
 	if needsTimeEarly {
 		funcIdx["time"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsMillisEarly {
+		funcIdx["millis"] = len(m.imports) + helperIdx
 		helperIdx++
 	}
 	for i, fn := range file.Fns {
@@ -2506,6 +2552,10 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsTimeEarly {
 		code := generateTimeHelper(funcIdx["clock_time_get"])
 		m.AddFunction("time", 0, code, 0) // 0 params, 0 locals, returns i32 (seconds)
+	}
+	if needsMillisEarly {
+		code := generateMillisHelper(funcIdx["clock_time_get"])
+		m.AddFunction("millis", 0, code, 0) // 0 params, 0 locals, returns i32 (milliseconds)
 	}
 
 	for _, fn := range file.Fns {

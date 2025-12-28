@@ -2348,3 +2348,40 @@ func TestTimeBuiltin(t *testing.T) {
 	t.Logf("time() returned: %d seconds since epoch", timestamp)
 }
 
+func TestMillisBuiltin(t *testing.T) {
+	src := `fn _start(): i32 { millis() }`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	wasi, err := wasi_snapshot_preview1.Instantiate(ctx, r)
+	if err != nil {
+		t.Fatalf("wasi instantiate: %v", err)
+	}
+	defer wasi.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	fn := mod.ExportedFunction("_start")
+	results, err := fn.Call(ctx)
+	if err != nil {
+		t.Fatalf("call error: %v", err)
+	}
+
+	// millis() should return current time in milliseconds since epoch
+	// Should be a reasonable value (after year 2020 = 1577836800000 ms)
+	// Note: i32 can only hold up to ~2.1 billion, so it will wrap
+	millis := int32(results[0])
+	t.Logf("millis() returned: %d", millis)
+}
+
