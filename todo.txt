@@ -69,7 +69,7 @@ PHASE 6: TOOLING
 PHASE 7: STANDARD LIBRARY
 -------------------------
 [x] Implement python-like print() builtin
-[ ] Implement I/O primitives
+[~] Implement I/O primitives (read_char added, more needed)
 [x] Implement string utilities
 [x] Implement math functions (abs, min, max)
 [ ] Implement collections (list, map, set)

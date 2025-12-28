@@ -1,0 +1,5 @@
+fn _start(): i32 {
+	let c: i32 = read_char();
+	println(c);
+	0
+}

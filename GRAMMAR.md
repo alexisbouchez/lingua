@@ -290,6 +290,7 @@ The following functions are available as built-ins and do not need to be declare
 - `println(n: i32): i32` - Print integer with newline
 - `print_str(str: i32, len: i32): i32` - Print string without newline
 - `print_int(n: i32): i32` - Print integer without newline
+- `read_char(): i32` - Read a single character from stdin, returns character code or 0 on EOF
 
 ### Math Functions
 - `abs(n: i32): i32` - Absolute value

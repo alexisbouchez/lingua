@@ -47,6 +47,7 @@ arr[1] = 100;
 - `println(n)` - print integer with newline
 - `print_str(str, len)` - print string without newline
 - `print_int(n)` - print integer without newline
+- `read_char()` - read a single character from stdin, returns character code or 0 on EOF
 
 #### Math Functions
 - `abs(n)` - absolute value

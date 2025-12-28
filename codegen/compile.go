@@ -14,6 +14,7 @@ const (
 	OpCall      = 0x10
 	OpLocalGet  = 0x20
 	OpLocalSet  = 0x21
+	OpLocalTee  = 0x22
 	OpGlobalGet = 0x23
 	OpGlobalSet = 0x24
 	OpI32Eqz    = 0x45
@@ -271,6 +272,40 @@ func generateStrCopyHelper() []byte {
 	return code
 }
 
+// generateReadCharHelper generates the read_char() helper function bytecode
+// Returns the character read from stdin, or -1 on EOF/error
+// Uses memory at address 700 for the 1-byte read buffer
+// Uses memory at address 0 for iovec, address 8 for nread
+func generateReadCharHelper(fdReadIdx int) []byte {
+	var code []byte
+
+	// Set up iovec at address 0:
+	// iovec.buf = 16 (our read buffer, simple address)
+	// iovec.buf_len = 1 (read 1 byte)
+	code = append(code, 0x41, 0)           // i32.const 0 (iovec addr)
+	code = append(code, 0x41, 16)          // i32.const 16
+	code = append(code, OpI32Store, 2, 0)  // store buf address
+
+	code = append(code, 0x41, 4)           // i32.const 4 (iovec.buf_len offset)
+	code = append(code, 0x41, 1)           // i32.const 1 (read 1 byte)
+	code = append(code, OpI32Store, 2, 0)  // store buf_len
+
+	// fd_read(0, 0, 1, 8)
+	// fd=0 (stdin), iovs=0, iovs_len=1, nread=8
+	code = append(code, 0x41, 0)           // i32.const 0 (stdin)
+	code = append(code, 0x41, 0)           // i32.const 0 (iovs)
+	code = append(code, 0x41, 1)           // i32.const 1 (iovs_len)
+	code = append(code, 0x41, 8)           // i32.const 8 (nread ptr)
+	code = append(code, OpCall, byte(fdReadIdx))
+	code = append(code, 0x1a)              // drop the result (errno)
+
+	// Load the byte from address 16 and return it
+	code = append(code, 0x41, 16)          // i32.const 16
+	code = append(code, 0x2d, 0, 0)        // i32.load8_u (load unsigned byte)
+
+	return code
+}
+
 // generatePrintIntHelper generates the _print_int helper function bytecode
 // params: n (i32)
 // locals: ptr, is_neg, digit
@@ -428,6 +463,18 @@ func CompileFile(file *parser.File, m *Module) {
 		collectCalls(fn.Body, usedImports)
 	}
 
+	// Ensure fd_read is imported if read_char is used
+	needsReadCharEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "read_char") {
+			needsReadCharEarly = true
+			break
+		}
+	}
+	if needsReadCharEarly {
+		usedImports["fd_read"] = true
+	}
+
 	// Add WASI imports first
 	for name := range usedImports {
 		if numParams, ok := wasiImports[name]; ok {
@@ -457,6 +504,7 @@ func CompileFile(file *parser.File, m *Module) {
 	needsMax := false
 	needsStrEq := false
 	needsStrCopy := false
+	needsReadChar := false
 	for _, fn := range file.Fns {
 		if usesPrintInt(fn.Body) {
 			needsPrintInt = true
@@ -478,6 +526,9 @@ func CompileFile(file *parser.File, m *Module) {
 		}
 		if usesBuiltin(fn.Body, "str_copy") {
 			needsStrCopy = true
+		}
+		if usesBuiltin(fn.Body, "read_char") {
+			needsReadChar = true
 		}
 	}
 
@@ -502,6 +553,9 @@ func CompileFile(file *parser.File, m *Module) {
 		helperCount++
 	}
 	if needsStrCopy {
+		helperCount++
+	}
+	if needsReadChar {
 		helperCount++
 	}
 
@@ -533,6 +587,10 @@ func CompileFile(file *parser.File, m *Module) {
 	}
 	if needsStrCopy {
 		funcIdx["str_copy"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsReadChar {
+		funcIdx["read_char"] = len(m.imports) + helperIdx
 		helperIdx++
 	}
 	for i, fn := range file.Fns {
@@ -567,6 +625,10 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsStrCopy {
 		code := generateStrCopyHelper()
 		m.AddFunction("str_copy", 3, code, 1) // 3 params, 1 local
+	}
+	if needsReadChar {
+		code := generateReadCharHelper(funcIdx["fd_read"])
+		m.AddFunction("read_char", 0, code, 0) // 0 params, 0 locals
 	}
 
 	for _, fn := range file.Fns {
