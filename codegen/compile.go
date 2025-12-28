@@ -57,6 +57,42 @@ func (st *StringTable) Bytes() []byte {
 	return st.data
 }
 
+// generatePrintlnHelper generates the _println helper function bytecode
+// Prints an integer followed by a newline
+// Uses memory address 600 for newline character
+func generatePrintlnHelper(printIntIdx, fdWriteIdx int) []byte {
+	var code []byte
+
+	// Call _print_int(n)
+	code = append(code, OpLocalGet, 0) // get n
+	code = append(code, OpCall, byte(printIntIdx))
+	code = append(code, 0x1a) // drop result
+
+	// Store newline at address 600
+	code = append(code, 0x41)               // i32.const 600
+	code = append(code, sleb128(600)...)
+	code = append(code, 0x41, 0x0a)         // i32.const '\n'
+	code = append(code, 0x3a, 0, 0)         // i32.store8
+
+	// Set up iovec: buf=600, len=1
+	code = append(code, 0x41, 0)            // i32.const 0 (iovec addr)
+	code = append(code, 0x41)               // i32.const 600
+	code = append(code, sleb128(600)...)
+	code = append(code, OpI32Store, 2, 0)
+	code = append(code, 0x41, 4)            // i32.const 4
+	code = append(code, 0x41, 1)            // i32.const 1 (len)
+	code = append(code, OpI32Store, 2, 0)
+
+	// fd_write(1, 0, 1, 8)
+	code = append(code, 0x41, 1) // fd
+	code = append(code, 0x41, 0) // iovs
+	code = append(code, 0x41, 1) // iovs_len
+	code = append(code, 0x41, 8) // nwritten
+	code = append(code, OpCall, byte(fdWriteIdx))
+
+	return code
+}
+
 // generatePrintIntHelper generates the _print_int helper function bytecode
 // params: n (i32)
 // locals: ptr, is_neg, digit
@@ -217,28 +253,49 @@ func CompileFile(file *parser.File, m *Module) {
 	// String table starts at offset 1024 (leave space for iovec, etc.)
 	strings := NewStringTable(1024)
 
-	// Check if print_int is used
+	// Check if print_int/println is used
 	needsPrintInt := false
+	needsPrintln := false
 	for _, fn := range file.Fns {
 		if usesPrintInt(fn.Body) {
 			needsPrintInt = true
-			break
+		}
+		if usesPrintln(fn.Body) {
+			needsPrintln = true
 		}
 	}
 
-	// Adjust function indices if _print_int helper is needed
+	// Count helper functions needed
+	helperCount := 0
 	if needsPrintInt {
-		// _print_int will be at index len(imports), user funcs shift by 1
-		funcIdx["_print_int"] = len(m.imports)
-		for i, fn := range file.Fns {
-			funcIdx[fn.Name] = len(m.imports) + 1 + i
-		}
+		helperCount++
+	}
+	if needsPrintln {
+		helperCount++
 	}
 
-	// Add _print_int helper first if needed
+	// Adjust function indices for helpers
+	helperIdx := 0
+	if needsPrintInt {
+		funcIdx["_print_int"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsPrintln {
+		funcIdx["_println"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	for i, fn := range file.Fns {
+		funcIdx[fn.Name] = len(m.imports) + helperCount + i
+	}
+
+	// Add helper functions
 	if needsPrintInt {
 		code := generatePrintIntHelper(funcIdx["fd_write"])
 		m.AddFunction("_print_int", 1, code, 3) // 1 param, 3 locals
+	}
+	if needsPrintln {
+		code := generatePrintlnHelper(funcIdx["_print_int"], funcIdx["fd_write"])
+		m.AddFunction("_println", 1, code, 0) // 1 param, 0 locals
 	}
 
 	for _, fn := range file.Fns {
@@ -279,7 +336,7 @@ func usesPrintIntStmt(stmt parser.Stmt) bool {
 func usesPrintIntExpr(expr parser.Expr) bool {
 	switch e := expr.(type) {
 	case *parser.CallExpr:
-		if e.Name == "print_int" {
+		if e.Name == "print_int" || e.Name == "println" {
 			return true
 		}
 		for _, arg := range e.Args {
@@ -300,6 +357,58 @@ func usesPrintIntExpr(expr parser.Expr) bool {
 		return usesPrintIntExpr(e.Cond) || usesPrintInt(e.Body)
 	case *parser.Block:
 		return usesPrintInt(e)
+	}
+	return false
+}
+
+func usesPrintln(block *parser.Block) bool {
+	for _, stmt := range block.Stmts {
+		if usesPrintlnStmt(stmt) {
+			return true
+		}
+	}
+	if block.Expr != nil && usesPrintlnExpr(block.Expr) {
+		return true
+	}
+	return false
+}
+
+func usesPrintlnStmt(stmt parser.Stmt) bool {
+	switch s := stmt.(type) {
+	case *parser.LetStmt:
+		return usesPrintlnExpr(s.Value)
+	case *parser.AssignStmt:
+		return usesPrintlnExpr(s.Value)
+	case *parser.ExprStmt:
+		return usesPrintlnExpr(s.Expr)
+	}
+	return false
+}
+
+func usesPrintlnExpr(expr parser.Expr) bool {
+	switch e := expr.(type) {
+	case *parser.CallExpr:
+		if e.Name == "println" {
+			return true
+		}
+		for _, arg := range e.Args {
+			if usesPrintlnExpr(arg) {
+				return true
+			}
+		}
+	case *parser.BinaryExpr:
+		return usesPrintlnExpr(e.Left) || usesPrintlnExpr(e.Right)
+	case *parser.IfExpr:
+		if usesPrintlnExpr(e.Cond) || usesPrintln(e.Then) {
+			return true
+		}
+		if e.Else != nil && usesPrintln(e.Else) {
+			return true
+		}
+	case *parser.LoopExpr:
+		return usesPrintlnExpr(e.Cond) || usesPrintln(e.Body)
+	case *parser.Block:
+		return usesPrintln(e)
 	}
 	return false
 }
@@ -327,7 +436,7 @@ func collectCallsStmt(stmt parser.Stmt, calls map[string]bool) {
 func collectCallsExpr(expr parser.Expr, calls map[string]bool) {
 	switch e := expr.(type) {
 	case *parser.CallExpr:
-		if e.Name == "print_str" || e.Name == "print_int" {
+		if e.Name == "print_str" || e.Name == "print_int" || e.Name == "println" {
 			calls["fd_write"] = true
 		} else if e.Name == "exit" {
 			calls["proc_exit"] = true
@@ -537,6 +646,10 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 		case "print_int":
 			// Call the _print_int helper function
 			idx := c.funcIdx["_print_int"]
+			code = append(code, OpCall, byte(idx))
+		case "println":
+			// Call the _println helper function
+			idx := c.funcIdx["_println"]
 			code = append(code, OpCall, byte(idx))
 		default:
 			idx := c.funcIdx[e.Name]
