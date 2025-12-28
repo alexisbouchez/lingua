@@ -20,8 +20,8 @@ PHASE 2: WASM CODE GENERATION
 [x] Implement export section generation
 [x] Implement code section generation
 [x] Implement memory section generation
-[ ] Implement global section generation
-[ ] Implement table section generation
+[x] Implement global section generation
+[x] Implement table section generation
 [x] Implement import section generation
 [x] Support WASM text format (.wat) output for debugging
 
