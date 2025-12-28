@@ -92,6 +92,9 @@ func (p *Parser) parsePrimary() Expr {
 	case lexer.CONTINUE:
 		p.next()
 		return &ContinueExpr{}
+	case lexer.RETURN:
+		p.next()
+		return &ReturnExpr{Value: p.ParseExpr()}
 	}
 	return nil
 }

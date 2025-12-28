@@ -116,6 +116,13 @@ type ContinueExpr struct{}
 func (ContinueExpr) node() {}
 func (ContinueExpr) expr() {}
 
+type ReturnExpr struct {
+	Value Expr
+}
+
+func (ReturnExpr) node() {}
+func (ReturnExpr) expr() {}
+
 type FnDecl struct {
 	Name   string
 	Params []Param

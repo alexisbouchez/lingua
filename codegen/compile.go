@@ -531,7 +531,7 @@ func exprProducesValue(e parser.Expr) bool {
 		return false
 	case *parser.IfExpr:
 		return e.Else != nil // if-without-else produces void
-	case *parser.BreakExpr, *parser.ContinueExpr:
+	case *parser.BreakExpr, *parser.ContinueExpr, *parser.ReturnExpr:
 		return false
 	case *parser.CallExpr:
 		return e.Name != "drop" && e.Name != "store"
@@ -648,6 +648,12 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 	case *parser.ContinueExpr:
 		// br to loop start
 		return []byte{OpBr, byte(c.continueLabel)}
+	case *parser.ReturnExpr:
+		// return value
+		var code []byte
+		code = append(code, c.compileExpr(e.Value)...)
+		code = append(code, 0x0f) // return
+		return code
 	case *parser.Block:
 		return c.compileBlock(e)
 	case *parser.CallExpr:

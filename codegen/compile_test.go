@@ -722,3 +722,39 @@ func TestBreakContinue(t *testing.T) {
 		t.Fatalf("test_continue(10): expected 30, got %d", results[0])
 	}
 }
+
+func TestReturn(t *testing.T) {
+	// Test early return
+	src := `fn factorial(n: i32): i32 {
+		if n <= 1 { return 1 };
+		n * factorial(n - 1)
+	}`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	factorial := mod.ExportedFunction("factorial")
+
+	// 5! = 120
+	results, _ := factorial.Call(ctx, 5)
+	if results[0] != 120 {
+		t.Fatalf("5!: expected 120, got %d", results[0])
+	}
+
+	// 1! = 1
+	results, _ = factorial.Call(ctx, 1)
+	if results[0] != 1 {
+		t.Fatalf("1!: expected 1, got %d", results[0])
+	}
+}
