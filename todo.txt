@@ -39,7 +39,7 @@ PHASE 3: WASI INTEGRATION
 PHASE 4: LANGUAGE FEATURES
 --------------------------
 [x] Implement basic types (i32, i64, f32, f64)
-[x] Implement control flow (if, else, loops, blocks)
+[x] Implement control flow (if, else, loops, blocks, break, continue, return)
 [x] Implement functions and function calls
 [x] Implement local and global variables
 [ ] Implement memory management
