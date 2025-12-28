@@ -3201,6 +3201,22 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 			code = append(code, c.compileExpr(e.Args[0])...)
 			code = append(code, 0x41, 1)    // i32.const 1
 			code = append(code, OpI32And)   // n & 1 (is odd)
+		case "square":
+			// square(n) - returns n * n
+			code = nil
+			n := c.compileExpr(e.Args[0])
+			code = append(code, n...)
+			code = append(code, n...)
+			code = append(code, OpI32Mul)
+		case "cube":
+			// cube(n) - returns n * n * n
+			code = nil
+			n := c.compileExpr(e.Args[0])
+			code = append(code, n...)
+			code = append(code, n...)
+			code = append(code, OpI32Mul)
+			code = append(code, n...)
+			code = append(code, OpI32Mul)
 		case "print":
 			// print(str, len) - prints string with newline
 			code = nil

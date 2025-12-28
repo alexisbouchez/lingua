@@ -2563,3 +2563,52 @@ func TestIsEvenOddBuiltins(t *testing.T) {
 	}
 }
 
+func TestSquareCubeBuiltins(t *testing.T) {
+	src := `
+		fn test_square(n: i32): i32 { square(n) }
+		fn test_cube(n: i32): i32 { cube(n) }
+	`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	testSquare := mod.ExportedFunction("test_square")
+	testCube := mod.ExportedFunction("test_cube")
+
+	// square(5) = 25
+	results, _ := testSquare.Call(ctx, 5)
+	if int32(results[0]) != 25 {
+		t.Errorf("square(5): expected 25, got %d", int32(results[0]))
+	}
+
+	// square(0) = 0
+	results, _ = testSquare.Call(ctx, 0)
+	if int32(results[0]) != 0 {
+		t.Errorf("square(0): expected 0, got %d", int32(results[0]))
+	}
+
+	// cube(3) = 27
+	results, _ = testCube.Call(ctx, 3)
+	if int32(results[0]) != 27 {
+		t.Errorf("cube(3): expected 27, got %d", int32(results[0]))
+	}
+
+	// cube(2) = 8
+	results, _ = testCube.Call(ctx, 2)
+	if int32(results[0]) != 8 {
+		t.Errorf("cube(2): expected 8, got %d", int32(results[0]))
+	}
+}
+
