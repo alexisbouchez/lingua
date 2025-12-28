@@ -1223,6 +1223,64 @@ func TestReadCharMultiple(t *testing.T) {
 	t.Skip("Multiple fd_read calls have issues in wazero test environment")
 }
 
+func TestWriteChar(t *testing.T) {
+	src := `fn _start(): i32 { write_char(65) }`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	var stdout bytes.Buffer
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+
+	config := wazero.NewModuleConfig().WithStdout(&stdout)
+	_, err := r.InstantiateWithConfig(ctx, m.Bytes(), config)
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	if stdout.String() != "A" {
+		t.Fatalf("expected 'A', got %q", stdout.String())
+	}
+}
+
+func TestWriteCharMultiple(t *testing.T) {
+	src := `fn _start(): i32 {
+		write_char(72);
+		write_char(105);
+		write_char(33)
+	}`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	var stdout bytes.Buffer
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+
+	config := wazero.NewModuleConfig().WithStdout(&stdout)
+	_, err := r.InstantiateWithConfig(ctx, m.Bytes(), config)
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	if stdout.String() != "Hi!" {
+		t.Fatalf("expected 'Hi!', got %q", stdout.String())
+	}
+}
+
 func TestMalloc(t *testing.T) {
 	src := `fn _start(): i32 {
 		let addr1: i32 = malloc(10);

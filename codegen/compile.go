@@ -356,6 +356,42 @@ func generateReadCharHelper(fdReadIdx int) []byte {
 	return code
 }
 
+// generateWriteCharHelper generates the write_char(c) helper function bytecode
+// Writes a single character to stdout
+// Params: c (i32) - the character to write
+// Uses memory at address 800 for the 1-byte write buffer
+// Uses memory at address 0 for iovec
+func generateWriteCharHelper(fdWriteIdx int) []byte {
+	var code []byte
+
+	// Store the character at address 800
+	code = append(code, 0x41, 0xa0, 0x06) // i32.const 800 (LEB128: 0xa0 0x06)
+	code = append(code, OpLocalGet, 0)    // get character param
+	code = append(code, 0x3a, 0, 0)       // i32.store8 (store byte)
+
+	// Set up iovec at address 0:
+	// iovec.buf = 800 (our write buffer)
+	// iovec.buf_len = 1 (write 1 byte)
+	code = append(code, 0x41, 0)           // i32.const 0 (iovec addr)
+	code = append(code, 0x41, 0xa0, 0x06)  // i32.const 800 (LEB128)
+	code = append(code, OpI32Store, 2, 0)  // store buf address
+
+	code = append(code, 0x41, 4)           // i32.const 4 (iovec.buf_len offset)
+	code = append(code, 0x41, 1)           // i32.const 1 (write 1 byte)
+	code = append(code, OpI32Store, 2, 0)  // store buf_len
+
+	// fd_write(1, 0, 1, 8)
+	// fd=1 (stdout), iovs=0, iovs_len=1, nwritten=8
+	code = append(code, 0x41, 1)           // i32.const 1 (stdout)
+	code = append(code, 0x41, 0)           // i32.const 0 (iovs)
+	code = append(code, 0x41, 1)           // i32.const 1 (iovs_len)
+	code = append(code, 0x41, 8)           // i32.const 8 (nwritten ptr)
+	code = append(code, OpCall, byte(fdWriteIdx))
+
+	// Return the result (errno, 0 on success)
+	return code
+}
+
 // generateMallocHelper generates the malloc(size) helper function bytecode
 // Allocates size bytes on the heap and returns the address
 // Params: size (0)
@@ -547,6 +583,18 @@ func CompileFile(file *parser.File, m *Module) {
 		usedImports["fd_read"] = true
 	}
 
+	// Ensure fd_write is imported if write_char is used
+	needsWriteCharEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "write_char") {
+			needsWriteCharEarly = true
+			break
+		}
+	}
+	if needsWriteCharEarly {
+		usedImports["fd_write"] = true
+	}
+
 	// Add WASI imports first
 	for name := range usedImports {
 		if numParams, ok := wasiImports[name]; ok {
@@ -577,6 +625,7 @@ func CompileFile(file *parser.File, m *Module) {
 	needsStrEq := false
 	needsStrCopy := false
 	needsReadChar := false
+	needsWriteChar := false
 	needsMalloc := false
 	needsMemcpy := false
 	for _, fn := range file.Fns {
@@ -603,6 +652,9 @@ func CompileFile(file *parser.File, m *Module) {
 		}
 		if usesBuiltin(fn.Body, "read_char") {
 			needsReadChar = true
+		}
+		if usesBuiltin(fn.Body, "write_char") {
+			needsWriteChar = true
 		}
 		if usesBuiltin(fn.Body, "malloc") {
 			needsMalloc = true
@@ -636,6 +688,9 @@ func CompileFile(file *parser.File, m *Module) {
 		helperCount++
 	}
 	if needsReadChar {
+		helperCount++
+	}
+	if needsWriteChar {
 		helperCount++
 	}
 	if needsMalloc {
@@ -677,6 +732,10 @@ func CompileFile(file *parser.File, m *Module) {
 	}
 	if needsReadChar {
 		funcIdx["read_char"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsWriteChar {
+		funcIdx["write_char"] = len(m.imports) + helperIdx
 		helperIdx++
 	}
 	if needsMalloc {
@@ -723,6 +782,10 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsReadChar {
 		code := generateReadCharHelper(funcIdx["fd_read"])
 		m.AddFunction("read_char", 0, code, 0) // 0 params, 0 locals
+	}
+	if needsWriteChar {
+		code := generateWriteCharHelper(funcIdx["fd_write"])
+		m.AddFunction("write_char", 1, code, 0) // 1 param (char), 0 locals
 	}
 	if needsMalloc {
 		code := generateMallocHelper(heapPtrIdx)
