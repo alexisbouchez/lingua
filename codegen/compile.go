@@ -648,6 +648,38 @@ func generateRandomHelper(randomGetIdx int) []byte {
 	return code
 }
 
+// generateExitHelper generates the exit(code) helper function bytecode
+// Exits the process with the given exit code using WASI proc_exit
+// Params: code (i32) - the exit code
+func generateExitHelper(procExitIdx int) []byte {
+	var code []byte
+
+	// proc_exit(code)
+	code = append(code, OpLocalGet, 0)    // get exit code param
+	code = append(code, OpCall, byte(procExitIdx))
+
+	// proc_exit never returns, but WASM requires a return value
+	// Return 0 as a placeholder (unreachable)
+	code = append(code, 0x41, 0)          // i32.const 0
+
+	return code
+}
+
+// generateFdCloseHelper generates the close(fd) helper function bytecode
+// Closes a file descriptor using WASI fd_close
+// Params: fd (i32) - the file descriptor to close
+// Returns: errno (0 on success)
+func generateFdCloseHelper(fdCloseIdx int) []byte {
+	var code []byte
+
+	// fd_close(fd)
+	code = append(code, OpLocalGet, 0)    // get fd param
+	code = append(code, OpCall, byte(fdCloseIdx))
+
+	// Return the errno
+	return code
+}
+
 // generateWriteCharHelper generates the write_char(c) helper function bytecode
 // Writes a single character to stdout
 // Params: c (i32) - the character to write
@@ -851,14 +883,44 @@ func CompileFile(file *parser.File, m *Module) {
 
 	// First pass: collect all function calls to detect WASI imports
 	wasiImports := map[string]int{
-		"fd_write":       4,
-		"fd_read":        4,
-		"args_get":       2,
-		"args_sizes_get": 2,
-		"proc_exit":      1,
-		"random_get":     2,
-		"path_open":      8,
-		"fd_close":       1,
+		"fd_write":                4,
+		"fd_read":                 4,
+		"args_get":                2,
+		"args_sizes_get":          2,
+		"environ_get":             2,
+		"environ_sizes_get":       2,
+		"proc_exit":               1,
+		"random_get":              2,
+		"path_open":               8,
+		"fd_close":                1,
+		"fd_prestat_get":          2,
+		"fd_prestat_dir_name":     3,
+		"fd_seek":                 4,
+		"fd_tell":                 1,
+		"fd_fdstat_get":           2,
+		"fd_fdstat_set_flags":     2,
+		"fd_filestat_get":         2,
+		"path_create_directory":   3,
+		"path_remove_directory":   3,
+		"path_unlink_file":        3,
+		"path_rename":             5,
+		"path_filestat_get":       4,
+		"fd_readdir":              4,
+		"fd_sync":                 1,
+		"fd_datasync":             1,
+		"fd_allocate":             3,
+		"fd_advise":               4,
+		"path_link":               6,
+		"path_symlink":            4,
+		"path_readlink":           5,
+		"sched_yield":             0,
+		"clock_res_get":           2,
+		"clock_time_get":          3,
+		"poll_oneoff":             4,
+		"proc_raise":              1,
+		"sock_recv":               5,
+		"sock_send":               5,
+		"sock_shutdown":           2,
 	}
 
 	usedImports := make(map[string]bool)
@@ -900,6 +962,30 @@ func CompileFile(file *parser.File, m *Module) {
 	}
 	if needsRandomEarly {
 		usedImports["random_get"] = true
+	}
+
+	// Ensure proc_exit is imported if exit is used
+	needsExitEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "exit") {
+			needsExitEarly = true
+			break
+		}
+	}
+	if needsExitEarly {
+		usedImports["proc_exit"] = true
+	}
+
+	// Ensure fd_close is imported if close is used
+	needsFdCloseEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "close") {
+			needsFdCloseEarly = true
+			break
+		}
+	}
+	if needsFdCloseEarly {
+		usedImports["fd_close"] = true
 	}
 
 	// Add WASI imports first
@@ -1104,6 +1190,12 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsMemcpy {
 		helperCount++
 	}
+	if needsExitEarly {
+		helperCount++
+	}
+	if needsFdCloseEarly {
+		helperCount++
+	}
 
 	// Adjust function indices for helpers
 	helperIdx := 0
@@ -1205,6 +1297,14 @@ func CompileFile(file *parser.File, m *Module) {
 	}
 	if needsMemcpy {
 		funcIdx["memcpy"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsExitEarly {
+		funcIdx["exit"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsFdCloseEarly {
+		funcIdx["close"] = len(m.imports) + helperIdx
 		helperIdx++
 	}
 	for i, fn := range file.Fns {
@@ -1311,6 +1411,14 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsMemcpy {
 		code := generateMemcpyHelper()
 		m.AddFunction("memcpy", 3, code, 1) // 3 params (dest, src, len), 1 local
+	}
+	if needsExitEarly {
+		code := generateExitHelper(funcIdx["proc_exit"])
+		m.AddFunction("exit", 1, code, 0) // 1 param (code), 0 locals
+	}
+	if needsFdCloseEarly {
+		code := generateFdCloseHelper(funcIdx["fd_close"])
+		m.AddFunction("close", 1, code, 0) // 1 param (fd), 0 locals
 	}
 
 	for _, fn := range file.Fns {

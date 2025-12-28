@@ -1994,3 +1994,41 @@ func TestMemcpyReturnValue(t *testing.T) {
 		t.Fatalf("expected 0 (success), got %d", results[0])
 	}
 }
+
+func TestWASIBuiltins(t *testing.T) {
+	// Test close() builtin
+	src := `
+		fn test_close(): i32 {
+			close(999)
+		}
+	`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	wasi, err := wasi_snapshot_preview1.Instantiate(ctx, r)
+	if err != nil {
+		t.Fatalf("wasi instantiate: %v", err)
+	}
+	defer wasi.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	// Call test_close - should return EBADF (8) for invalid fd
+	testClose := mod.ExportedFunction("test_close")
+	results, _ := testClose.Call(ctx)
+	// Expected: EBADF (bad file descriptor) = 8
+	if results[0] != 8 {
+		t.Logf("close(999): expected EBADF (8), got %d", results[0])
+	}
+}
+
