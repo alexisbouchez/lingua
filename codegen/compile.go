@@ -977,6 +977,86 @@ func generateGetEnvironHelper(environGetIdx int) []byte {
 	return code
 }
 
+// generateFdstatHelper generates the fdstat(fd, buf) helper function bytecode
+// Gets file descriptor stats using WASI fd_fdstat_get
+// Params: fd (i32), buf (i32)
+// Returns: errno (0 on success)
+func generateFdstatHelper(fdFdstatGetIdx int) []byte {
+	var code []byte
+
+	// fd_fdstat_get(fd, buf)
+	code = append(code, OpLocalGet, 0)     // get fd param
+	code = append(code, OpLocalGet, 1)     // get buf param
+	code = append(code, OpCall, byte(fdFdstatGetIdx))
+
+	// Return the errno
+	return code
+}
+
+// generateFstatHelper generates the fstat(fd, buf) helper function bytecode
+// Gets file stats by file descriptor using WASI fd_filestat_get
+// Params: fd (i32), buf (i32)
+// Returns: errno (0 on success)
+func generateFstatHelper(fdFilestatGetIdx int) []byte {
+	var code []byte
+
+	// fd_filestat_get(fd, buf)
+	code = append(code, OpLocalGet, 0)     // get fd param
+	code = append(code, OpLocalGet, 1)     // get buf param
+	code = append(code, OpCall, byte(fdFilestatGetIdx))
+
+	// Return the errno
+	return code
+}
+
+// generateReaddirHelper generates the readdir(fd, buf, buf_len, cookie) helper function bytecode
+// Reads directory entries using WASI fd_readdir
+// Params: fd (i32), buf (i32), buf_len (i32), cookie (i32)
+// Returns: errno (0 on success)
+// Note: WASI fd_readdir expects i64 cookie but we only support i32
+func generateReaddirHelper(fdReaddirIdx int) []byte {
+	var code []byte
+
+	// fd_readdir(fd, buf, buf_len, cookie)
+	code = append(code, OpLocalGet, 0)     // get fd param
+	code = append(code, OpLocalGet, 1)     // get buf param
+	code = append(code, OpLocalGet, 2)     // get buf_len param
+	code = append(code, OpLocalGet, 3)     // get cookie param (i32)
+	code = append(code, 0xac)              // i64.extend_i32_s (convert to i64)
+	code = append(code, OpCall, byte(fdReaddirIdx))
+
+	// Return the errno
+	return code
+}
+
+// generateYieldHelper generates the yield() helper function bytecode
+// Yields to the scheduler using WASI sched_yield
+// Returns: errno (0 on success)
+func generateYieldHelper(schedYieldIdx int) []byte {
+	var code []byte
+
+	// sched_yield()
+	code = append(code, OpCall, byte(schedYieldIdx))
+
+	// Return the errno
+	return code
+}
+
+// generateRaiseHelper generates the raise(sig) helper function bytecode
+// Raises a signal using WASI proc_raise
+// Params: sig (i32)
+// Returns: errno (0 on success)
+func generateRaiseHelper(procRaiseIdx int) []byte {
+	var code []byte
+
+	// proc_raise(sig)
+	code = append(code, OpLocalGet, 0)     // get sig param
+	code = append(code, OpCall, byte(procRaiseIdx))
+
+	// Return the errno
+	return code
+}
+
 // generateWriteCharHelper generates the write_char(c) helper function bytecode
 // Writes a single character to stdout
 // Params: c (i32) - the character to write
@@ -1453,6 +1533,66 @@ func CompileFile(file *parser.File, m *Module) {
 		usedImports["environ_get"] = true
 	}
 
+	// Ensure fd_fdstat_get is imported if fdstat is used
+	needsFdstatEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "fdstat") {
+			needsFdstatEarly = true
+			break
+		}
+	}
+	if needsFdstatEarly {
+		usedImports["fd_fdstat_get"] = true
+	}
+
+	// Ensure fd_filestat_get is imported if fstat is used
+	needsFstatEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "fstat") {
+			needsFstatEarly = true
+			break
+		}
+	}
+	if needsFstatEarly {
+		usedImports["fd_filestat_get"] = true
+	}
+
+	// Ensure fd_readdir is imported if readdir is used
+	needsReaddirEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "readdir") {
+			needsReaddirEarly = true
+			break
+		}
+	}
+	if needsReaddirEarly {
+		usedImports["fd_readdir"] = true
+	}
+
+	// Ensure sched_yield is imported if yield is used
+	needsYieldEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "yield") {
+			needsYieldEarly = true
+			break
+		}
+	}
+	if needsYieldEarly {
+		usedImports["sched_yield"] = true
+	}
+
+	// Ensure proc_raise is imported if raise is used
+	needsRaiseEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "raise") {
+			needsRaiseEarly = true
+			break
+		}
+	}
+	if needsRaiseEarly {
+		usedImports["proc_raise"] = true
+	}
+
 	// Add WASI imports first
 	for name := range usedImports {
 		if numParams, ok := wasiImports[name]; ok {
@@ -1703,6 +1843,21 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsGetEnvironEarly {
 		helperCount++
 	}
+	if needsFdstatEarly {
+		helperCount++
+	}
+	if needsFstatEarly {
+		helperCount++
+	}
+	if needsReaddirEarly {
+		helperCount++
+	}
+	if needsYieldEarly {
+		helperCount++
+	}
+	if needsRaiseEarly {
+		helperCount++
+	}
 
 	// Adjust function indices for helpers
 	helperIdx := 0
@@ -1868,6 +2023,26 @@ func CompileFile(file *parser.File, m *Module) {
 	}
 	if needsGetEnvironEarly {
 		funcIdx["get_environ"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsFdstatEarly {
+		funcIdx["fdstat"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsFstatEarly {
+		funcIdx["fstat"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsReaddirEarly {
+		funcIdx["readdir"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsYieldEarly {
+		funcIdx["yield"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsRaiseEarly {
+		funcIdx["raise"] = len(m.imports) + helperIdx
 		helperIdx++
 	}
 	for i, fn := range file.Fns {
@@ -2038,6 +2213,26 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsGetEnvironEarly {
 		code := generateGetEnvironHelper(funcIdx["environ_get"])
 		m.AddFunction("get_environ", 2, code, 0) // 2 params (environ_ptr, environ_buf_ptr), 0 locals
+	}
+	if needsFdstatEarly {
+		code := generateFdstatHelper(funcIdx["fd_fdstat_get"])
+		m.AddFunction("fdstat", 2, code, 0) // 2 params (fd, buf), 0 locals
+	}
+	if needsFstatEarly {
+		code := generateFstatHelper(funcIdx["fd_filestat_get"])
+		m.AddFunction("fstat", 2, code, 0) // 2 params (fd, buf), 0 locals
+	}
+	if needsReaddirEarly {
+		code := generateReaddirHelper(funcIdx["fd_readdir"])
+		m.AddFunction("readdir", 4, code, 0) // 4 params (fd, buf, buf_len, cookie), 0 locals
+	}
+	if needsYieldEarly {
+		code := generateYieldHelper(funcIdx["sched_yield"])
+		m.AddFunction("yield", 0, code, 0) // 0 params, 0 locals
+	}
+	if needsRaiseEarly {
+		code := generateRaiseHelper(funcIdx["proc_raise"])
+		m.AddFunction("raise", 1, code, 0) // 1 param (sig), 0 locals
 	}
 
 	for _, fn := range file.Fns {

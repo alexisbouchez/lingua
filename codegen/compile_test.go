@@ -2159,3 +2159,87 @@ func TestWASIEnvironmentBuiltins(t *testing.T) {
 	}
 }
 
+func TestWASIFdStatBuiltins(t *testing.T) {
+	// Test fdstat() builtin
+	src := `
+		fn test_fdstat(): i32 {
+			fdstat(1, 4096)
+		}
+	`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	wasi, err := wasi_snapshot_preview1.Instantiate(ctx, r)
+	if err != nil {
+		t.Fatalf("wasi instantiate: %v", err)
+	}
+	defer wasi.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	// Call test_fdstat on stdout (fd=1)
+	testFn := mod.ExportedFunction("test_fdstat")
+	results, err := testFn.Call(ctx)
+	if err != nil {
+		t.Fatalf("call error: %v", err)
+	}
+
+	// Should return 0 (success) for stdout
+	if len(results) > 0 {
+		t.Logf("fdstat(1) result: %d", results[0])
+	}
+}
+
+func TestWASIYieldBuiltin(t *testing.T) {
+	// Test yield() builtin
+	src := `
+		fn test_yield(): i32 {
+			yield()
+		}
+	`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	wasi, err := wasi_snapshot_preview1.Instantiate(ctx, r)
+	if err != nil {
+		t.Fatalf("wasi instantiate: %v", err)
+	}
+	defer wasi.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	// Call test_yield
+	testFn := mod.ExportedFunction("test_yield")
+	results, err := testFn.Call(ctx)
+	if err != nil {
+		t.Fatalf("call error: %v", err)
+	}
+
+	// Should return 0 (success)
+	if len(results) > 0 {
+		t.Logf("yield() result: %d", results[0])
+	}
+}
+
