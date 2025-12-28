@@ -662,3 +662,63 @@ func TestUnaryMinus(t *testing.T) {
 		t.Fatalf("-(-7): expected 7, got %d", int32(results[0]))
 	}
 }
+
+func TestBreakContinue(t *testing.T) {
+	// Test break: sum first 3 numbers, then break
+	src := `fn test_break(n: i32): i32 {
+		let i: i32 = 0;
+		let s: i32 = 0;
+		loop i < n {
+			if i == 3 { break };
+			s = s + i;
+			i = i + 1;
+		};
+		s
+	}`
+	p := parser.New(src)
+	fn := p.ParseFn()
+	code, numLocals := Compile(fn, nil, NewStringTable(0))
+
+	m := NewModule()
+	m.AddFunction("test_break", 1, code, numLocals)
+
+	// Test continue: sum only even numbers
+	src2 := `fn test_continue(n: i32): i32 {
+		let i: i32 = 0;
+		let s: i32 = 0;
+		loop i < n {
+			i = i + 1;
+			if i % 2 != 0 { continue };
+			s = s + i;
+		};
+		s
+	}`
+	p = parser.New(src2)
+	fn = p.ParseFn()
+	code, numLocals = Compile(fn, nil, NewStringTable(0))
+	m.AddFunction("test_continue", 1, code, numLocals)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	testBreak := mod.ExportedFunction("test_break")
+	testContinue := mod.ExportedFunction("test_continue")
+
+	// break at i=3, so sum 0+1+2 = 3
+	results, _ := testBreak.Call(ctx, 10)
+	if results[0] != 3 {
+		t.Fatalf("test_break(10): expected 3, got %d", results[0])
+	}
+
+	// continue skips odd, sum 2+4+6+8+10 = 30
+	results, _ = testContinue.Call(ctx, 10)
+	if results[0] != 30 {
+		t.Fatalf("test_continue(10): expected 30, got %d", results[0])
+	}
+}

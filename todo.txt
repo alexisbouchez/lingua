@@ -71,7 +71,7 @@ PHASE 7: STANDARD LIBRARY
 [x] Implement python-like print() builtin
 [ ] Implement I/O primitives
 [ ] Implement string utilities
-[ ] Implement math functions
+[~] Implement math functions (abs, min, max)
 [ ] Implement collections (list, map, set)
 [ ] Implement async/await primitives (WASI 0.3)
 

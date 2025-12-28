@@ -31,11 +31,14 @@ const (
 )
 
 type Compiler struct {
-	fn        *parser.FnDecl
-	locals    map[string]int
-	numLocals int
-	funcIdx   map[string]int
-	strings   *StringTable
+	fn           *parser.FnDecl
+	locals       map[string]int
+	numLocals    int
+	funcIdx      map[string]int
+	strings      *StringTable
+	loopDepth    int    // depth of nested loops
+	breakLabel   int    // label offset for break (to outer block)
+	continueLabel int   // label offset for continue (to loop)
 }
 
 type StringTable struct {
@@ -526,6 +529,10 @@ func exprProducesValue(e parser.Expr) bool {
 	switch e := e.(type) {
 	case *parser.LoopExpr:
 		return false
+	case *parser.IfExpr:
+		return e.Else != nil // if-without-else produces void
+	case *parser.BreakExpr, *parser.ContinueExpr:
+		return false
 	case *parser.CallExpr:
 		return e.Name != "drop" && e.Name != "store"
 	default:
@@ -591,12 +598,22 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 	case *parser.IfExpr:
 		var code []byte
 		code = append(code, c.compileExpr(e.Cond)...)
-		code = append(code, OpIf, 0x7f) // if with i32 result
-		code = append(code, c.compileBlock(e.Then)...)
+		// Entering if block increases depth for break/continue labels
+		c.breakLabel++
+		c.continueLabel++
 		if e.Else != nil {
+			// if-else: produces a value
+			code = append(code, OpIf, 0x7f) // if with i32 result
+			code = append(code, c.compileBlock(e.Then)...)
 			code = append(code, OpElse)
 			code = append(code, c.compileBlock(e.Else)...)
+		} else {
+			// if-without-else: void block (used for side effects)
+			code = append(code, OpIf, 0x40) // if with void result
+			code = append(code, c.compileBlock(e.Then)...)
 		}
+		c.breakLabel--
+		c.continueLabel--
 		code = append(code, OpEnd)
 		return code
 	case *parser.LoopExpr:
@@ -611,13 +628,26 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 		code = append(code, OpBlock, 0x40) // block with void result
 		code = append(code, OpLoop, 0x40)  // loop with void result
 		code = append(code, c.compileExpr(e.Cond)...)
-		code = append(code, OpI32Eqz)     // invert condition
-		code = append(code, OpBrIf, 1)    // br_if to block (exit)
+		code = append(code, OpI32Eqz)      // invert condition
+		code = append(code, OpBrIf, 1)     // br_if to block (exit)
+		// Save old labels and set new ones (loop=0, block=1 from inside loop body)
+		oldBreak, oldContinue := c.breakLabel, c.continueLabel
+		c.breakLabel = 1   // outer block
+		c.continueLabel = 0 // loop
+		c.loopDepth++
 		code = append(code, c.compileBlock(e.Body)...)
-		code = append(code, OpBr, 0)      // br to loop (continue)
-		code = append(code, OpEnd)        // end loop
-		code = append(code, OpEnd)        // end block
+		c.loopDepth--
+		c.breakLabel, c.continueLabel = oldBreak, oldContinue
+		code = append(code, OpBr, 0)       // br to loop (continue)
+		code = append(code, OpEnd)         // end loop
+		code = append(code, OpEnd)         // end block
 		return code
+	case *parser.BreakExpr:
+		// br to outer block (exit loop)
+		return []byte{OpBr, byte(c.breakLabel)}
+	case *parser.ContinueExpr:
+		// br to loop start
+		return []byte{OpBr, byte(c.continueLabel)}
 	case *parser.Block:
 		return c.compileBlock(e)
 	case *parser.CallExpr:

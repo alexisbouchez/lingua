@@ -106,6 +106,16 @@ type LoopExpr struct {
 func (LoopExpr) node() {}
 func (LoopExpr) expr() {}
 
+type BreakExpr struct{}
+
+func (BreakExpr) node() {}
+func (BreakExpr) expr() {}
+
+type ContinueExpr struct{}
+
+func (ContinueExpr) node() {}
+func (ContinueExpr) expr() {}
+
 type FnDecl struct {
 	Name   string
 	Params []Param

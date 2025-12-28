@@ -86,6 +86,12 @@ func (p *Parser) parsePrimary() Expr {
 		return p.parseIfExpr()
 	case lexer.LOOP:
 		return p.parseLoopExpr()
+	case lexer.BREAK:
+		p.next()
+		return &BreakExpr{}
+	case lexer.CONTINUE:
+		p.next()
+		return &ContinueExpr{}
 	}
 	return nil
 }

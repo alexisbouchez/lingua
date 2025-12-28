@@ -40,6 +40,8 @@ const (
 	IF
 	ELSE
 	LOOP
+	BREAK
+	CONTINUE
 
 	// wasm types
 	I32
@@ -49,16 +51,18 @@ const (
 )
 
 var keywords = map[string]TokenType{
-	"fn":     FN,
-	"let":    LET,
-	"return": RETURN,
-	"if":     IF,
-	"else":   ELSE,
-	"loop":   LOOP,
-	"i32":    I32,
-	"i64":    I64,
-	"f32":    F32,
-	"f64":    F64,
+	"fn":       FN,
+	"let":      LET,
+	"return":   RETURN,
+	"if":       IF,
+	"else":     ELSE,
+	"loop":     LOOP,
+	"break":    BREAK,
+	"continue": CONTINUE,
+	"i32":      I32,
+	"i64":      I64,
+	"f32":      F32,
+	"f64":      F64,
 }
 
 func LookupIdent(ident string) TokenType {
