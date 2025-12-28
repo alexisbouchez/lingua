@@ -27,7 +27,7 @@ PHASE 2: WASM CODE GENERATION
 
 PHASE 3: WASI INTEGRATION
 -------------------------
-[ ] Study WASI 0.2 specification (current stable)
+[~] Study WASI 0.2 specification (basic support added)
 [~] Implement WASI imports (wasi_snapshot_preview1)
 [x] Support wasi:cli for command-line programs
 [x] Support wasi:filesystem for file I/O
@@ -54,8 +54,8 @@ PHASE 5: COMPONENT MODEL (WASM 3.0)
 [x] Study WebAssembly Component Model specification
 [x] Study WIT (WebAssembly Interface Types) format
 [x] Implement component generation (basic)
-[ ] Support interface imports/exports
-[ ] Support component composition
+[~] Support interface imports/exports (basic implementation added)
+[~] Support component composition (basic implementation added)
 
 PHASE 6: TOOLING
 ----------------
