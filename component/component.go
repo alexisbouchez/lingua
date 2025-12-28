@@ -20,10 +20,26 @@ type Component struct {
 	types []ComponentType
 }
 
+// Types returns the component's type definitions
+func (c *Component) Types() []ComponentType {
+	return c.types
+}
+
+// Imports returns the component's imports
+func (c *Component) Imports() []ComponentImport {
+	return c.imports
+}
+
+// Exports returns the component's exports
+func (c *Component) Exports() []ComponentExport {
+	return c.exports
+}
+
 // ComponentImport represents a component import
 type ComponentImport struct {
 	Name      string
 	Interface string // e.g., "wasi:http/outgoing-handler@0.2.0"
+	Type      ComponentType // The imported type (function, interface, etc.)
 }
 
 // ComponentExport represents a component export
@@ -31,6 +47,7 @@ type ComponentExport struct {
 	Name string
 	Kind ExportKind
 	Idx  int
+	Type ComponentType // The exported type (function, interface, etc.)
 }
 
 // ExportKind represents the kind of export
@@ -44,9 +61,22 @@ const (
 )
 
 // ComponentType represents a component-level type
+// This includes function types, interface types, etc.
 type ComponentType interface {
 	isComponentType()
+	TypeID() byte // Returns the type identifier
 }
+
+// InterfaceType represents a component interface type
+// Interfaces define sets of functions that can be imported/exported
+type InterfaceType struct {
+	Name      string      // Interface name
+	Functions []FuncType  // Functions in the interface
+	Version   string      // Optional version
+}
+
+func (InterfaceType) isComponentType() {}
+func (InterfaceType) TypeID() byte     { return 0x02 } // Interface type ID
 
 // FuncType represents a component function type
 type FuncType struct {
@@ -55,6 +85,7 @@ type FuncType struct {
 }
 
 func (FuncType) isComponentType() {}
+func (FuncType) TypeID() byte      { return 0x01 } // Function type ID
 
 // NamedType represents a named parameter or result
 type NamedType struct {
@@ -85,6 +116,29 @@ const (
 	ValOption
 	ValResult
 )
+
+// AddInterface adds an interface type to the component
+func (c *Component) AddInterface(iface InterfaceType) {
+	c.types = append(c.types, iface)
+}
+
+// AddInterfaceImport adds an interface import to the component
+func (c *Component) AddInterfaceImport(name string, iface InterfaceType) {
+	c.imports = append(c.imports, ComponentImport{
+		Name:      name,
+		Interface: iface.Name,
+		Type:      iface,
+	})
+}
+
+// AddInterfaceExport adds an interface export to the component
+func (c *Component) AddInterfaceExport(name string, iface InterfaceType) {
+	c.exports = append(c.exports, ComponentExport{
+		Name: name,
+		Kind: ExportType,
+		Type: iface,
+	})
+}
 
 // Component binary format constants
 const (
