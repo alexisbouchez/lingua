@@ -913,6 +913,70 @@ func generateStatHelper(pathFilestatIdx int) []byte {
 	return code
 }
 
+// generateGetArgsSizesHelper generates the get_args_sizes(argc_ptr, argv_buf_size_ptr) helper function bytecode
+// Gets argument count and buffer size using WASI args_sizes_get
+// Params: argc_ptr (i32), argv_buf_size_ptr (i32)
+// Returns: errno (0 on success)
+func generateGetArgsSizesHelper(argsSizesGetIdx int) []byte {
+	var code []byte
+
+	// args_sizes_get(argc_ptr, argv_buf_size_ptr)
+	code = append(code, OpLocalGet, 0)     // get argc_ptr param
+	code = append(code, OpLocalGet, 1)     // get argv_buf_size_ptr param
+	code = append(code, OpCall, byte(argsSizesGetIdx))
+
+	// Return the errno
+	return code
+}
+
+// generateGetArgsHelper generates the get_args(argv_ptr, argv_buf_ptr) helper function bytecode
+// Gets command-line arguments using WASI args_get
+// Params: argv_ptr (i32), argv_buf_ptr (i32)
+// Returns: errno (0 on success)
+func generateGetArgsHelper(argsGetIdx int) []byte {
+	var code []byte
+
+	// args_get(argv_ptr, argv_buf_ptr)
+	code = append(code, OpLocalGet, 0)     // get argv_ptr param
+	code = append(code, OpLocalGet, 1)     // get argv_buf_ptr param
+	code = append(code, OpCall, byte(argsGetIdx))
+
+	// Return the errno
+	return code
+}
+
+// generateGetEnvironSizesHelper generates the get_environ_sizes(environc_ptr, environ_buf_size_ptr) helper function bytecode
+// Gets environment variable count and buffer size using WASI environ_sizes_get
+// Params: environc_ptr (i32), environ_buf_size_ptr (i32)
+// Returns: errno (0 on success)
+func generateGetEnvironSizesHelper(environSizesGetIdx int) []byte {
+	var code []byte
+
+	// environ_sizes_get(environc_ptr, environ_buf_size_ptr)
+	code = append(code, OpLocalGet, 0)     // get environc_ptr param
+	code = append(code, OpLocalGet, 1)     // get environ_buf_size_ptr param
+	code = append(code, OpCall, byte(environSizesGetIdx))
+
+	// Return the errno
+	return code
+}
+
+// generateGetEnvironHelper generates the get_environ(environ_ptr, environ_buf_ptr) helper function bytecode
+// Gets environment variables using WASI environ_get
+// Params: environ_ptr (i32), environ_buf_ptr (i32)
+// Returns: errno (0 on success)
+func generateGetEnvironHelper(environGetIdx int) []byte {
+	var code []byte
+
+	// environ_get(environ_ptr, environ_buf_ptr)
+	code = append(code, OpLocalGet, 0)     // get environ_ptr param
+	code = append(code, OpLocalGet, 1)     // get environ_buf_ptr param
+	code = append(code, OpCall, byte(environGetIdx))
+
+	// Return the errno
+	return code
+}
+
 // generateWriteCharHelper generates the write_char(c) helper function bytecode
 // Writes a single character to stdout
 // Params: c (i32) - the character to write
@@ -1341,6 +1405,54 @@ func CompileFile(file *parser.File, m *Module) {
 		usedImports["path_filestat_get"] = true
 	}
 
+	// Ensure args_sizes_get is imported if get_args_sizes is used
+	needsGetArgsSizesEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "get_args_sizes") {
+			needsGetArgsSizesEarly = true
+			break
+		}
+	}
+	if needsGetArgsSizesEarly {
+		usedImports["args_sizes_get"] = true
+	}
+
+	// Ensure args_get is imported if get_args is used
+	needsGetArgsEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "get_args") {
+			needsGetArgsEarly = true
+			break
+		}
+	}
+	if needsGetArgsEarly {
+		usedImports["args_get"] = true
+	}
+
+	// Ensure environ_sizes_get is imported if get_environ_sizes is used
+	needsGetEnvironSizesEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "get_environ_sizes") {
+			needsGetEnvironSizesEarly = true
+			break
+		}
+	}
+	if needsGetEnvironSizesEarly {
+		usedImports["environ_sizes_get"] = true
+	}
+
+	// Ensure environ_get is imported if get_environ is used
+	needsGetEnvironEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "get_environ") {
+			needsGetEnvironEarly = true
+			break
+		}
+	}
+	if needsGetEnvironEarly {
+		usedImports["environ_get"] = true
+	}
+
 	// Add WASI imports first
 	for name := range usedImports {
 		if numParams, ok := wasiImports[name]; ok {
@@ -1579,6 +1691,18 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsStatEarly {
 		helperCount++
 	}
+	if needsGetArgsSizesEarly {
+		helperCount++
+	}
+	if needsGetArgsEarly {
+		helperCount++
+	}
+	if needsGetEnvironSizesEarly {
+		helperCount++
+	}
+	if needsGetEnvironEarly {
+		helperCount++
+	}
 
 	// Adjust function indices for helpers
 	helperIdx := 0
@@ -1728,6 +1852,22 @@ func CompileFile(file *parser.File, m *Module) {
 	}
 	if needsStatEarly {
 		funcIdx["stat"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsGetArgsSizesEarly {
+		funcIdx["get_args_sizes"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsGetArgsEarly {
+		funcIdx["get_args"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsGetEnvironSizesEarly {
+		funcIdx["get_environ_sizes"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsGetEnvironEarly {
+		funcIdx["get_environ"] = len(m.imports) + helperIdx
 		helperIdx++
 	}
 	for i, fn := range file.Fns {
@@ -1882,6 +2022,22 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsStatEarly {
 		code := generateStatHelper(funcIdx["path_filestat_get"])
 		m.AddFunction("stat", 5, code, 0) // 5 params (dirfd, flags, path, path_len, buf), 0 locals
+	}
+	if needsGetArgsSizesEarly {
+		code := generateGetArgsSizesHelper(funcIdx["args_sizes_get"])
+		m.AddFunction("get_args_sizes", 2, code, 0) // 2 params (argc_ptr, argv_buf_size_ptr), 0 locals
+	}
+	if needsGetArgsEarly {
+		code := generateGetArgsHelper(funcIdx["args_get"])
+		m.AddFunction("get_args", 2, code, 0) // 2 params (argv_ptr, argv_buf_ptr), 0 locals
+	}
+	if needsGetEnvironSizesEarly {
+		code := generateGetEnvironSizesHelper(funcIdx["environ_sizes_get"])
+		m.AddFunction("get_environ_sizes", 2, code, 0) // 2 params (environc_ptr, environ_buf_size_ptr), 0 locals
+	}
+	if needsGetEnvironEarly {
+		code := generateGetEnvironHelper(funcIdx["environ_get"])
+		m.AddFunction("get_environ", 2, code, 0) // 2 params (environ_ptr, environ_buf_ptr), 0 locals
 	}
 
 	for _, fn := range file.Fns {

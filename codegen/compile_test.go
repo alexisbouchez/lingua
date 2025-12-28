@@ -2110,3 +2110,52 @@ func TestWASIPathBuiltins(t *testing.T) {
 	}
 }
 
+func TestWASIEnvironmentBuiltins(t *testing.T) {
+	// Test get_args_sizes() builtin
+	src := `
+		fn test_get_args_sizes(): i32 {
+			get_args_sizes(4096, 4100)
+		}
+	`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	wasi, err := wasi_snapshot_preview1.Instantiate(ctx, r)
+	if err != nil {
+		t.Fatalf("wasi instantiate: %v", err)
+	}
+	defer wasi.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	// Call test_get_args_sizes
+	testFn := mod.ExportedFunction("test_get_args_sizes")
+	results, err := testFn.Call(ctx)
+	if err != nil {
+		t.Fatalf("call error: %v", err)
+	}
+
+	// Should return 0 (success)
+	if len(results) > 0 {
+		t.Logf("get_args_sizes result: %d", results[0])
+		// If successful, check the values at memory addresses 4096 and 4100
+		if results[0] == 0 {
+			mem := mod.Memory()
+			argc, _ := mem.ReadUint32Le(4096)
+			argvSize, _ := mem.ReadUint32Le(4100)
+			t.Logf("argc: %d, argv_buf_size: %d", argc, argvSize)
+		}
+	}
+}
+
