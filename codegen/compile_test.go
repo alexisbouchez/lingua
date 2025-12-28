@@ -2612,3 +2612,56 @@ func TestSquareCubeBuiltins(t *testing.T) {
 	}
 }
 
+func TestLog2Builtin(t *testing.T) {
+	src := `
+		fn test_log2(n: i32): i32 { log2(n) }
+	`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	testLog2 := mod.ExportedFunction("test_log2")
+
+	// log2(1) = 0
+	results, _ := testLog2.Call(ctx, 1)
+	if int32(results[0]) != 0 {
+		t.Errorf("log2(1): expected 0, got %d", int32(results[0]))
+	}
+
+	// log2(2) = 1
+	results, _ = testLog2.Call(ctx, 2)
+	if int32(results[0]) != 1 {
+		t.Errorf("log2(2): expected 1, got %d", int32(results[0]))
+	}
+
+	// log2(8) = 3
+	results, _ = testLog2.Call(ctx, 8)
+	if int32(results[0]) != 3 {
+		t.Errorf("log2(8): expected 3, got %d", int32(results[0]))
+	}
+
+	// log2(10) = 3 (floor)
+	results, _ = testLog2.Call(ctx, 10)
+	if int32(results[0]) != 3 {
+		t.Errorf("log2(10): expected 3, got %d", int32(results[0]))
+	}
+
+	// log2(16) = 4
+	results, _ = testLog2.Call(ctx, 16)
+	if int32(results[0]) != 4 {
+		t.Errorf("log2(16): expected 4, got %d", int32(results[0]))
+	}
+}
+

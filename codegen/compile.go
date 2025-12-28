@@ -3217,6 +3217,14 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 			code = append(code, OpI32Mul)
 			code = append(code, n...)
 			code = append(code, OpI32Mul)
+		case "log2":
+			// log2(n) - returns floor(log2(n)) for n > 0
+			// calculated as 31 - clz(n)
+			code = nil
+			code = append(code, 0x41, 31)   // i32.const 31
+			code = append(code, c.compileExpr(e.Args[0])...)
+			code = append(code, OpI32Clz)   // clz(n)
+			code = append(code, OpI32Sub)   // 31 - clz(n)
 		case "print":
 			// print(str, len) - prints string with newline
 			code = nil
