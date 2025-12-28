@@ -6,7 +6,7 @@ PHASE 1: FOUNDATION
 [x] Set up Go project structure (go mod init)
 [ ] Define language grammar and syntax specification
 [x] Implement lexer/tokenizer
-[ ] Implement parser (AST generation)
+[~] Implement parser (AST generation)
 [ ] Design type system
 [ ] Implement semantic analyzer
 
