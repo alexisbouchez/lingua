@@ -3140,6 +3140,32 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 			code = append(code, OpElse)
 			code = append(code, b...)
 			code = append(code, OpEnd)
+		case "sign":
+			// sign(n) - returns -1, 0, or 1
+			code = nil
+			n := c.compileExpr(e.Args[0])
+			// if n < 0 { -1 } else if n > 0 { 1 } else { 0 }
+			code = append(code, n...)
+			code = append(code, 0x41, 0) // i32.const 0
+			code = append(code, OpI32LtS)
+			code = append(code, OpIf, 0x7f) // if n < 0
+			code = append(code, 0x41, 0x7f) // i32.const -1
+			code = append(code, OpElse)
+			code = append(code, n...)
+			code = append(code, 0x41, 0) // i32.const 0
+			code = append(code, OpI32GtS)
+			code = append(code, OpIf, 0x7f) // if n > 0
+			code = append(code, 0x41, 1) // i32.const 1
+			code = append(code, OpElse)
+			code = append(code, 0x41, 0) // i32.const 0
+			code = append(code, OpEnd)
+			code = append(code, OpEnd)
+		case "negate":
+			// negate(n) - returns -n
+			code = nil
+			code = append(code, 0x41, 0) // i32.const 0
+			code = append(code, c.compileExpr(e.Args[0])...)
+			code = append(code, OpI32Sub) // 0 - n
 		case "print":
 			// print(str, len) - prints string with newline
 			code = nil

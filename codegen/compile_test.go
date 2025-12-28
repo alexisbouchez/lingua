@@ -2385,3 +2385,85 @@ func TestMillisBuiltin(t *testing.T) {
 	t.Logf("millis() returned: %d", millis)
 }
 
+func TestSignBuiltin(t *testing.T) {
+	src := `
+		fn test_sign(n: i32): i32 { sign(n) }
+	`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	testSign := mod.ExportedFunction("test_sign")
+
+	// sign(-5) = -1
+	results, _ := testSign.Call(ctx, uint64(0xfffffffb)) // -5 as uint64
+	if int32(results[0]) != -1 {
+		t.Errorf("sign(-5): expected -1, got %d", int32(results[0]))
+	}
+
+	// sign(0) = 0
+	results, _ = testSign.Call(ctx, 0)
+	if int32(results[0]) != 0 {
+		t.Errorf("sign(0): expected 0, got %d", int32(results[0]))
+	}
+
+	// sign(5) = 1
+	results, _ = testSign.Call(ctx, 5)
+	if int32(results[0]) != 1 {
+		t.Errorf("sign(5): expected 1, got %d", int32(results[0]))
+	}
+}
+
+func TestNegateBuiltin(t *testing.T) {
+	src := `
+		fn test_negate(n: i32): i32 { negate(n) }
+	`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	testNegate := mod.ExportedFunction("test_negate")
+
+	// negate(5) = -5
+	results, _ := testNegate.Call(ctx, 5)
+	if int32(results[0]) != -5 {
+		t.Errorf("negate(5): expected -5, got %d", int32(results[0]))
+	}
+
+	// negate(-5) = 5
+	results, _ = testNegate.Call(ctx, uint64(0xfffffffb)) // -5 as uint64
+	if int32(results[0]) != 5 {
+		t.Errorf("negate(-5): expected 5, got %d", int32(results[0]))
+	}
+
+	// negate(0) = 0
+	results, _ = testNegate.Call(ctx, 0)
+	if int32(results[0]) != 0 {
+		t.Errorf("negate(0): expected 0, got %d", int32(results[0]))
+	}
+}
+
