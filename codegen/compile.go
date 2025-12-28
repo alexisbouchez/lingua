@@ -28,6 +28,7 @@ const (
 	OpI32Sub    = 0x6b
 	OpI32Mul    = 0x6c
 	OpI32Div    = 0x6d
+	OpI32RemS   = 0x6f
 
 	OpI32Load  = 0x28
 	OpI32Store = 0x36
@@ -152,6 +153,20 @@ func generateMaxHelper() []byte {
 	code = append(code, OpElse)
 	code = append(code, OpLocalGet, 1)     // return b
 	code = append(code, OpEnd)
+
+	return code
+}
+
+// generateModHelper generates the mod(a, b) helper function bytecode
+// Returns a % b (signed remainder)
+// Params: a (0), b (1)
+func generateModHelper() []byte {
+	var code []byte
+
+	// return a % b
+	code = append(code, OpLocalGet, 0)     // get a
+	code = append(code, OpLocalGet, 1)     // get b
+	code = append(code, OpI32RemS)         // a % b
 
 	return code
 }
@@ -742,6 +757,7 @@ func CompileFile(file *parser.File, m *Module) {
 	needsAbs := false
 	needsMin := false
 	needsMax := false
+	needsMod := false
 	needsPow := false
 	needsSqrt := false
 	needsStrEq := false
@@ -765,6 +781,9 @@ func CompileFile(file *parser.File, m *Module) {
 		}
 		if usesBuiltin(fn.Body, "max") {
 			needsMax = true
+		}
+		if usesBuiltin(fn.Body, "mod") {
+			needsMod = true
 		}
 		if usesBuiltin(fn.Body, "pow") {
 			needsPow = true
@@ -807,6 +826,9 @@ func CompileFile(file *parser.File, m *Module) {
 		helperCount++
 	}
 	if needsMax {
+		helperCount++
+	}
+	if needsMod {
 		helperCount++
 	}
 	if needsPow {
@@ -854,6 +876,10 @@ func CompileFile(file *parser.File, m *Module) {
 	}
 	if needsMax {
 		funcIdx["max"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsMod {
+		funcIdx["mod"] = len(m.imports) + helperIdx
 		helperIdx++
 	}
 	if needsPow {
@@ -912,6 +938,10 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsMax {
 		code := generateMaxHelper()
 		m.AddFunction("max", 2, code, 0) // 2 params, 0 locals
+	}
+	if needsMod {
+		code := generateModHelper()
+		m.AddFunction("mod", 2, code, 0) // 2 params, 0 locals
 	}
 	if needsPow {
 		code := generatePowHelper()

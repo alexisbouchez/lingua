@@ -712,6 +712,62 @@ func TestPow(t *testing.T) {
 	}
 }
 
+func TestMod(t *testing.T) {
+	src := `fn test(a: i32, b: i32): i32 { mod(a, b) }`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	test := mod.ExportedFunction("test")
+
+	// mod(10, 3) = 1
+	results, _ := test.Call(ctx, 10, 3)
+	if results[0] != 1 {
+		t.Fatalf("mod(10, 3): expected 1, got %d", results[0])
+	}
+
+	// mod(15, 4) = 3
+	results, _ = test.Call(ctx, 15, 4)
+	if results[0] != 3 {
+		t.Fatalf("mod(15, 4): expected 3, got %d", results[0])
+	}
+
+	// mod(20, 5) = 0
+	results, _ = test.Call(ctx, 20, 5)
+	if results[0] != 0 {
+		t.Fatalf("mod(20, 5): expected 0, got %d", results[0])
+	}
+
+	// mod(7, 2) = 1
+	results, _ = test.Call(ctx, 7, 2)
+	if results[0] != 1 {
+		t.Fatalf("mod(7, 2): expected 1, got %d", results[0])
+	}
+
+	// mod(100, 7) = 2
+	results, _ = test.Call(ctx, 100, 7)
+	if results[0] != 2 {
+		t.Fatalf("mod(100, 7): expected 2, got %d", results[0])
+	}
+
+	// mod(1, 10) = 1
+	results, _ = test.Call(ctx, 1, 10)
+	if results[0] != 1 {
+		t.Fatalf("mod(1, 10): expected 1, got %d", results[0])
+	}
+}
+
 func TestLogicalOps(t *testing.T) {
 	// Test && (and)
 	p := parser.New("fn test_and(a: i32, b: i32): i32 { if a > 0 && b > 0 { 1 } else { 0 } }")
