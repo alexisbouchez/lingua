@@ -4,7 +4,7 @@ LINGUA - WASM/WASI Native Programming Language
 PHASE 1: FOUNDATION
 -------------------
 [x] Set up Go project structure (go mod init)
-[ ] Define language grammar and syntax specification
+[x] Define language grammar and syntax specification
 [x] Implement lexer/tokenizer
 [x] Implement parser (AST generation)
 [ ] Design type system
