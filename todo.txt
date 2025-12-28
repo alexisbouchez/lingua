@@ -27,7 +27,7 @@ PHASE 2: WASM CODE GENERATION
 
 PHASE 3: WASI INTEGRATION
 -------------------------
-[ ] Study WASI 0.2 specification (current stable)
+[~] Study WASI 0.2 specification (basic support added)
 [~] Implement WASI imports (wasi_snapshot_preview1)
 [x] Support wasi:cli for command-line programs
 [x] Support wasi:filesystem for file I/O
