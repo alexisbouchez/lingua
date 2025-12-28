@@ -14,6 +14,7 @@ const (
 	SectionMemory   = 5
 	SectionExport   = 7
 	SectionCode     = 10
+	SectionData     = 11
 )
 
 // Value types
@@ -37,12 +38,18 @@ type ImportDef struct {
 	NumParams int
 }
 
+type DataSeg struct {
+	Offset int
+	Data   []byte
+}
+
 type Module struct {
 	imports    []ImportDef
 	funcs      []FuncDef
 	funcIdx    map[string]int
 	hasMemory  bool
 	memPages   int
+	data       []DataSeg
 }
 
 func NewModule() *Module {
@@ -81,6 +88,10 @@ func (m *Module) FuncIndex(name string) int {
 func (m *Module) AddMemory(pages int) {
 	m.hasMemory = true
 	m.memPages = pages
+}
+
+func (m *Module) AddData(offset int, data []byte) {
+	m.data = append(m.data, DataSeg{Offset: offset, Data: data})
 }
 
 func (m *Module) Bytes() []byte {
@@ -189,6 +200,21 @@ func (m *Module) Bytes() []byte {
 		codeSec.Write(body.Bytes())
 	}
 	writeSection(&buf, SectionCode, codeSec.Bytes())
+
+	// Data section
+	if len(m.data) > 0 {
+		var dataSec bytes.Buffer
+		dataSec.Write(uleb128(uint64(len(m.data))))
+		for _, d := range m.data {
+			dataSec.WriteByte(0) // memory index 0
+			dataSec.WriteByte(0x41) // i32.const
+			dataSec.Write(sleb128(int64(d.Offset)))
+			dataSec.WriteByte(0x0b) // end
+			dataSec.Write(uleb128(uint64(len(d.Data))))
+			dataSec.Write(d.Data)
+		}
+		writeSection(&buf, SectionData, dataSec.Bytes())
+	}
 
 	return buf.Bytes()
 }

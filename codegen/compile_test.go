@@ -239,3 +239,33 @@ func TestCompileMemory(t *testing.T) {
 		t.Fatalf("expected 42, got %d", results[0])
 	}
 }
+
+func TestCompileData(t *testing.T) {
+	// Load a byte from initialized memory
+	src := `fn test(x: i32): i32 { load(0) }`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	m.AddData(0, []byte{42, 0, 0, 0}) // little-endian i32 = 42
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	test := mod.ExportedFunction("test")
+	results, err := test.Call(ctx, 0)
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+	if results[0] != 42 {
+		t.Fatalf("expected 42, got %d", results[0])
+	}
+}
