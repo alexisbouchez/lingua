@@ -1,0 +1,54 @@
+package lexer
+
+type Lexer struct {
+	input string
+	pos   int
+	ch    byte
+}
+
+func New(input string) *Lexer {
+	l := &Lexer{input: input}
+	l.readChar()
+	return l
+}
+
+func (l *Lexer) readChar() {
+	if l.pos >= len(l.input) {
+		l.ch = 0
+	} else {
+		l.ch = l.input[l.pos]
+	}
+	l.pos++
+}
+
+func (l *Lexer) NextToken() Token {
+	l.skipWhitespace()
+
+	if l.ch == 0 {
+		return Token{Type: EOF}
+	}
+
+	if isDigit(l.ch) {
+		return Token{Type: INT, Literal: l.readNumber()}
+	}
+
+	return Token{Type: EOF}
+}
+
+func (l *Lexer) skipWhitespace() {
+	for l.ch == ' ' || l.ch == '\t' || l.ch == '\n' || l.ch == '\r' {
+		l.readChar()
+	}
+}
+
+func (l *Lexer) readNumber() string {
+	start := l.pos - 1
+	for isDigit(l.ch) {
+		l.readChar()
+	}
+	return l.input[start : l.pos-1]
+}
+
+func isDigit(ch byte) bool {
+	return ch >= '0' && ch <= '9'
+}
