@@ -67,8 +67,17 @@ func (p *Parser) parsePrimary() Expr {
 		return &Ident{Name: name}
 	case lexer.IF:
 		return p.parseIfExpr()
+	case lexer.LOOP:
+		return p.parseLoopExpr()
 	}
 	return nil
+}
+
+func (p *Parser) parseLoopExpr() *LoopExpr {
+	p.expect(lexer.LOOP)
+	cond := p.ParseExpr()
+	body := p.parseBlock()
+	return &LoopExpr{Cond: cond, Body: body}
 }
 
 func (p *Parser) parseIfExpr() *IfExpr {
@@ -123,6 +132,16 @@ func (p *Parser) parseBlock() *Block {
 			stmts = append(stmts, p.parseLetStmt())
 		} else {
 			expr := p.ParseExpr()
+			// Check for assignment: ident = expr;
+			if p.cur.Type == lexer.ASSIGN {
+				if ident, ok := expr.(*Ident); ok {
+					p.next()
+					value := p.ParseExpr()
+					p.expect(lexer.SEMI)
+					stmts = append(stmts, &AssignStmt{Name: ident.Name, Value: value})
+					continue
+				}
+			}
 			if p.cur.Type == lexer.SEMI {
 				p.next()
 				stmts = append(stmts, &ExprStmt{Expr: expr})

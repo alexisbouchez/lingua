@@ -142,3 +142,43 @@ func TestCompileIfElse(t *testing.T) {
 		t.Fatalf("expected 7, got %d", results[0])
 	}
 }
+
+func TestCompileLoop(t *testing.T) {
+	// fn sum(n: i32, _: i32): i32 { let i: i32 = 0; let s: i32 = 0; loop i < n { s = s + i; i = i + 1; }; s }
+	src := `fn sum(n: i32, x: i32): i32 {
+		let i: i32 = 0;
+		let s: i32 = 0;
+		loop i < n {
+			s = s + i;
+			i = i + 1;
+		};
+		s
+	}`
+	p := parser.New(src)
+	fn := p.ParseFn()
+
+	code, numLocals := Compile(fn)
+
+	m := NewModule()
+	m.AddFunction("sum", code, numLocals)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	sum := mod.ExportedFunction("sum")
+
+	// sum(5) = 0 + 1 + 2 + 3 + 4 = 10
+	results, err := sum.Call(ctx, 5, 0)
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+	if results[0] != 10 {
+		t.Fatalf("expected 10, got %d", results[0])
+	}
+}

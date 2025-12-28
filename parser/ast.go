@@ -58,6 +58,14 @@ type ExprStmt struct {
 func (ExprStmt) node() {}
 func (ExprStmt) stmt() {}
 
+type AssignStmt struct {
+	Name  string
+	Value Expr
+}
+
+func (AssignStmt) node() {}
+func (AssignStmt) stmt() {}
+
 type Block struct {
 	Stmts []Stmt
 	Expr  Expr // final expression (return value)
@@ -74,6 +82,14 @@ type IfExpr struct {
 
 func (IfExpr) node() {}
 func (IfExpr) expr() {}
+
+type LoopExpr struct {
+	Cond Expr
+	Body *Block
+}
+
+func (LoopExpr) node() {}
+func (LoopExpr) expr() {}
 
 type FnDecl struct {
 	Name   string

@@ -4,6 +4,13 @@ import "github.com/alexisbouchez/lingua/parser"
 
 // WASM opcodes
 const (
+	OpBlock    = 0x02
+	OpLoop     = 0x03
+	OpIf       = 0x04
+	OpElse     = 0x05
+	OpEnd      = 0x0b
+	OpBr       = 0x0c
+	OpBrIf     = 0x0d
 	OpLocalGet = 0x20
 	OpLocalSet = 0x21
 	OpI32Eqz   = 0x45
@@ -17,9 +24,6 @@ const (
 	OpI32Sub   = 0x6b
 	OpI32Mul   = 0x6c
 	OpI32Div   = 0x6d
-	OpIf       = 0x04
-	OpElse     = 0x05
-	OpEnd      = 0x0b
 )
 
 type Compiler struct {
@@ -66,6 +70,11 @@ func (c *Compiler) compileBlock(b *parser.Block) []byte {
 func (c *Compiler) compileStmt(s parser.Stmt) []byte {
 	switch s := s.(type) {
 	case *parser.LetStmt:
+		code := c.compileExpr(s.Value)
+		idx := c.locals[s.Name]
+		code = append(code, OpLocalSet, byte(idx))
+		return code
+	case *parser.AssignStmt:
 		code := c.compileExpr(s.Value)
 		idx := c.locals[s.Name]
 		code = append(code, OpLocalSet, byte(idx))
@@ -120,6 +129,25 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 			code = append(code, c.compileBlock(e.Else)...)
 		}
 		code = append(code, OpEnd)
+		return code
+	case *parser.LoopExpr:
+		// block $exit
+		//   loop $continue
+		//     br_if $exit (i32.eqz condition)
+		//     body
+		//     br $continue
+		//   end
+		// end
+		var code []byte
+		code = append(code, OpBlock, 0x40) // block with void result
+		code = append(code, OpLoop, 0x40)  // loop with void result
+		code = append(code, c.compileExpr(e.Cond)...)
+		code = append(code, OpI32Eqz)     // invert condition
+		code = append(code, OpBrIf, 1)    // br_if to block (exit)
+		code = append(code, c.compileBlock(e.Body)...)
+		code = append(code, OpBr, 0)      // br to loop (continue)
+		code = append(code, OpEnd)        // end loop
+		code = append(code, OpEnd)        // end block
 		return code
 	case *parser.Block:
 		return c.compileBlock(e)
