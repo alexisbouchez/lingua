@@ -66,7 +66,11 @@ go build -o lingua ./cmd/lingua
 ## Usage
 
 ```bash
+# Compile to binary WASM
 ./lingua input.lingua output.wasm
+
+# Compile to WAT (text format) for debugging
+./lingua input.lingua output.wat
 ```
 
 Run with a WASM runtime:

@@ -23,7 +23,7 @@ PHASE 2: WASM CODE GENERATION
 [ ] Implement global section generation
 [ ] Implement table section generation
 [x] Implement import section generation
-[ ] Support WASM text format (.wat) output for debugging
+[x] Support WASM text format (.wat) output for debugging
 
 PHASE 3: WASI INTEGRATION
 -------------------------

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/alexisbouchez/lingua/codegen"
 	"github.com/alexisbouchez/lingua/parser"
@@ -10,7 +11,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: lingua <file.lingua>")
+		fmt.Fprintln(os.Stderr, "usage: lingua <file.lingua> [output.wasm|output.wat]")
 		os.Exit(1)
 	}
 
@@ -32,9 +33,17 @@ func main() {
 		outFile = os.Args[2]
 	}
 
-	if err := os.WriteFile(outFile, m.Bytes(), 0644); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+	// Output WAT if .wat extension, otherwise binary WASM
+	if strings.HasSuffix(outFile, ".wat") {
+		if err := os.WriteFile(outFile, []byte(m.WAT()), 0644); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	} else {
+		if err := os.WriteFile(outFile, m.Bytes(), 0644); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	}
 
 	fmt.Printf("compiled %s -> %s\n", os.Args[1], outFile)
