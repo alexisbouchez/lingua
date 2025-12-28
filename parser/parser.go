@@ -162,6 +162,9 @@ func (p *Parser) parsePrimary() Expr {
 	case lexer.RETURN:
 		p.next()
 		return &ReturnExpr{Value: p.ParseExpr()}
+	case lexer.AWAIT:
+		p.next()
+		return &AwaitExpr{Expr: p.ParseExpr()}
 	case lexer.LBRACKET:
 		var expr Expr = p.parseArrayLit()
 		// Handle index expressions: [1,2,3][0]
@@ -301,6 +304,11 @@ func tokenTypeName(t lexer.TokenType) string {
 }
 
 func (p *Parser) ParseFn() *FnDecl {
+	isAsync := false
+	if p.cur.Type == lexer.ASYNC {
+		isAsync = true
+		p.next()
+	}
 	p.expect(lexer.FN)
 
 	name := p.cur.Literal
@@ -319,7 +327,7 @@ func (p *Parser) ParseFn() *FnDecl {
 
 	body := p.parseBlock()
 
-	return &FnDecl{Name: name, Params: params, Return: ret, Body: body}
+	return &FnDecl{Name: name, Params: params, Return: ret, Body: body, Async: isAsync}
 }
 
 func (p *Parser) parseBlock() *Block {

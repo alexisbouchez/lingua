@@ -137,9 +137,17 @@ type FnDecl struct {
 	Params []Param
 	Return string
 	Body   *Block
+	Async  bool // true if this is an async function
 }
 
 func (FnDecl) node() {}
+
+type AwaitExpr struct {
+	Expr Expr
+}
+
+func (AwaitExpr) node() {}
+func (AwaitExpr) expr() {}
 
 type GlobalDecl struct {
 	Name  string

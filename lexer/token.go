@@ -52,6 +52,8 @@ const (
 	BREAK
 	CONTINUE
 	STRUCT
+	ASYNC
+	AWAIT
 
 	// wasm types
 	I32
@@ -71,6 +73,8 @@ var keywords = map[string]TokenType{
 	"break":    BREAK,
 	"continue": CONTINUE,
 	"struct":   STRUCT,
+	"async":    ASYNC,
+	"await":    AWAIT,
 	"i32":      I32,
 	"i64":      I64,
 	"f32":      F32,
