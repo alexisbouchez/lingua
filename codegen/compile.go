@@ -182,6 +182,71 @@ func generateModHelper() []byte {
 	return code
 }
 
+// generateAndHelper generates the and(a, b) helper function bytecode
+// Returns a & b (bitwise AND)
+// Params: a (0), b (1)
+func generateAndHelper() []byte {
+	var code []byte
+
+	code = append(code, OpLocalGet, 0)     // get a
+	code = append(code, OpLocalGet, 1)     // get b
+	code = append(code, OpI32And)          // a & b
+
+	return code
+}
+
+// generateOrHelper generates the or(a, b) helper function bytecode
+// Returns a | b (bitwise OR)
+// Params: a (0), b (1)
+func generateOrHelper() []byte {
+	var code []byte
+
+	code = append(code, OpLocalGet, 0)     // get a
+	code = append(code, OpLocalGet, 1)     // get b
+	code = append(code, OpI32Or)           // a | b
+
+	return code
+}
+
+// generateXorHelper generates the xor(a, b) helper function bytecode
+// Returns a ^ b (bitwise XOR)
+// Params: a (0), b (1)
+func generateXorHelper() []byte {
+	var code []byte
+
+	code = append(code, OpLocalGet, 0)     // get a
+	code = append(code, OpLocalGet, 1)     // get b
+	code = append(code, OpI32Xor)          // a ^ b
+
+	return code
+}
+
+// generateShlHelper generates the shl(a, b) helper function bytecode
+// Returns a << b (shift left)
+// Params: a (0), b (1)
+func generateShlHelper() []byte {
+	var code []byte
+
+	code = append(code, OpLocalGet, 0)     // get a
+	code = append(code, OpLocalGet, 1)     // get b
+	code = append(code, OpI32Shl)          // a << b
+
+	return code
+}
+
+// generateShrHelper generates the shr(a, b) helper function bytecode
+// Returns a >> b (shift right signed)
+// Params: a (0), b (1)
+func generateShrHelper() []byte {
+	var code []byte
+
+	code = append(code, OpLocalGet, 0)     // get a
+	code = append(code, OpLocalGet, 1)     // get b
+	code = append(code, OpI32ShrS)         // a >> b (signed)
+
+	return code
+}
+
 // generateClzHelper generates the clz(n) helper function bytecode
 // Returns count of leading zero bits
 // Params: n (0)
@@ -867,6 +932,11 @@ func CompileFile(file *parser.File, m *Module) {
 	needsMod := false
 	needsPow := false
 	needsSqrt := false
+	needsAnd := false
+	needsOr := false
+	needsXor := false
+	needsShl := false
+	needsShr := false
 	needsClz := false
 	needsCtz := false
 	needsPopcnt := false
@@ -903,6 +973,21 @@ func CompileFile(file *parser.File, m *Module) {
 		}
 		if usesBuiltin(fn.Body, "sqrt") {
 			needsSqrt = true
+		}
+		if usesBuiltin(fn.Body, "and") {
+			needsAnd = true
+		}
+		if usesBuiltin(fn.Body, "or") {
+			needsOr = true
+		}
+		if usesBuiltin(fn.Body, "xor") {
+			needsXor = true
+		}
+		if usesBuiltin(fn.Body, "shl") {
+			needsShl = true
+		}
+		if usesBuiltin(fn.Body, "shr") {
+			needsShr = true
 		}
 		if usesBuiltin(fn.Body, "clz") {
 			needsClz = true
@@ -966,6 +1051,21 @@ func CompileFile(file *parser.File, m *Module) {
 		helperCount++
 	}
 	if needsSqrt {
+		helperCount++
+	}
+	if needsAnd {
+		helperCount++
+	}
+	if needsOr {
+		helperCount++
+	}
+	if needsXor {
+		helperCount++
+	}
+	if needsShl {
+		helperCount++
+	}
+	if needsShr {
 		helperCount++
 	}
 	if needsClz {
@@ -1037,6 +1137,26 @@ func CompileFile(file *parser.File, m *Module) {
 	}
 	if needsSqrt {
 		funcIdx["sqrt"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsAnd {
+		funcIdx["and"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsOr {
+		funcIdx["or"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsXor {
+		funcIdx["xor"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsShl {
+		funcIdx["shl"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsShr {
+		funcIdx["shr"] = len(m.imports) + helperIdx
 		helperIdx++
 	}
 	if needsClz {
@@ -1123,6 +1243,26 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsSqrt {
 		code := generateSqrtHelper()
 		m.AddFunction("sqrt", 1, code, 2) // 1 param, 2 locals (x, next)
+	}
+	if needsAnd {
+		code := generateAndHelper()
+		m.AddFunction("and", 2, code, 0) // 2 params, 0 locals
+	}
+	if needsOr {
+		code := generateOrHelper()
+		m.AddFunction("or", 2, code, 0) // 2 params, 0 locals
+	}
+	if needsXor {
+		code := generateXorHelper()
+		m.AddFunction("xor", 2, code, 0) // 2 params, 0 locals
+	}
+	if needsShl {
+		code := generateShlHelper()
+		m.AddFunction("shl", 2, code, 0) // 2 params, 0 locals
+	}
+	if needsShr {
+		code := generateShrHelper()
+		m.AddFunction("shr", 2, code, 0) // 2 params, 0 locals
 	}
 	if needsClz {
 		code := generateClzHelper()

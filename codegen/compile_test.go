@@ -949,6 +949,112 @@ func TestBitwiseBuiltins(t *testing.T) {
 	}
 }
 
+func TestBitwiseLogicalBuiltins(t *testing.T) {
+	src := `
+		fn test_and(a: i32, b: i32): i32 { and(a, b) }
+		fn test_or(a: i32, b: i32): i32 { or(a, b) }
+		fn test_xor(a: i32, b: i32): i32 { xor(a, b) }
+		fn test_shl(a: i32, b: i32): i32 { shl(a, b) }
+		fn test_shr(a: i32, b: i32): i32 { shr(a, b) }
+	`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	// Test AND
+	and := mod.ExportedFunction("test_and")
+
+	// and(12, 10) = 8 (binary: 1100 & 1010 = 1000)
+	results, _ := and.Call(ctx, 12, 10)
+	if results[0] != 8 {
+		t.Fatalf("and(12, 10): expected 8, got %d", results[0])
+	}
+
+	// and(0xFF, 0x0F) = 0x0F
+	results, _ = and.Call(ctx, 0xFF, 0x0F)
+	if results[0] != 0x0F {
+		t.Fatalf("and(0xFF, 0x0F): expected 0x0F, got 0x%x", results[0])
+	}
+
+	// Test OR
+	or := mod.ExportedFunction("test_or")
+
+	// or(12, 10) = 14 (binary: 1100 | 1010 = 1110)
+	results, _ = or.Call(ctx, 12, 10)
+	if results[0] != 14 {
+		t.Fatalf("or(12, 10): expected 14, got %d", results[0])
+	}
+
+	// or(0xF0, 0x0F) = 0xFF
+	results, _ = or.Call(ctx, 0xF0, 0x0F)
+	if results[0] != 0xFF {
+		t.Fatalf("or(0xF0, 0x0F): expected 0xFF, got 0x%x", results[0])
+	}
+
+	// Test XOR
+	xor := mod.ExportedFunction("test_xor")
+
+	// xor(12, 10) = 6 (binary: 1100 ^ 1010 = 0110)
+	results, _ = xor.Call(ctx, 12, 10)
+	if results[0] != 6 {
+		t.Fatalf("xor(12, 10): expected 6, got %d", results[0])
+	}
+
+	// xor(0xFF, 0xFF) = 0
+	results, _ = xor.Call(ctx, 0xFF, 0xFF)
+	if results[0] != 0 {
+		t.Fatalf("xor(0xFF, 0xFF): expected 0, got %d", results[0])
+	}
+
+	// Test SHL (shift left)
+	shl := mod.ExportedFunction("test_shl")
+
+	// shl(1, 3) = 8
+	results, _ = shl.Call(ctx, 1, 3)
+	if results[0] != 8 {
+		t.Fatalf("shl(1, 3): expected 8, got %d", results[0])
+	}
+
+	// shl(5, 2) = 20
+	results, _ = shl.Call(ctx, 5, 2)
+	if results[0] != 20 {
+		t.Fatalf("shl(5, 2): expected 20, got %d", results[0])
+	}
+
+	// Test SHR (shift right signed)
+	shr := mod.ExportedFunction("test_shr")
+
+	// shr(8, 2) = 2
+	results, _ = shr.Call(ctx, 8, 2)
+	if results[0] != 2 {
+		t.Fatalf("shr(8, 2): expected 2, got %d", results[0])
+	}
+
+	// shr(20, 2) = 5
+	results, _ = shr.Call(ctx, 20, 2)
+	if results[0] != 5 {
+		t.Fatalf("shr(20, 2): expected 5, got %d", results[0])
+	}
+
+	// shr(-8, 1) = -4 (signed shift preserves sign)
+	neg8 := uint64(0xFFFFFFF8) // -8 as uint64
+	results, _ = shr.Call(ctx, neg8, 1)
+	if int32(results[0]) != -4 {
+		t.Fatalf("shr(-8, 1): expected -4, got %d", int32(results[0]))
+	}
+}
+
 func TestLogicalOps(t *testing.T) {
 	// Test && (and)
 	p := parser.New("fn test_and(a: i32, b: i32): i32 { if a > 0 && b > 0 { 1 } else { 0 } }")
