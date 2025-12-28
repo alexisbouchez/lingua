@@ -1151,6 +1151,89 @@ func generateLinkHelper(pathLinkIdx int) []byte {
 	return code
 }
 
+// generateTellHelper generates the tell() helper function bytecode
+// Params: fd (i32), offset_ptr (i32)
+// Returns: errno (0 on success)
+func generateTellHelper(fdTellIdx int) []byte {
+	var code []byte
+
+	// fd_tell(fd, offset_ptr)
+	code = append(code, OpLocalGet, 0) // get fd param
+	code = append(code, OpLocalGet, 1) // get offset_ptr param
+	code = append(code, OpCall, byte(fdTellIdx))
+
+	// Return the errno
+	return code
+}
+
+// generateSymlinkHelper generates the symlink() helper function bytecode
+// Params: old_path (i32), old_path_len (i32), fd (i32), new_path (i32), new_path_len (i32)
+// Returns: errno (0 on success)
+func generateSymlinkHelper(pathSymlinkIdx int) []byte {
+	var code []byte
+
+	// path_symlink(old_path, old_path_len, fd, new_path, new_path_len)
+	code = append(code, OpLocalGet, 0) // get old_path param
+	code = append(code, OpLocalGet, 1) // get old_path_len param
+	code = append(code, OpLocalGet, 2) // get fd param
+	code = append(code, OpLocalGet, 3) // get new_path param
+	code = append(code, OpLocalGet, 4) // get new_path_len param
+	code = append(code, OpCall, byte(pathSymlinkIdx))
+
+	// Return the errno
+	return code
+}
+
+// generateReadlinkHelper generates the readlink() helper function bytecode
+// Params: fd (i32), path (i32), path_len (i32), buf (i32), buf_len (i32), bufused_ptr (i32)
+// Returns: errno (0 on success)
+func generateReadlinkHelper(pathReadlinkIdx int) []byte {
+	var code []byte
+
+	// path_readlink(fd, path, path_len, buf, buf_len, bufused_ptr)
+	code = append(code, OpLocalGet, 0) // get fd param
+	code = append(code, OpLocalGet, 1) // get path param
+	code = append(code, OpLocalGet, 2) // get path_len param
+	code = append(code, OpLocalGet, 3) // get buf param
+	code = append(code, OpLocalGet, 4) // get buf_len param
+	code = append(code, OpLocalGet, 5) // get bufused_ptr param
+	code = append(code, OpCall, byte(pathReadlinkIdx))
+
+	// Return the errno
+	return code
+}
+
+// generatePrestatGetHelper generates the prestat_get() helper function bytecode
+// Params: fd (i32), buf (i32)
+// Returns: errno (0 on success)
+func generatePrestatGetHelper(fdPrestatGetIdx int) []byte {
+	var code []byte
+
+	// fd_prestat_get(fd, buf)
+	code = append(code, OpLocalGet, 0) // get fd param
+	code = append(code, OpLocalGet, 1) // get buf param
+	code = append(code, OpCall, byte(fdPrestatGetIdx))
+
+	// Return the errno
+	return code
+}
+
+// generatePrestatDirNameHelper generates the prestat_dir_name() helper function bytecode
+// Params: fd (i32), path (i32), path_len (i32)
+// Returns: errno (0 on success)
+func generatePrestatDirNameHelper(fdPrestatDirNameIdx int) []byte {
+	var code []byte
+
+	// fd_prestat_dir_name(fd, path, path_len)
+	code = append(code, OpLocalGet, 0) // get fd param
+	code = append(code, OpLocalGet, 1) // get path param
+	code = append(code, OpLocalGet, 2) // get path_len param
+	code = append(code, OpCall, byte(fdPrestatDirNameIdx))
+
+	// Return the errno
+	return code
+}
+
 // generateTimeHelper generates the time() helper function bytecode
 // Returns the current wall clock time in seconds as i32
 // Uses memory at address 904 for the 8-byte timestamp buffer
@@ -1426,7 +1509,7 @@ func CompileFile(file *parser.File, m *Module) {
 		"fd_prestat_get":        {2, true},
 		"fd_prestat_dir_name":   {3, true},
 		"fd_seek":               {4, true},
-		"fd_tell":               {1, true},
+		"fd_tell":               {2, true},
 		"fd_fdstat_get":         {2, true},
 		"fd_fdstat_set_flags":   {2, true},
 		"fd_filestat_get":       {2, true},
@@ -1806,6 +1889,66 @@ func CompileFile(file *parser.File, m *Module) {
 		usedImports["path_link"] = true
 	}
 
+	// Ensure fd_tell is imported if tell is used
+	needsTellEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "tell") {
+			needsTellEarly = true
+			break
+		}
+	}
+	if needsTellEarly {
+		usedImports["fd_tell"] = true
+	}
+
+	// Ensure path_symlink is imported if symlink is used
+	needsSymlinkEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "symlink") {
+			needsSymlinkEarly = true
+			break
+		}
+	}
+	if needsSymlinkEarly {
+		usedImports["path_symlink"] = true
+	}
+
+	// Ensure path_readlink is imported if readlink is used
+	needsReadlinkEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "readlink") {
+			needsReadlinkEarly = true
+			break
+		}
+	}
+	if needsReadlinkEarly {
+		usedImports["path_readlink"] = true
+	}
+
+	// Ensure fd_prestat_get is imported if prestat_get is used
+	needsPrestatGetEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "prestat_get") {
+			needsPrestatGetEarly = true
+			break
+		}
+	}
+	if needsPrestatGetEarly {
+		usedImports["fd_prestat_get"] = true
+	}
+
+	// Ensure fd_prestat_dir_name is imported if prestat_dir_name is used
+	needsPrestatDirNameEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "prestat_dir_name") {
+			needsPrestatDirNameEarly = true
+			break
+		}
+	}
+	if needsPrestatDirNameEarly {
+		usedImports["fd_prestat_dir_name"] = true
+	}
+
 	// Ensure clock_time_get is imported if time is used
 	needsTimeEarly := false
 	for _, fn := range file.Fns {
@@ -2119,6 +2262,21 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsLinkEarly {
 		helperCount++
 	}
+	if needsTellEarly {
+		helperCount++
+	}
+	if needsSymlinkEarly {
+		helperCount++
+	}
+	if needsReadlinkEarly {
+		helperCount++
+	}
+	if needsPrestatGetEarly {
+		helperCount++
+	}
+	if needsPrestatDirNameEarly {
+		helperCount++
+	}
 	if needsTimeEarly {
 		helperCount++
 	}
@@ -2330,6 +2488,26 @@ func CompileFile(file *parser.File, m *Module) {
 	}
 	if needsLinkEarly {
 		funcIdx["link"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsTellEarly {
+		funcIdx["tell"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsSymlinkEarly {
+		funcIdx["symlink"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsReadlinkEarly {
+		funcIdx["readlink"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsPrestatGetEarly {
+		funcIdx["prestat_get"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsPrestatDirNameEarly {
+		funcIdx["prestat_dir_name"] = len(m.imports) + helperIdx
 		helperIdx++
 	}
 	if needsTimeEarly {
@@ -2548,6 +2726,26 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsLinkEarly {
 		code := generateLinkHelper(funcIdx["path_link"])
 		m.AddFunction("link", 7, code, 0) // 7 params (old_fd, old_flags, old_path, old_path_len, new_fd, new_path, new_path_len), 0 locals
+	}
+	if needsTellEarly {
+		code := generateTellHelper(funcIdx["fd_tell"])
+		m.AddFunction("tell", 2, code, 0) // 2 params (fd, offset_ptr), 0 locals
+	}
+	if needsSymlinkEarly {
+		code := generateSymlinkHelper(funcIdx["path_symlink"])
+		m.AddFunction("symlink", 5, code, 0) // 5 params (old_path, old_path_len, fd, new_path, new_path_len), 0 locals
+	}
+	if needsReadlinkEarly {
+		code := generateReadlinkHelper(funcIdx["path_readlink"])
+		m.AddFunction("readlink", 6, code, 0) // 6 params (fd, path, path_len, buf, buf_len, bufused_ptr), 0 locals
+	}
+	if needsPrestatGetEarly {
+		code := generatePrestatGetHelper(funcIdx["fd_prestat_get"])
+		m.AddFunction("prestat_get", 2, code, 0) // 2 params (fd, buf), 0 locals
+	}
+	if needsPrestatDirNameEarly {
+		code := generatePrestatDirNameHelper(funcIdx["fd_prestat_dir_name"])
+		m.AddFunction("prestat_dir_name", 3, code, 0) // 3 params (fd, path, path_len), 0 locals
 	}
 	if needsTimeEarly {
 		code := generateTimeHelper(funcIdx["clock_time_get"])

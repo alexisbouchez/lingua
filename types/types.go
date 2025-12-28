@@ -412,6 +412,7 @@ func (c *Checker) builtinType(name string, args []parser.Expr) Type {
 	case "open", "close", "read", "write", "seek", "sync", "stat",
 		"mkdir", "rmdir", "unlink", "rename", "exit", "yield", "raise",
 		"fdstat", "fstat", "readdir", "datasync", "allocate", "advise", "link",
+		"tell", "symlink", "readlink", "prestat_get", "prestat_dir_name",
 		"set_fd_flags", "get_args_sizes", "get_args", "get_environ_sizes", "get_environ":
 		return I32
 
