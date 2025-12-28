@@ -404,9 +404,24 @@ func (c *Compiler) compileStmt(s parser.Stmt) []byte {
 		code = append(code, OpLocalSet, byte(idx))
 		return code
 	case *parser.ExprStmt:
-		return c.compileExpr(s.Expr)
+		code := c.compileExpr(s.Expr)
+		if exprProducesValue(s.Expr) {
+			code = append(code, 0x1a) // drop
+		}
+		return code
 	}
 	return nil
+}
+
+func exprProducesValue(e parser.Expr) bool {
+	switch e := e.(type) {
+	case *parser.LoopExpr:
+		return false
+	case *parser.CallExpr:
+		return e.Name != "drop" && e.Name != "store"
+	default:
+		return true
+	}
 }
 
 func (c *Compiler) compileExpr(e parser.Expr) []byte {
@@ -432,6 +447,8 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 			code = append(code, OpI32Mul)
 		case "/":
 			code = append(code, OpI32Div)
+		case "%":
+			code = append(code, 0x6f) // i32.rem_s
 		case "==":
 			code = append(code, OpI32Eq)
 		case "!=":

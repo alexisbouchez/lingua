@@ -182,3 +182,48 @@ func TestRunHello(t *testing.T) {
 		t.Fatalf("expected 'Hello, World!\\n', got %q", stdout.String())
 	}
 }
+
+func TestRunFizzBuzz(t *testing.T) {
+	wasm, err := os.ReadFile("fizzbuzz.wasm")
+	if err != nil {
+		t.Skip("fizzbuzz.wasm not found")
+	}
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	var stdout bytes.Buffer
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+
+	config := wazero.NewModuleConfig().WithStdout(&stdout)
+	_, err = r.InstantiateWithConfig(ctx, wasm, config)
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	expected := `1
+2
+Fizz
+4
+Buzz
+Fizz
+7
+8
+Fizz
+Buzz
+11
+Fizz
+13
+14
+FizzBuzz
+16
+17
+Fizz
+19
+Buzz
+`
+	if stdout.String() != expected {
+		t.Fatalf("expected:\n%s\ngot:\n%s", expected, stdout.String())
+	}
+}

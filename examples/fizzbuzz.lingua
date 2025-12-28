@@ -1,0 +1,25 @@
+fn fizzbuzz(i: i32): i32 {
+    if i % 15 == 0 {
+        print_str("FizzBuzz\n", 9)
+    } else {
+        if i % 3 == 0 {
+            print_str("Fizz\n", 5)
+        } else {
+            if i % 5 == 0 {
+                print_str("Buzz\n", 5)
+            } else {
+                print_int(i);
+                print_str("\n", 1)
+            }
+        }
+    }
+}
+
+fn _start(): i32 {
+    let i: i32 = 1;
+    loop i <= 20 {
+        drop(fizzbuzz(i));
+        i = i + 1;
+    };
+    0
+}
