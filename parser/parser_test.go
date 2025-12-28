@@ -99,3 +99,18 @@ func TestParseLetStmt(t *testing.T) {
 		t.Fatalf("expected final expr")
 	}
 }
+
+func TestParseIfExpr(t *testing.T) {
+	p := New("fn max(a: i32, b: i32): i32 { if a > b { a } else { b } }")
+	fn := p.ParseFn()
+	if fn.Name != "max" {
+		t.Fatalf("expected max, got %s", fn.Name)
+	}
+	ifExpr, ok := fn.Body.Expr.(*IfExpr)
+	if !ok {
+		t.Fatalf("expected IfExpr, got %T", fn.Body.Expr)
+	}
+	if ifExpr.Then == nil || ifExpr.Else == nil {
+		t.Fatalf("expected then and else blocks")
+	}
+}

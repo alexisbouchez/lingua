@@ -6,10 +6,20 @@ import "github.com/alexisbouchez/lingua/parser"
 const (
 	OpLocalGet = 0x20
 	OpLocalSet = 0x21
+	OpI32Eqz   = 0x45
+	OpI32Eq    = 0x46
+	OpI32Ne    = 0x47
+	OpI32LtS   = 0x48
+	OpI32GtS   = 0x4a
+	OpI32LeS   = 0x4c
+	OpI32GeS   = 0x4e
 	OpI32Add   = 0x6a
 	OpI32Sub   = 0x6b
 	OpI32Mul   = 0x6c
 	OpI32Div   = 0x6d
+	OpIf       = 0x04
+	OpElse     = 0x05
+	OpEnd      = 0x0b
 )
 
 type Compiler struct {
@@ -86,8 +96,33 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 			code = append(code, OpI32Mul)
 		case "/":
 			code = append(code, OpI32Div)
+		case "==":
+			code = append(code, OpI32Eq)
+		case "!=":
+			code = append(code, OpI32Ne)
+		case "<":
+			code = append(code, OpI32LtS)
+		case ">":
+			code = append(code, OpI32GtS)
+		case "<=":
+			code = append(code, OpI32LeS)
+		case ">=":
+			code = append(code, OpI32GeS)
 		}
 		return code
+	case *parser.IfExpr:
+		var code []byte
+		code = append(code, c.compileExpr(e.Cond)...)
+		code = append(code, OpIf, 0x7f) // if with i32 result
+		code = append(code, c.compileBlock(e.Then)...)
+		if e.Else != nil {
+			code = append(code, OpElse)
+			code = append(code, c.compileBlock(e.Else)...)
+		}
+		code = append(code, OpEnd)
+		return code
+	case *parser.Block:
+		return c.compileBlock(e)
 	}
 	return nil
 }

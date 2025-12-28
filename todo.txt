@@ -38,10 +38,10 @@ PHASE 3: WASI INTEGRATION
 
 PHASE 4: LANGUAGE FEATURES
 --------------------------
-[ ] Implement basic types (i32, i64, f32, f64)
+[~] Implement basic types (i32, i64, f32, f64)
 [ ] Implement control flow (if, else, loops, blocks)
 [ ] Implement functions and function calls
-[ ] Implement local and global variables
+[x] Implement local and global variables
 [ ] Implement memory management
 [ ] Implement linear memory operations
 [ ] Implement structs/records (using WASM GC if targeting 3.0)
@@ -59,7 +59,7 @@ PHASE 5: COMPONENT MODEL (WASM 3.0)
 
 PHASE 6: TOOLING
 ----------------
-[ ] Build CLI compiler tool
+[x] Build CLI compiler tool
 [ ] Implement source maps for debugging
 [ ] Add error reporting with line/column info
 [ ] Create REPL for interactive development

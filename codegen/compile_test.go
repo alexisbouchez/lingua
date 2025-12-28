@@ -102,3 +102,43 @@ func TestCompileWithLocals(t *testing.T) {
 		t.Fatalf("expected 13, got %d", results[0])
 	}
 }
+
+func TestCompileIfElse(t *testing.T) {
+	// fn max(a: i32, b: i32): i32 { if a > b { a } else { b } }
+	p := parser.New("fn max(a: i32, b: i32): i32 { if a > b { a } else { b } }")
+	fn := p.ParseFn()
+
+	code, numLocals := Compile(fn)
+
+	m := NewModule()
+	m.AddFunction("max", code, numLocals)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	max := mod.ExportedFunction("max")
+
+	// max(10, 5) = 10
+	results, err := max.Call(ctx, 10, 5)
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+	if results[0] != 10 {
+		t.Fatalf("expected 10, got %d", results[0])
+	}
+
+	// max(3, 7) = 7
+	results, err = max.Call(ctx, 3, 7)
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+	if results[0] != 7 {
+		t.Fatalf("expected 7, got %d", results[0])
+	}
+}

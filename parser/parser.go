@@ -44,6 +44,8 @@ func (p *Parser) parseExprPrec(minPrec int) Expr {
 
 func (p *Parser) precedence() int {
 	switch p.cur.Type {
+	case lexer.EQ, lexer.NEQ, lexer.LT, lexer.GT, lexer.LTE, lexer.GTE:
+		return 0
 	case lexer.PLUS, lexer.MINUS:
 		return 1
 	case lexer.STAR, lexer.SLASH, lexer.PERCENT:
@@ -63,8 +65,22 @@ func (p *Parser) parsePrimary() Expr {
 		name := p.cur.Literal
 		p.next()
 		return &Ident{Name: name}
+	case lexer.IF:
+		return p.parseIfExpr()
 	}
 	return nil
+}
+
+func (p *Parser) parseIfExpr() *IfExpr {
+	p.expect(lexer.IF)
+	cond := p.ParseExpr()
+	then := p.parseBlock()
+	var els *Block
+	if p.cur.Type == lexer.ELSE {
+		p.next()
+		els = p.parseBlock()
+	}
+	return &IfExpr{Cond: cond, Then: then, Else: els}
 }
 
 func (p *Parser) expect(t lexer.TokenType) {

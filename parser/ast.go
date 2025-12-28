@@ -66,6 +66,15 @@ type Block struct {
 func (Block) node() {}
 func (Block) expr() {}
 
+type IfExpr struct {
+	Cond Expr
+	Then *Block
+	Else *Block
+}
+
+func (IfExpr) node() {}
+func (IfExpr) expr() {}
+
 type FnDecl struct {
 	Name   string
 	Params []Param
