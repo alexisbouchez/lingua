@@ -22,13 +22,13 @@ PHASE 2: WASM CODE GENERATION
 [x] Implement memory section generation
 [ ] Implement global section generation
 [ ] Implement table section generation
-[ ] Implement import section generation
+[x] Implement import section generation
 [ ] Support WASM text format (.wat) output for debugging
 
 PHASE 3: WASI INTEGRATION
 -------------------------
 [ ] Study WASI 0.2 specification (current stable)
-[ ] Implement WASI imports (wasi_snapshot_preview1)
+[~] Implement WASI imports (wasi_snapshot_preview1)
 [ ] Support wasi:cli for command-line programs
 [ ] Support wasi:filesystem for file I/O
 [ ] Support wasi:sockets for networking
