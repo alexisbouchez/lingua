@@ -359,3 +359,84 @@ func TestExit(t *testing.T) {
 	// The test passes if no panic occurred
 	_ = err
 }
+
+func TestPrintInt(t *testing.T) {
+	src := `fn _start(): i32 { print_int(42) }`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	var stdout bytes.Buffer
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+
+	config := wazero.NewModuleConfig().WithStdout(&stdout)
+	_, err := r.InstantiateWithConfig(ctx, m.Bytes(), config)
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	if stdout.String() != "42" {
+		t.Fatalf("expected '42', got %q", stdout.String())
+	}
+}
+
+func TestPrintIntNegative(t *testing.T) {
+	src := `fn _start(): i32 { print_int(0 - 123) }`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	var stdout bytes.Buffer
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+
+	config := wazero.NewModuleConfig().WithStdout(&stdout)
+	_, err := r.InstantiateWithConfig(ctx, m.Bytes(), config)
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	if stdout.String() != "-123" {
+		t.Fatalf("expected '-123', got %q", stdout.String())
+	}
+}
+
+func TestPrintIntZero(t *testing.T) {
+	src := `fn _start(): i32 { print_int(0) }`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	var stdout bytes.Buffer
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+
+	config := wazero.NewModuleConfig().WithStdout(&stdout)
+	_, err := r.InstantiateWithConfig(ctx, m.Bytes(), config)
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	if stdout.String() != "0" {
+		t.Fatalf("expected '0', got %q", stdout.String())
+	}
+}

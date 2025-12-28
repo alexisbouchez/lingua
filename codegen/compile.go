@@ -57,6 +57,130 @@ func (st *StringTable) Bytes() []byte {
 	return st.data
 }
 
+// generatePrintIntHelper generates the _print_int helper function bytecode
+// params: n (i32)
+// locals: ptr, is_neg, digit
+// Uses memory 500-520 as buffer, builds string backwards from 519
+func generatePrintIntHelper(fdWriteIdx int) []byte {
+	var code []byte
+
+	// Locals: param n=0, ptr=1, is_neg=2, digit=3
+	// Initialize ptr = 519 (end of buffer)
+	code = append(code, 0x41) // i32.const 519
+	code = append(code, sleb128(519)...)
+	code = append(code, OpLocalSet, 1) // local.set 1 (ptr)
+
+	// is_neg = 0
+	code = append(code, 0x41, 0)       // i32.const 0
+	code = append(code, OpLocalSet, 2) // local.set 2 (is_neg)
+
+	// if n == 0, just store '0' and print
+	code = append(code, OpLocalGet, 0) // local.get 0 (n)
+	code = append(code, OpI32Eqz)      // i32.eqz
+	code = append(code, OpIf, 0x40)    // if void
+	// Store '0' at ptr
+	code = append(code, OpLocalGet, 1) // ptr
+	code = append(code, 0x41, 0x30)    // i32.const '0'
+	code = append(code, 0x3a, 0, 0)    // i32.store8
+	// Set length to 1 and jump to print
+	code = append(code, 0x41, 0)       // i32.const 0 (iovec addr)
+	code = append(code, OpLocalGet, 1) // ptr
+	code = append(code, OpI32Store, 2, 0)
+	code = append(code, 0x41, 4)    // i32.const 4
+	code = append(code, 0x41, 1)    // i32.const 1 (len)
+	code = append(code, OpI32Store, 2, 0)
+	code = append(code, 0x41, 1)    // fd
+	code = append(code, 0x41, 0)    // iovs
+	code = append(code, 0x41, 1)    // iovs_len
+	code = append(code, 0x41, 8)    // nwritten
+	code = append(code, OpCall, byte(fdWriteIdx))
+	code = append(code, 0x0f)       // return
+	code = append(code, OpEnd)      // end if
+
+	// if n < 0: is_neg = 1, n = -n
+	code = append(code, OpLocalGet, 0) // n
+	code = append(code, 0x41, 0)       // i32.const 0
+	code = append(code, OpI32LtS)      // i32.lt_s
+	code = append(code, OpIf, 0x40)    // if void
+	code = append(code, 0x41, 1)       // i32.const 1
+	code = append(code, OpLocalSet, 2) // is_neg = 1
+	code = append(code, 0x41, 0)       // i32.const 0
+	code = append(code, OpLocalGet, 0) // n
+	code = append(code, OpI32Sub)      // 0 - n
+	code = append(code, OpLocalSet, 0) // n = -n
+	code = append(code, OpEnd)         // end if
+
+	// Loop: extract digits
+	code = append(code, OpBlock, 0x40) // block
+	code = append(code, OpLoop, 0x40)  // loop
+	// if n == 0, break
+	code = append(code, OpLocalGet, 0) // n
+	code = append(code, OpI32Eqz)
+	code = append(code, OpBrIf, 1) // br_if to block (exit)
+	// digit = n % 10
+	code = append(code, OpLocalGet, 0) // n
+	code = append(code, 0x41, 10)      // i32.const 10
+	code = append(code, 0x6f)          // i32.rem_s
+	code = append(code, OpLocalSet, 3) // digit
+	// n = n / 10
+	code = append(code, OpLocalGet, 0) // n
+	code = append(code, 0x41, 10)      // i32.const 10
+	code = append(code, OpI32Div)      // i32.div_s
+	code = append(code, OpLocalSet, 0) // n = n / 10
+	// store digit + '0' at ptr
+	code = append(code, OpLocalGet, 1) // ptr
+	code = append(code, OpLocalGet, 3) // digit
+	code = append(code, 0x41, 0x30)    // i32.const '0'
+	code = append(code, OpI32Add)
+	code = append(code, 0x3a, 0, 0) // i32.store8
+	// ptr--
+	code = append(code, OpLocalGet, 1) // ptr
+	code = append(code, 0x41, 1)       // i32.const 1
+	code = append(code, OpI32Sub)
+	code = append(code, OpLocalSet, 1) // ptr = ptr - 1
+	// continue
+	code = append(code, OpBr, 0)  // br to loop
+	code = append(code, OpEnd)    // end loop
+	code = append(code, OpEnd)    // end block
+
+	// if is_neg, store '-' at ptr, ptr--
+	code = append(code, OpLocalGet, 2) // is_neg
+	code = append(code, OpIf, 0x40)
+	code = append(code, OpLocalGet, 1) // ptr
+	code = append(code, 0x41, 0x2d)    // i32.const '-'
+	code = append(code, 0x3a, 0, 0)    // i32.store8
+	code = append(code, OpLocalGet, 1)
+	code = append(code, 0x41, 1)
+	code = append(code, OpI32Sub)
+	code = append(code, OpLocalSet, 1)
+	code = append(code, OpEnd)
+
+	// ptr now points one before the string start, so string starts at ptr+1
+	// length = 519 - ptr
+	// Set up iovec: buf = ptr+1, len = 519 - ptr
+	code = append(code, 0x41, 0)       // i32.const 0 (iovec addr)
+	code = append(code, OpLocalGet, 1) // ptr
+	code = append(code, 0x41, 1)
+	code = append(code, OpI32Add) // ptr + 1
+	code = append(code, OpI32Store, 2, 0)
+
+	code = append(code, 0x41, 4) // i32.const 4
+	code = append(code, 0x41)
+	code = append(code, sleb128(519)...) // i32.const 519
+	code = append(code, OpLocalGet, 1)   // ptr
+	code = append(code, OpI32Sub)        // 519 - ptr = length
+	code = append(code, OpI32Store, 2, 0)
+
+	// fd_write(1, 0, 1, 8)
+	code = append(code, 0x41, 1) // fd
+	code = append(code, 0x41, 0) // iovs
+	code = append(code, 0x41, 1) // iovs_len
+	code = append(code, 0x41, 8) // nwritten
+	code = append(code, OpCall, byte(fdWriteIdx))
+
+	return code
+}
+
 func CompileFile(file *parser.File, m *Module) {
 	// First pass: collect all function calls to detect WASI imports
 	wasiImports := map[string]int{
@@ -93,6 +217,30 @@ func CompileFile(file *parser.File, m *Module) {
 	// String table starts at offset 1024 (leave space for iovec, etc.)
 	strings := NewStringTable(1024)
 
+	// Check if print_int is used
+	needsPrintInt := false
+	for _, fn := range file.Fns {
+		if usesPrintInt(fn.Body) {
+			needsPrintInt = true
+			break
+		}
+	}
+
+	// Adjust function indices if _print_int helper is needed
+	if needsPrintInt {
+		// _print_int will be at index len(imports), user funcs shift by 1
+		funcIdx["_print_int"] = len(m.imports)
+		for i, fn := range file.Fns {
+			funcIdx[fn.Name] = len(m.imports) + 1 + i
+		}
+	}
+
+	// Add _print_int helper first if needed
+	if needsPrintInt {
+		code := generatePrintIntHelper(funcIdx["fd_write"])
+		m.AddFunction("_print_int", 1, code, 3) // 1 param, 3 locals
+	}
+
 	for _, fn := range file.Fns {
 		code, numLocals := Compile(fn, funcIdx, strings)
 		m.AddFunction(fn.Name, len(fn.Params), code, numLocals)
@@ -102,6 +250,58 @@ func CompileFile(file *parser.File, m *Module) {
 	if len(strings.Bytes()) > 0 {
 		m.AddData(strings.offset, strings.Bytes())
 	}
+}
+
+func usesPrintInt(block *parser.Block) bool {
+	for _, stmt := range block.Stmts {
+		if usesPrintIntStmt(stmt) {
+			return true
+		}
+	}
+	if block.Expr != nil && usesPrintIntExpr(block.Expr) {
+		return true
+	}
+	return false
+}
+
+func usesPrintIntStmt(stmt parser.Stmt) bool {
+	switch s := stmt.(type) {
+	case *parser.LetStmt:
+		return usesPrintIntExpr(s.Value)
+	case *parser.AssignStmt:
+		return usesPrintIntExpr(s.Value)
+	case *parser.ExprStmt:
+		return usesPrintIntExpr(s.Expr)
+	}
+	return false
+}
+
+func usesPrintIntExpr(expr parser.Expr) bool {
+	switch e := expr.(type) {
+	case *parser.CallExpr:
+		if e.Name == "print_int" {
+			return true
+		}
+		for _, arg := range e.Args {
+			if usesPrintIntExpr(arg) {
+				return true
+			}
+		}
+	case *parser.BinaryExpr:
+		return usesPrintIntExpr(e.Left) || usesPrintIntExpr(e.Right)
+	case *parser.IfExpr:
+		if usesPrintIntExpr(e.Cond) || usesPrintInt(e.Then) {
+			return true
+		}
+		if e.Else != nil && usesPrintInt(e.Else) {
+			return true
+		}
+	case *parser.LoopExpr:
+		return usesPrintIntExpr(e.Cond) || usesPrintInt(e.Body)
+	case *parser.Block:
+		return usesPrintInt(e)
+	}
+	return false
 }
 
 func collectCalls(block *parser.Block, calls map[string]bool) {
@@ -127,7 +327,7 @@ func collectCallsStmt(stmt parser.Stmt, calls map[string]bool) {
 func collectCallsExpr(expr parser.Expr, calls map[string]bool) {
 	switch e := expr.(type) {
 	case *parser.CallExpr:
-		if e.Name == "print_str" {
+		if e.Name == "print_str" || e.Name == "print_int" {
 			calls["fd_write"] = true
 		} else if e.Name == "exit" {
 			calls["proc_exit"] = true
@@ -317,6 +517,10 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 			idx := c.funcIdx["proc_exit"]
 			code = append(code, OpCall, byte(idx))
 			code = append(code, 0x00) // unreachable
+		case "print_int":
+			// Call the _print_int helper function
+			idx := c.funcIdx["_print_int"]
+			code = append(code, OpCall, byte(idx))
 		default:
 			idx := c.funcIdx[e.Name]
 			code = append(code, OpCall, byte(idx))
