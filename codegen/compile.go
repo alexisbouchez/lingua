@@ -38,13 +38,85 @@ type Compiler struct {
 }
 
 func CompileFile(file *parser.File, m *Module) {
-	funcIdx := make(map[string]int)
-	for i, fn := range file.Fns {
-		funcIdx[fn.Name] = i
+	// First pass: collect all function calls to detect WASI imports
+	wasiImports := map[string]int{
+		"fd_write":    4,
+		"fd_read":     4,
+		"args_get":    2,
+		"args_sizes_get": 2,
+		"proc_exit":   1,
 	}
+
+	usedImports := make(map[string]bool)
+	for _, fn := range file.Fns {
+		collectCalls(fn.Body, usedImports)
+	}
+
+	// Add WASI imports first
+	for name := range usedImports {
+		if numParams, ok := wasiImports[name]; ok {
+			m.AddImport("wasi_snapshot_preview1", name, numParams)
+		}
+	}
+
+	// Build function index (imports are already indexed by AddImport)
+	funcIdx := make(map[string]int)
+	for name := range usedImports {
+		if _, ok := wasiImports[name]; ok {
+			funcIdx[name] = m.FuncIndex(name)
+		}
+	}
+	for i, fn := range file.Fns {
+		funcIdx[fn.Name] = len(m.imports) + i
+	}
+
 	for _, fn := range file.Fns {
 		code, numLocals := Compile(fn, funcIdx)
 		m.AddFunction(fn.Name, len(fn.Params), code, numLocals)
+	}
+}
+
+func collectCalls(block *parser.Block, calls map[string]bool) {
+	for _, stmt := range block.Stmts {
+		collectCallsStmt(stmt, calls)
+	}
+	if block.Expr != nil {
+		collectCallsExpr(block.Expr, calls)
+	}
+}
+
+func collectCallsStmt(stmt parser.Stmt, calls map[string]bool) {
+	switch s := stmt.(type) {
+	case *parser.LetStmt:
+		collectCallsExpr(s.Value, calls)
+	case *parser.AssignStmt:
+		collectCallsExpr(s.Value, calls)
+	case *parser.ExprStmt:
+		collectCallsExpr(s.Expr, calls)
+	}
+}
+
+func collectCallsExpr(expr parser.Expr, calls map[string]bool) {
+	switch e := expr.(type) {
+	case *parser.CallExpr:
+		calls[e.Name] = true
+		for _, arg := range e.Args {
+			collectCallsExpr(arg, calls)
+		}
+	case *parser.BinaryExpr:
+		collectCallsExpr(e.Left, calls)
+		collectCallsExpr(e.Right, calls)
+	case *parser.IfExpr:
+		collectCallsExpr(e.Cond, calls)
+		collectCalls(e.Then, calls)
+		if e.Else != nil {
+			collectCalls(e.Else, calls)
+		}
+	case *parser.LoopExpr:
+		collectCallsExpr(e.Cond, calls)
+		collectCalls(e.Body, calls)
+	case *parser.Block:
+		collectCalls(e, calls)
 	}
 }
 

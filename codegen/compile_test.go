@@ -280,7 +280,6 @@ func TestWASIHello(t *testing.T) {
 	f := p.ParseFile()
 
 	m := NewModule()
-	m.AddImport("wasi_snapshot_preview1", "fd_write", 4)
 	m.AddMemory(1)
 
 	// iovec: buf=16, len=14
@@ -292,7 +291,7 @@ func TestWASIHello(t *testing.T) {
 	data.WriteString("Hello, World!\n")
 	m.AddData(0, data.Bytes())
 
-	CompileFile(f, m)
+	CompileFile(f, m) // auto-imports fd_write
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
