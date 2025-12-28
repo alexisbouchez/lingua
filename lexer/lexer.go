@@ -73,6 +73,20 @@ func (l *Lexer) NextToken() Token {
 			l.readChar()
 			tok = Token{Type: NEQ, Literal: "!="}
 		} else {
+			tok = Token{Type: NOT, Literal: "!"}
+		}
+	case '&':
+		if l.peek() == '&' {
+			l.readChar()
+			tok = Token{Type: AND, Literal: "&&"}
+		} else {
+			return Token{Type: EOF}
+		}
+	case '|':
+		if l.peek() == '|' {
+			l.readChar()
+			tok = Token{Type: OR, Literal: "||"}
+		} else {
 			return Token{Type: EOF}
 		}
 	case '<':

@@ -32,6 +32,14 @@ type BinaryExpr struct {
 func (BinaryExpr) node() {}
 func (BinaryExpr) expr() {}
 
+type UnaryExpr struct {
+	Op   string
+	Expr Expr
+}
+
+func (UnaryExpr) node() {}
+func (UnaryExpr) expr() {}
+
 type Ident struct {
 	Name string
 }

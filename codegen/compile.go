@@ -543,6 +543,14 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 	case *parser.Ident:
 		idx := c.locals[e.Name]
 		return []byte{OpLocalGet, byte(idx)}
+	case *parser.UnaryExpr:
+		var code []byte
+		code = append(code, c.compileExpr(e.Expr)...)
+		switch e.Op {
+		case "!":
+			code = append(code, OpI32Eqz) // !x is x == 0
+		}
+		return code
 	case *parser.BinaryExpr:
 		var code []byte
 		code = append(code, c.compileExpr(e.Left)...)
@@ -570,6 +578,10 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 			code = append(code, OpI32LeS)
 		case ">=":
 			code = append(code, OpI32GeS)
+		case "&&":
+			code = append(code, 0x71) // i32.and
+		case "||":
+			code = append(code, 0x72) // i32.or
 		}
 		return code
 	case *parser.IfExpr:

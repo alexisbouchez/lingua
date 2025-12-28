@@ -29,6 +29,9 @@ const (
 	GT
 	LTE
 	GTE
+	AND
+	OR
+	NOT
 
 	// keywords
 	FN

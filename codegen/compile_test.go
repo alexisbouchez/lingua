@@ -566,3 +566,68 @@ func TestMinMax(t *testing.T) {
 		t.Fatalf("max(3,7): expected 7, got %d", results[0])
 	}
 }
+
+func TestLogicalOps(t *testing.T) {
+	// Test && (and)
+	p := parser.New("fn test_and(a: i32, b: i32): i32 { if a > 0 && b > 0 { 1 } else { 0 } }")
+	fn := p.ParseFn()
+	code, numLocals := Compile(fn, nil, NewStringTable(0))
+
+	m := NewModule()
+	m.AddFunction("test_and", 2, code, numLocals)
+
+	// Test || (or)
+	p = parser.New("fn test_or(a: i32, b: i32): i32 { if a > 0 || b > 0 { 1 } else { 0 } }")
+	fn = p.ParseFn()
+	code, numLocals = Compile(fn, nil, NewStringTable(0))
+	m.AddFunction("test_or", 2, code, numLocals)
+
+	// Test ! (not)
+	p = parser.New("fn test_not(a: i32): i32 { if !a { 1 } else { 0 } }")
+	fn = p.ParseFn()
+	code, numLocals = Compile(fn, nil, NewStringTable(0))
+	m.AddFunction("test_not", 1, code, numLocals)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	testAnd := mod.ExportedFunction("test_and")
+	testOr := mod.ExportedFunction("test_or")
+	testNot := mod.ExportedFunction("test_not")
+
+	// && tests
+	results, _ := testAnd.Call(ctx, 1, 1)
+	if results[0] != 1 {
+		t.Fatalf("1 && 1: expected 1, got %d", results[0])
+	}
+	results, _ = testAnd.Call(ctx, 1, 0)
+	if results[0] != 0 {
+		t.Fatalf("1 && 0: expected 0, got %d", results[0])
+	}
+
+	// || tests
+	results, _ = testOr.Call(ctx, 0, 0)
+	if results[0] != 0 {
+		t.Fatalf("0 || 0: expected 0, got %d", results[0])
+	}
+	results, _ = testOr.Call(ctx, 1, 0)
+	if results[0] != 1 {
+		t.Fatalf("1 || 0: expected 1, got %d", results[0])
+	}
+
+	// ! tests
+	results, _ = testNot.Call(ctx, 0)
+	if results[0] != 1 {
+		t.Fatalf("!0: expected 1, got %d", results[0])
+	}
+	results, _ = testNot.Call(ctx, 1)
+	if results[0] != 0 {
+		t.Fatalf("!1: expected 0, got %d", results[0])
+	}
+}

@@ -44,12 +44,16 @@ func (p *Parser) parseExprPrec(minPrec int) Expr {
 
 func (p *Parser) precedence() int {
 	switch p.cur.Type {
-	case lexer.EQ, lexer.NEQ, lexer.LT, lexer.GT, lexer.LTE, lexer.GTE:
+	case lexer.OR:
 		return 0
-	case lexer.PLUS, lexer.MINUS:
+	case lexer.AND:
 		return 1
-	case lexer.STAR, lexer.SLASH, lexer.PERCENT:
+	case lexer.EQ, lexer.NEQ, lexer.LT, lexer.GT, lexer.LTE, lexer.GTE:
 		return 2
+	case lexer.PLUS, lexer.MINUS:
+		return 3
+	case lexer.STAR, lexer.SLASH, lexer.PERCENT:
+		return 4
 	default:
 		return -1
 	}
@@ -57,6 +61,9 @@ func (p *Parser) precedence() int {
 
 func (p *Parser) parsePrimary() Expr {
 	switch p.cur.Type {
+	case lexer.NOT:
+		p.next()
+		return &UnaryExpr{Op: "!", Expr: p.parsePrimary()}
 	case lexer.INT:
 		val, _ := strconv.ParseInt(p.cur.Literal, 10, 64)
 		p.next()
