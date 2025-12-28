@@ -91,11 +91,53 @@ func (p *Parser) ParseFn() *FnDecl {
 		p.next()
 	}
 
-	p.expect(lexer.LBRACE)
-	body := p.ParseExpr()
-	p.expect(lexer.RBRACE)
+	body := p.parseBlock()
 
 	return &FnDecl{Name: name, Params: params, Return: ret, Body: body}
+}
+
+func (p *Parser) parseBlock() *Block {
+	p.expect(lexer.LBRACE)
+
+	var stmts []Stmt
+	var finalExpr Expr
+
+	for p.cur.Type != lexer.RBRACE && p.cur.Type != lexer.EOF {
+		if p.cur.Type == lexer.LET {
+			stmts = append(stmts, p.parseLetStmt())
+		} else {
+			expr := p.ParseExpr()
+			if p.cur.Type == lexer.SEMI {
+				p.next()
+				stmts = append(stmts, &ExprStmt{Expr: expr})
+			} else {
+				finalExpr = expr
+				break
+			}
+		}
+	}
+
+	p.expect(lexer.RBRACE)
+	return &Block{Stmts: stmts, Expr: finalExpr}
+}
+
+func (p *Parser) parseLetStmt() *LetStmt {
+	p.expect(lexer.LET)
+	name := p.cur.Literal
+	p.next()
+
+	var typ string
+	if p.cur.Type == lexer.COLON {
+		p.next()
+		typ = p.cur.Literal
+		p.next()
+	}
+
+	p.expect(lexer.ASSIGN)
+	value := p.ParseExpr()
+	p.expect(lexer.SEMI)
+
+	return &LetStmt{Name: name, Type: typ, Value: value}
 }
 
 func (p *Parser) parseParams() []Param {

@@ -37,11 +37,40 @@ type Param struct {
 	Type string
 }
 
+type Stmt interface {
+	Node
+	stmt()
+}
+
+type LetStmt struct {
+	Name  string
+	Type  string
+	Value Expr
+}
+
+func (LetStmt) node() {}
+func (LetStmt) stmt() {}
+
+type ExprStmt struct {
+	Expr Expr
+}
+
+func (ExprStmt) node() {}
+func (ExprStmt) stmt() {}
+
+type Block struct {
+	Stmts []Stmt
+	Expr  Expr // final expression (return value)
+}
+
+func (Block) node() {}
+func (Block) expr() {}
+
 type FnDecl struct {
 	Name   string
 	Params []Param
 	Return string
-	Body   Expr
+	Body   *Block
 }
 
 func (FnDecl) node() {}

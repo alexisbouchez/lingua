@@ -91,7 +91,7 @@ func sleb128(v int64) []byte {
 }
 
 // AddFunction adds a function that returns i32
-func (m *Module) AddFunction(name string, code []byte) {
+func (m *Module) AddFunction(name string, code []byte, numLocals int) {
 	// Type section: (i32, i32) -> i32
 	var typeSec bytes.Buffer
 	typeSec.WriteByte(1)    // 1 type
@@ -121,9 +121,20 @@ func (m *Module) AddFunction(name string, code []byte) {
 	// Code section
 	var codeSec bytes.Buffer
 	codeSec.WriteByte(1) // 1 function body
-	body := append([]byte{0}, code...) // 0 locals + code
-	body = append(body, 0x0b)          // end
-	codeSec.Write(uleb128(uint64(len(body))))
-	codeSec.Write(body)
+
+	// Build function body with locals
+	var body bytes.Buffer
+	if numLocals > 0 {
+		body.WriteByte(1)                         // 1 local entry
+		body.Write(uleb128(uint64(numLocals)))    // count
+		body.WriteByte(I32)                       // type
+	} else {
+		body.WriteByte(0) // 0 local entries
+	}
+	body.Write(code)
+	body.WriteByte(0x0b) // end
+
+	codeSec.Write(uleb128(uint64(body.Len())))
+	codeSec.Write(body.Bytes())
 	m.writeSection(SectionCode, codeSec.Bytes())
 }

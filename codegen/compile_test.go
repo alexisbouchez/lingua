@@ -13,10 +13,10 @@ func TestCompileAndRun(t *testing.T) {
 	p := parser.New("fn add(a: i32, b: i32): i32 { a + b }")
 	fn := p.ParseFn()
 
-	code := Compile(fn)
+	code, numLocals := Compile(fn)
 
 	m := NewModule()
-	m.AddFunction("add", code)
+	m.AddFunction("add", code, numLocals)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -43,10 +43,10 @@ func TestCompileExpr(t *testing.T) {
 	p := parser.New("fn calc(x: i32, y: i32): i32 { x * 2 + y }")
 	fn := p.ParseFn()
 
-	code := Compile(fn)
+	code, numLocals := Compile(fn)
 
 	m := NewModule()
-	m.AddFunction("calc", code)
+	m.AddFunction("calc", code, numLocals)
 
 	ctx := context.Background()
 	r := wazero.NewRuntime(ctx)
@@ -64,6 +64,40 @@ func TestCompileExpr(t *testing.T) {
 	}
 
 	// 5 * 2 + 3 = 13
+	if results[0] != 13 {
+		t.Fatalf("expected 13, got %d", results[0])
+	}
+}
+
+func TestCompileWithLocals(t *testing.T) {
+	// fn foo(x: i32, y: i32): i32 { let z = x * 2; z + y }
+	p := parser.New("fn foo(x: i32, y: i32): i32 { let z: i32 = x * 2; z + y }")
+	fn := p.ParseFn()
+
+	code, numLocals := Compile(fn)
+	if numLocals != 1 {
+		t.Fatalf("expected 1 local, got %d", numLocals)
+	}
+
+	m := NewModule()
+	m.AddFunction("foo", code, numLocals)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	foo := mod.ExportedFunction("foo")
+	results, err := foo.Call(ctx, 5, 3)
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+
+	// z = 5 * 2 = 10; 10 + 3 = 13
 	if results[0] != 13 {
 		t.Fatalf("expected 13, got %d", results[0])
 	}

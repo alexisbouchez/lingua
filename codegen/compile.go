@@ -5,6 +5,7 @@ import "github.com/alexisbouchez/lingua/parser"
 // WASM opcodes
 const (
 	OpLocalGet = 0x20
+	OpLocalSet = 0x21
 	OpI32Add   = 0x6a
 	OpI32Sub   = 0x6b
 	OpI32Mul   = 0x6c
@@ -12,11 +13,12 @@ const (
 )
 
 type Compiler struct {
-	fn     *parser.FnDecl
-	locals map[string]int
+	fn        *parser.FnDecl
+	locals    map[string]int
+	numLocals int
 }
 
-func Compile(fn *parser.FnDecl) []byte {
+func Compile(fn *parser.FnDecl) (code []byte, numLocals int) {
 	c := &Compiler{
 		fn:     fn,
 		locals: make(map[string]int),
@@ -26,8 +28,42 @@ func Compile(fn *parser.FnDecl) []byte {
 	for i, p := range fn.Params {
 		c.locals[p.Name] = i
 	}
+	c.numLocals = len(fn.Params)
 
-	return c.compileExpr(fn.Body)
+	// First pass: count locals from let statements
+	for _, stmt := range fn.Body.Stmts {
+		if let, ok := stmt.(*parser.LetStmt); ok {
+			c.locals[let.Name] = c.numLocals
+			c.numLocals++
+		}
+	}
+
+	code = c.compileBlock(fn.Body)
+	return code, c.numLocals - len(fn.Params)
+}
+
+func (c *Compiler) compileBlock(b *parser.Block) []byte {
+	var code []byte
+	for _, stmt := range b.Stmts {
+		code = append(code, c.compileStmt(stmt)...)
+	}
+	if b.Expr != nil {
+		code = append(code, c.compileExpr(b.Expr)...)
+	}
+	return code
+}
+
+func (c *Compiler) compileStmt(s parser.Stmt) []byte {
+	switch s := s.(type) {
+	case *parser.LetStmt:
+		code := c.compileExpr(s.Value)
+		idx := c.locals[s.Name]
+		code = append(code, OpLocalSet, byte(idx))
+		return code
+	case *parser.ExprStmt:
+		return c.compileExpr(s.Expr)
+	}
+	return nil
 }
 
 func (c *Compiler) compileExpr(e parser.Expr) []byte {

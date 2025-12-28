@@ -78,3 +78,24 @@ func TestParseFnDecl(t *testing.T) {
 		t.Fatalf("expected body")
 	}
 }
+
+func TestParseLetStmt(t *testing.T) {
+	p := New("fn foo(x: i32): i32 { let y: i32 = x * 2; y + 1 }")
+	fn := p.ParseFn()
+	if fn.Name != "foo" {
+		t.Fatalf("expected foo, got %s", fn.Name)
+	}
+	if len(fn.Body.Stmts) != 1 {
+		t.Fatalf("expected 1 stmt, got %d", len(fn.Body.Stmts))
+	}
+	let, ok := fn.Body.Stmts[0].(*LetStmt)
+	if !ok {
+		t.Fatalf("expected LetStmt, got %T", fn.Body.Stmts[0])
+	}
+	if let.Name != "y" {
+		t.Fatalf("expected y, got %s", let.Name)
+	}
+	if fn.Body.Expr == nil {
+		t.Fatalf("expected final expr")
+	}
+}
