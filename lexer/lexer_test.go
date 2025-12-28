@@ -132,3 +132,14 @@ func TestNextToken_Comparison(t *testing.T) {
 		}
 	}
 }
+
+func TestNextToken_String(t *testing.T) {
+	l := New(`"hello"`)
+	tok := l.NextToken()
+	if tok.Type != STRING {
+		t.Fatalf("expected STRING, got %v", tok.Type)
+	}
+	if tok.Literal != "hello" {
+		t.Fatalf("expected 'hello', got %q", tok.Literal)
+	}
+}

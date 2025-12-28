@@ -5,6 +5,7 @@ type TokenType int
 const (
 	EOF TokenType = iota
 	INT
+	STRING
 	IDENT
 
 	PLUS

@@ -16,6 +16,13 @@ type IntLit struct {
 func (IntLit) node() {}
 func (IntLit) expr() {}
 
+type StringLit struct {
+	Value string
+}
+
+func (StringLit) node() {}
+func (StringLit) expr() {}
+
 type BinaryExpr struct {
 	Left  Expr
 	Op    string

@@ -35,6 +35,26 @@ type Compiler struct {
 	locals    map[string]int
 	numLocals int
 	funcIdx   map[string]int
+	strings   *StringTable
+}
+
+type StringTable struct {
+	data   []byte
+	offset int // starting offset in memory
+}
+
+func NewStringTable(offset int) *StringTable {
+	return &StringTable{offset: offset}
+}
+
+func (st *StringTable) Add(s string) int {
+	addr := st.offset + len(st.data)
+	st.data = append(st.data, []byte(s)...)
+	return addr
+}
+
+func (st *StringTable) Bytes() []byte {
+	return st.data
 }
 
 func CompileFile(file *parser.File, m *Module) {
@@ -70,9 +90,17 @@ func CompileFile(file *parser.File, m *Module) {
 		funcIdx[fn.Name] = len(m.imports) + i
 	}
 
+	// String table starts at offset 1024 (leave space for iovec, etc.)
+	strings := NewStringTable(1024)
+
 	for _, fn := range file.Fns {
-		code, numLocals := Compile(fn, funcIdx)
+		code, numLocals := Compile(fn, funcIdx, strings)
 		m.AddFunction(fn.Name, len(fn.Params), code, numLocals)
+	}
+
+	// Add string data to module
+	if len(strings.Bytes()) > 0 {
+		m.AddData(strings.offset, strings.Bytes())
 	}
 }
 
@@ -120,11 +148,12 @@ func collectCallsExpr(expr parser.Expr, calls map[string]bool) {
 	}
 }
 
-func Compile(fn *parser.FnDecl, funcIdx map[string]int) (code []byte, numLocals int) {
+func Compile(fn *parser.FnDecl, funcIdx map[string]int, strings *StringTable) (code []byte, numLocals int) {
 	c := &Compiler{
 		fn:      fn,
 		locals:  make(map[string]int),
 		funcIdx: funcIdx,
+		strings: strings,
 	}
 
 	// Map params to local indices
@@ -178,6 +207,9 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 	switch e := e.(type) {
 	case *parser.IntLit:
 		return append([]byte{0x41}, sleb128(e.Value)...) // i32.const
+	case *parser.StringLit:
+		addr := c.strings.Add(e.Value)
+		return append([]byte{0x41}, sleb128(int64(addr))...) // i32.const addr
 	case *parser.Ident:
 		idx := c.locals[e.Name]
 		return []byte{OpLocalGet, byte(idx)}
@@ -250,6 +282,8 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 			code = append(code, OpI32Load, 2, 0) // align=4, offset=0
 		case "store":
 			code = append(code, OpI32Store, 2, 0)
+		case "drop":
+			code = append(code, 0x1a) // drop opcode
 		default:
 			idx := c.funcIdx[e.Name]
 			code = append(code, OpCall, byte(idx))

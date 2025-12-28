@@ -89,6 +89,8 @@ func (l *Lexer) NextToken() Token {
 		} else {
 			tok = Token{Type: GT, Literal: ">"}
 		}
+	case '"':
+		return Token{Type: STRING, Literal: l.readString()}
 	default:
 		if isLetter(l.ch) {
 			lit := l.readIdent()
@@ -123,6 +125,17 @@ func (l *Lexer) readIdent() string {
 		l.readChar()
 	}
 	return l.input[start : l.pos-1]
+}
+
+func (l *Lexer) readString() string {
+	l.readChar() // skip opening quote
+	start := l.pos - 1
+	for l.ch != '"' && l.ch != 0 {
+		l.readChar()
+	}
+	str := l.input[start : l.pos-1]
+	l.readChar() // skip closing quote
+	return str
 }
 
 func isDigit(ch byte) bool {

@@ -61,6 +61,10 @@ func (p *Parser) parsePrimary() Expr {
 		val, _ := strconv.ParseInt(p.cur.Literal, 10, 64)
 		p.next()
 		return &IntLit{Value: val}
+	case lexer.STRING:
+		val := p.cur.Literal
+		p.next()
+		return &StringLit{Value: val}
 	case lexer.IDENT:
 		name := p.cur.Literal
 		p.next()

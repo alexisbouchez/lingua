@@ -15,7 +15,7 @@ func TestCompileAndRun(t *testing.T) {
 	p := parser.New("fn add(a: i32, b: i32): i32 { a + b }")
 	fn := p.ParseFn()
 
-	code, numLocals := Compile(fn, nil)
+	code, numLocals := Compile(fn, nil, NewStringTable(0))
 
 	m := NewModule()
 	m.AddFunction("add", 2, code, numLocals)
@@ -45,7 +45,7 @@ func TestCompileExpr(t *testing.T) {
 	p := parser.New("fn calc(x: i32, y: i32): i32 { x * 2 + y }")
 	fn := p.ParseFn()
 
-	code, numLocals := Compile(fn, nil)
+	code, numLocals := Compile(fn, nil, NewStringTable(0))
 
 	m := NewModule()
 	m.AddFunction("calc", 2, code, numLocals)
@@ -76,7 +76,7 @@ func TestCompileWithLocals(t *testing.T) {
 	p := parser.New("fn foo(x: i32, y: i32): i32 { let z: i32 = x * 2; z + y }")
 	fn := p.ParseFn()
 
-	code, numLocals := Compile(fn, nil)
+	code, numLocals := Compile(fn, nil, NewStringTable(0))
 	if numLocals != 1 {
 		t.Fatalf("expected 1 local, got %d", numLocals)
 	}
@@ -110,7 +110,7 @@ func TestCompileIfElse(t *testing.T) {
 	p := parser.New("fn max(a: i32, b: i32): i32 { if a > b { a } else { b } }")
 	fn := p.ParseFn()
 
-	code, numLocals := Compile(fn, nil)
+	code, numLocals := Compile(fn, nil, NewStringTable(0))
 
 	m := NewModule()
 	m.AddFunction("max", 2, code, numLocals)
@@ -159,7 +159,7 @@ func TestCompileLoop(t *testing.T) {
 	p := parser.New(src)
 	fn := p.ParseFn()
 
-	code, numLocals := Compile(fn, nil)
+	code, numLocals := Compile(fn, nil, NewStringTable(0))
 
 	m := NewModule()
 	m.AddFunction("sum", 2, code, numLocals)
