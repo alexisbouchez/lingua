@@ -63,8 +63,8 @@ PHASE 6: TOOLING
 [ ] Implement source maps for debugging
 [x] Add error reporting with line/column info
 [ ] Create REPL for interactive development
-[ ] Add language server protocol (LSP) support
-[ ] Create VS Code extension
+[x] Add language server protocol (LSP) support
+[x] Create VS Code extension
 
 PHASE 7: STANDARD LIBRARY
 -------------------------
