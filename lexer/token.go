@@ -11,6 +11,14 @@ const (
 	STAR
 	SLASH
 	PERCENT
+
+	LPAREN
+	RPAREN
+	LBRACE
+	RBRACE
+	COMMA
+	SEMI
+	COLON
 )
 
 type Token struct {

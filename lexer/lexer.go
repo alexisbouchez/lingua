@@ -40,6 +40,20 @@ func (l *Lexer) NextToken() Token {
 		tok = Token{Type: SLASH, Literal: "/"}
 	case '%':
 		tok = Token{Type: PERCENT, Literal: "%"}
+	case '(':
+		tok = Token{Type: LPAREN, Literal: "("}
+	case ')':
+		tok = Token{Type: RPAREN, Literal: ")"}
+	case '{':
+		tok = Token{Type: LBRACE, Literal: "{"}
+	case '}':
+		tok = Token{Type: RBRACE, Literal: "}"}
+	case ',':
+		tok = Token{Type: COMMA, Literal: ","}
+	case ';':
+		tok = Token{Type: SEMI, Literal: ";"}
+	case ':':
+		tok = Token{Type: COLON, Literal: ":"}
 	default:
 		if isDigit(l.ch) {
 			return Token{Type: INT, Literal: l.readNumber()}
