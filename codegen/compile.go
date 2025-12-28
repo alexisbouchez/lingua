@@ -156,6 +156,61 @@ func generateMaxHelper() []byte {
 	return code
 }
 
+// generateSqrtHelper generates the sqrt(n) helper function bytecode
+// Returns the integer square root of n using Newton's method
+// Params: n (0)
+// Locals: x (1), next (2)
+func generateSqrtHelper() []byte {
+	var code []byte
+
+	// if n <= 1, return n (handles 0 and 1)
+	code = append(code, OpLocalGet, 0)     // get n
+	code = append(code, 0x41, 1)           // i32.const 1
+	code = append(code, OpI32LeS)          // n <= 1
+	code = append(code, OpIf, 0x7f)        // if (result i32)
+	code = append(code, OpLocalGet, 0)     // return n
+	code = append(code, OpElse)
+
+	// x = n / 2 (initial guess)
+	code = append(code, OpLocalGet, 0)     // get n
+	code = append(code, 0x41, 2)           // i32.const 2
+	code = append(code, OpI32Div)          // n / 2
+	code = append(code, OpLocalSet, 1)     // local.set x
+
+	// Newton's method loop (limited iterations for safety)
+	// block
+	code = append(code, OpBlock, 0x40)     // block (no result)
+	// loop (8 iterations max)
+	for i := 0; i < 8; i++ {
+		// next = (x + n/x) / 2
+		code = append(code, OpLocalGet, 1)     // get x
+		code = append(code, OpLocalGet, 0)     // get n
+		code = append(code, OpLocalGet, 1)     // get x
+		code = append(code, OpI32Div)          // n / x
+		code = append(code, OpI32Add)          // x + (n/x)
+		code = append(code, 0x41, 2)           // i32.const 2
+		code = append(code, OpI32Div)          // / 2
+		code = append(code, OpLocalSet, 2)     // local.set next
+
+		// if next >= x, break (converged)
+		code = append(code, OpLocalGet, 2)     // get next
+		code = append(code, OpLocalGet, 1)     // get x
+		code = append(code, OpI32GeS)          // next >= x
+		code = append(code, OpBrIf, 0)         // break if true
+
+		// x = next
+		code = append(code, OpLocalGet, 2)     // get next
+		code = append(code, OpLocalSet, 1)     // local.set x
+	}
+	code = append(code, OpEnd)             // end block
+
+	// return x
+	code = append(code, OpLocalGet, 1)     // get x
+	code = append(code, OpEnd)             // end if
+
+	return code
+}
+
 // generateStrEqHelper generates the str_eq(addr1, len1, addr2, len2) helper function bytecode
 // Returns 1 if strings are equal, 0 otherwise
 // Params: addr1 (0), len1 (1), addr2 (2), len2 (3)
@@ -622,6 +677,7 @@ func CompileFile(file *parser.File, m *Module) {
 	needsAbs := false
 	needsMin := false
 	needsMax := false
+	needsSqrt := false
 	needsStrEq := false
 	needsStrCopy := false
 	needsReadChar := false
@@ -643,6 +699,9 @@ func CompileFile(file *parser.File, m *Module) {
 		}
 		if usesBuiltin(fn.Body, "max") {
 			needsMax = true
+		}
+		if usesBuiltin(fn.Body, "sqrt") {
+			needsSqrt = true
 		}
 		if usesBuiltin(fn.Body, "str_eq") {
 			needsStrEq = true
@@ -679,6 +738,9 @@ func CompileFile(file *parser.File, m *Module) {
 		helperCount++
 	}
 	if needsMax {
+		helperCount++
+	}
+	if needsSqrt {
 		helperCount++
 	}
 	if needsStrEq {
@@ -720,6 +782,10 @@ func CompileFile(file *parser.File, m *Module) {
 	}
 	if needsMax {
 		funcIdx["max"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsSqrt {
+		funcIdx["sqrt"] = len(m.imports) + helperIdx
 		helperIdx++
 	}
 	if needsStrEq {
@@ -770,6 +836,10 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsMax {
 		code := generateMaxHelper()
 		m.AddFunction("max", 2, code, 0) // 2 params, 0 locals
+	}
+	if needsSqrt {
+		code := generateSqrtHelper()
+		m.AddFunction("sqrt", 1, code, 2) // 1 param, 2 locals (x, next)
 	}
 	if needsStrEq {
 		code := generateStrEqHelper()

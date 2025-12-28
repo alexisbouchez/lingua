@@ -564,6 +564,80 @@ func TestMinMax(t *testing.T) {
 	}
 }
 
+func TestSqrt(t *testing.T) {
+	src := `fn test(n: i32): i32 { sqrt(n) }`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	test := mod.ExportedFunction("test")
+
+	// sqrt(0) = 0
+	results, _ := test.Call(ctx, 0)
+	if results[0] != 0 {
+		t.Fatalf("sqrt(0): expected 0, got %d", results[0])
+	}
+
+	// sqrt(1) = 1
+	results, _ = test.Call(ctx, 1)
+	if results[0] != 1 {
+		t.Fatalf("sqrt(1): expected 1, got %d", results[0])
+	}
+
+	// sqrt(4) = 2
+	results, _ = test.Call(ctx, 4)
+	if results[0] != 2 {
+		t.Fatalf("sqrt(4): expected 2, got %d", results[0])
+	}
+
+	// sqrt(9) = 3
+	results, _ = test.Call(ctx, 9)
+	if results[0] != 3 {
+		t.Fatalf("sqrt(9): expected 3, got %d", results[0])
+	}
+
+	// sqrt(16) = 4
+	results, _ = test.Call(ctx, 16)
+	if results[0] != 4 {
+		t.Fatalf("sqrt(16): expected 4, got %d", results[0])
+	}
+
+	// sqrt(25) = 5
+	results, _ = test.Call(ctx, 25)
+	if results[0] != 5 {
+		t.Fatalf("sqrt(25): expected 5, got %d", results[0])
+	}
+
+	// sqrt(100) = 10
+	results, _ = test.Call(ctx, 100)
+	if results[0] != 10 {
+		t.Fatalf("sqrt(100): expected 10, got %d", results[0])
+	}
+
+	// sqrt(144) = 12
+	results, _ = test.Call(ctx, 144)
+	if results[0] != 12 {
+		t.Fatalf("sqrt(144): expected 12, got %d", results[0])
+	}
+
+	// sqrt(15) = 3 (floor of 3.87...)
+	results, _ = test.Call(ctx, 15)
+	if results[0] != 3 {
+		t.Fatalf("sqrt(15): expected 3, got %d", results[0])
+	}
+}
+
 func TestLogicalOps(t *testing.T) {
 	// Test && (and)
 	p := parser.New("fn test_and(a: i32, b: i32): i32 { if a > 0 && b > 0 { 1 } else { 0 } }")
