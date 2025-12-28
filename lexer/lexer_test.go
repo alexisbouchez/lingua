@@ -74,3 +74,33 @@ func TestNextToken_Delimiters(t *testing.T) {
 		}
 	}
 }
+
+func TestNextToken_IdentifiersAndKeywords(t *testing.T) {
+	input := "fn foo i32 let x return if else loop"
+	tests := []struct {
+		typ TokenType
+		lit string
+	}{
+		{FN, "fn"},
+		{IDENT, "foo"},
+		{I32, "i32"},
+		{LET, "let"},
+		{IDENT, "x"},
+		{RETURN, "return"},
+		{IF, "if"},
+		{ELSE, "else"},
+		{LOOP, "loop"},
+		{EOF, ""},
+	}
+
+	l := New(input)
+	for i, tt := range tests {
+		tok := l.NextToken()
+		if tok.Type != tt.typ {
+			t.Fatalf("tests[%d] - wrong type. expected=%v, got=%v", i, tt.typ, tok.Type)
+		}
+		if tok.Literal != tt.lit {
+			t.Fatalf("tests[%d] - wrong literal. expected=%q, got=%q", i, tt.lit, tok.Literal)
+		}
+	}
+}

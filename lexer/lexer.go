@@ -55,6 +55,10 @@ func (l *Lexer) NextToken() Token {
 	case ':':
 		tok = Token{Type: COLON, Literal: ":"}
 	default:
+		if isLetter(l.ch) {
+			lit := l.readIdent()
+			return Token{Type: LookupIdent(lit), Literal: lit}
+		}
 		if isDigit(l.ch) {
 			return Token{Type: INT, Literal: l.readNumber()}
 		}
@@ -78,6 +82,18 @@ func (l *Lexer) readNumber() string {
 	return l.input[start : l.pos-1]
 }
 
+func (l *Lexer) readIdent() string {
+	start := l.pos - 1
+	for isLetter(l.ch) || isDigit(l.ch) {
+		l.readChar()
+	}
+	return l.input[start : l.pos-1]
+}
+
 func isDigit(ch byte) bool {
 	return ch >= '0' && ch <= '9'
+}
+
+func isLetter(ch byte) bool {
+	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '_'
 }
