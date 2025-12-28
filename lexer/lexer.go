@@ -28,11 +28,26 @@ func (l *Lexer) NextToken() Token {
 		return Token{Type: EOF}
 	}
 
-	if isDigit(l.ch) {
-		return Token{Type: INT, Literal: l.readNumber()}
+	var tok Token
+	switch l.ch {
+	case '+':
+		tok = Token{Type: PLUS, Literal: "+"}
+	case '-':
+		tok = Token{Type: MINUS, Literal: "-"}
+	case '*':
+		tok = Token{Type: STAR, Literal: "*"}
+	case '/':
+		tok = Token{Type: SLASH, Literal: "/"}
+	case '%':
+		tok = Token{Type: PERCENT, Literal: "%"}
+	default:
+		if isDigit(l.ch) {
+			return Token{Type: INT, Literal: l.readNumber()}
+		}
+		return Token{Type: EOF}
 	}
-
-	return Token{Type: EOF}
+	l.readChar()
+	return tok
 }
 
 func (l *Lexer) skipWhitespace() {
