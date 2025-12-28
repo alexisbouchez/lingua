@@ -1234,6 +1234,58 @@ func generatePrestatDirNameHelper(fdPrestatDirNameIdx int) []byte {
 	return code
 }
 
+// generateSockRecvHelper generates the sock_recv() helper function bytecode
+// Params: fd (i32), ri_data (i32), ri_data_len (i32), ri_flags (i32), ro_datalen (i32), ro_flags (i32)
+// Returns: errno (0 on success)
+func generateSockRecvHelper(sockRecvIdx int) []byte {
+	var code []byte
+
+	// sock_recv(fd, ri_data, ri_data_len, ri_flags, ro_datalen, ro_flags)
+	code = append(code, OpLocalGet, 0) // get fd param
+	code = append(code, OpLocalGet, 1) // get ri_data param
+	code = append(code, OpLocalGet, 2) // get ri_data_len param
+	code = append(code, OpLocalGet, 3) // get ri_flags param
+	code = append(code, OpLocalGet, 4) // get ro_datalen param
+	code = append(code, OpLocalGet, 5) // get ro_flags param
+	code = append(code, OpCall, byte(sockRecvIdx))
+
+	// Return the errno
+	return code
+}
+
+// generateSockSendHelper generates the sock_send() helper function bytecode
+// Params: fd (i32), si_data (i32), si_data_len (i32), si_flags (i32), so_datalen (i32)
+// Returns: errno (0 on success)
+func generateSockSendHelper(sockSendIdx int) []byte {
+	var code []byte
+
+	// sock_send(fd, si_data, si_data_len, si_flags, so_datalen)
+	code = append(code, OpLocalGet, 0) // get fd param
+	code = append(code, OpLocalGet, 1) // get si_data param
+	code = append(code, OpLocalGet, 2) // get si_data_len param
+	code = append(code, OpLocalGet, 3) // get si_flags param
+	code = append(code, OpLocalGet, 4) // get so_datalen param
+	code = append(code, OpCall, byte(sockSendIdx))
+
+	// Return the errno
+	return code
+}
+
+// generateSockShutdownHelper generates the sock_shutdown() helper function bytecode
+// Params: fd (i32), how (i32)
+// Returns: errno (0 on success)
+func generateSockShutdownHelper(sockShutdownIdx int) []byte {
+	var code []byte
+
+	// sock_shutdown(fd, how)
+	code = append(code, OpLocalGet, 0) // get fd param
+	code = append(code, OpLocalGet, 1) // get how param
+	code = append(code, OpCall, byte(sockShutdownIdx))
+
+	// Return the errno
+	return code
+}
+
 // generateTimeHelper generates the time() helper function bytecode
 // Returns the current wall clock time in seconds as i32
 // Uses memory at address 904 for the 8-byte timestamp buffer
@@ -1531,7 +1583,7 @@ func CompileFile(file *parser.File, m *Module) {
 		"clock_time_get":        {3, true},
 		"poll_oneoff":           {4, true},
 		"proc_raise":            {1, true},
-		"sock_recv":             {5, true},
+		"sock_recv":             {6, true},
 		"sock_send":             {5, true},
 		"sock_shutdown":         {2, true},
 	}
@@ -1949,6 +2001,42 @@ func CompileFile(file *parser.File, m *Module) {
 		usedImports["fd_prestat_dir_name"] = true
 	}
 
+	// Ensure sock_recv is imported if sock_recv is used
+	needsSockRecvEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "sock_recv") {
+			needsSockRecvEarly = true
+			break
+		}
+	}
+	if needsSockRecvEarly {
+		usedImports["sock_recv"] = true
+	}
+
+	// Ensure sock_send is imported if sock_send is used
+	needsSockSendEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "sock_send") {
+			needsSockSendEarly = true
+			break
+		}
+	}
+	if needsSockSendEarly {
+		usedImports["sock_send"] = true
+	}
+
+	// Ensure sock_shutdown is imported if sock_shutdown is used
+	needsSockShutdownEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "sock_shutdown") {
+			needsSockShutdownEarly = true
+			break
+		}
+	}
+	if needsSockShutdownEarly {
+		usedImports["sock_shutdown"] = true
+	}
+
 	// Ensure clock_time_get is imported if time is used
 	needsTimeEarly := false
 	for _, fn := range file.Fns {
@@ -2277,6 +2365,15 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsPrestatDirNameEarly {
 		helperCount++
 	}
+	if needsSockRecvEarly {
+		helperCount++
+	}
+	if needsSockSendEarly {
+		helperCount++
+	}
+	if needsSockShutdownEarly {
+		helperCount++
+	}
 	if needsTimeEarly {
 		helperCount++
 	}
@@ -2508,6 +2605,18 @@ func CompileFile(file *parser.File, m *Module) {
 	}
 	if needsPrestatDirNameEarly {
 		funcIdx["prestat_dir_name"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsSockRecvEarly {
+		funcIdx["sock_recv"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsSockSendEarly {
+		funcIdx["sock_send"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsSockShutdownEarly {
+		funcIdx["sock_shutdown"] = len(m.imports) + helperIdx
 		helperIdx++
 	}
 	if needsTimeEarly {
@@ -2746,6 +2855,18 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsPrestatDirNameEarly {
 		code := generatePrestatDirNameHelper(funcIdx["fd_prestat_dir_name"])
 		m.AddFunction("prestat_dir_name", 3, code, 0) // 3 params (fd, path, path_len), 0 locals
+	}
+	if needsSockRecvEarly {
+		code := generateSockRecvHelper(funcIdx["sock_recv"])
+		m.AddFunction("sock_recv", 6, code, 0) // 6 params (fd, ri_data, ri_data_len, ri_flags, ro_datalen, ro_flags), 0 locals
+	}
+	if needsSockSendEarly {
+		code := generateSockSendHelper(funcIdx["sock_send"])
+		m.AddFunction("sock_send", 5, code, 0) // 5 params (fd, si_data, si_data_len, si_flags, so_datalen), 0 locals
+	}
+	if needsSockShutdownEarly {
+		code := generateSockShutdownHelper(funcIdx["sock_shutdown"])
+		m.AddFunction("sock_shutdown", 2, code, 0) // 2 params (fd, how), 0 locals
 	}
 	if needsTimeEarly {
 		code := generateTimeHelper(funcIdx["clock_time_get"])

@@ -31,7 +31,7 @@ PHASE 3: WASI INTEGRATION
 [~] Implement WASI imports (wasi_snapshot_preview1)
 [ ] Support wasi:cli for command-line programs
 [x] Support wasi:filesystem for file I/O
-[ ] Support wasi:sockets for networking
+[x] Support wasi:sockets for networking
 [x] Support wasi:random for random number generation
 [x] Support wasi:clocks for time operations
 [ ] Support wasi:http for HTTP client/server

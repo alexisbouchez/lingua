@@ -413,7 +413,8 @@ func (c *Checker) builtinType(name string, args []parser.Expr) Type {
 		"mkdir", "rmdir", "unlink", "rename", "exit", "yield", "raise",
 		"fdstat", "fstat", "readdir", "datasync", "allocate", "advise", "link",
 		"tell", "symlink", "readlink", "prestat_get", "prestat_dir_name",
-		"set_fd_flags", "get_args_sizes", "get_args", "get_environ_sizes", "get_environ":
+		"set_fd_flags", "get_args_sizes", "get_args", "get_environ_sizes", "get_environ",
+		"sock_recv", "sock_send", "sock_shutdown":
 		return I32
 
 	// String builtins
