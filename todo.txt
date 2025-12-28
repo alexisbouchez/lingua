@@ -27,7 +27,7 @@ PHASE 2: WASM CODE GENERATION
 
 PHASE 3: WASI INTEGRATION
 -------------------------
-[ ] Study WASI 0.2 specification (current stable)
+[~] Study WASI 0.2 specification (basic support added)
 [~] Implement WASI imports (wasi_snapshot_preview1)
 [x] Support wasi:cli for command-line programs
 [x] Support wasi:filesystem for file I/O
@@ -42,7 +42,7 @@ PHASE 4: LANGUAGE FEATURES
 [x] Implement control flow (if, else, loops, blocks, break, continue, return)
 [x] Implement functions and function calls
 [x] Implement local and global variables
-[ ] Implement memory management
+[~] Implement memory management (basic allocator and free added)
 [x] Implement linear memory operations
 [x] Implement structs/records
 [x] Implement arrays
@@ -54,15 +54,15 @@ PHASE 5: COMPONENT MODEL (WASM 3.0)
 [x] Study WebAssembly Component Model specification
 [x] Study WIT (WebAssembly Interface Types) format
 [x] Implement component generation (basic)
-[ ] Support interface imports/exports
-[ ] Support component composition
+[~] Support interface imports/exports (basic implementation added)
+[~] Support component composition (basic implementation added)
 
 PHASE 6: TOOLING
 ----------------
 [x] Build CLI compiler tool
-[ ] Implement source maps for debugging
+[~] Implement source maps for debugging (basic source map generation added)
 [x] Add error reporting with line/column info
-[ ] Create REPL for interactive development
+[~] Create REPL for interactive development (basic REPL implemented)
 [x] Add language server protocol (LSP) support
 [x] Create VS Code extension
 
@@ -74,6 +74,7 @@ PHASE 7: STANDARD LIBRARY
 [x] Implement math functions (abs, min, max, sign, negate, clamp, square, cube, is_even, is_odd, log2)
 [x] Implement collections (list, map, set)
 [~] Implement async/await primitives (basic support added)
+[~] Implement memory management (basic allocator and free added)
 
 PHASE 8: TESTING & DOCUMENTATION
 --------------------------------
