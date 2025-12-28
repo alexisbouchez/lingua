@@ -3725,7 +3725,12 @@ func exprProducesValue(e parser.Expr) bool {
 	case *parser.BreakExpr, *parser.ContinueExpr, *parser.ReturnExpr:
 		return false
 	case *parser.CallExpr:
-		return e.Name != "drop" && e.Name != "store"
+		// Builtins that don't produce values
+		switch e.Name {
+		case "drop", "store", "assert", "panic", "exit":
+			return false
+		}
+		return true
 	default:
 		return true
 	}
@@ -4001,6 +4006,49 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 			idx := c.funcIdx["proc_exit"]
 			code = append(code, OpCall, byte(idx))
 			code = append(code, 0x00) // unreachable
+		case "panic":
+			// panic(msg) - print message to stderr and exit with code 1
+			// msg is a string (pointer to data)
+			code = nil
+			// Get string address from argument
+			code = append(code, c.compileExpr(e.Args[0])...)
+			// Store string ptr at iovec.buf (address 0)
+			code = append(code, 0x41, 0) // i32.const 0 (iovec address)
+			code = append(code, c.compileExpr(e.Args[0])...)
+			code = append(code, OpI32Store, 2, 0)
+			// Store string length at iovec.len (address 4)
+			// For now, use a fixed length of 32 or compute from string table
+			code = append(code, 0x41, 4) // i32.const 4
+			code = append(code, 0x41, 32) // i32.const 32 (max len)
+			code = append(code, OpI32Store, 2, 0)
+			// fd_write(fd=2, iovs=0, iovs_len=1, nwritten=8)
+			code = append(code, 0x41, 2) // fd = 2 (stderr)
+			code = append(code, 0x41, 0) // iovs = 0
+			code = append(code, 0x41, 1) // iovs_len = 1
+			code = append(code, 0x41, 8) // nwritten = 8
+			if idx, ok := c.funcIdx["fd_write"]; ok {
+				code = append(code, OpCall, byte(idx))
+				code = append(code, 0x1a) // drop the result
+			}
+			// Exit with code 1
+			code = append(code, 0x41, 1) // i32.const 1
+			if idx, ok := c.funcIdx["proc_exit"]; ok {
+				code = append(code, OpCall, byte(idx))
+			}
+			code = append(code, 0x00) // unreachable
+		case "assert":
+			// assert(condition) - if condition is 0, exit with code 1
+			code = nil
+			code = append(code, c.compileExpr(e.Args[0])...)
+			code = append(code, OpI32Eqz) // check if condition == 0
+			code = append(code, OpIf, 0x40) // if (void block)
+			// Exit with code 1 on assertion failure
+			code = append(code, 0x41, 1) // i32.const 1
+			if idx, ok := c.funcIdx["proc_exit"]; ok {
+				code = append(code, OpCall, byte(idx))
+			}
+			code = append(code, 0x00) // unreachable
+			code = append(code, OpEnd)
 		case "print_int":
 			// Call the _print_int helper function
 			idx := c.funcIdx["_print_int"]

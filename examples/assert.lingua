@@ -1,0 +1,13 @@
+// Test assert builtin - should pass
+
+fn main(): i32 {
+    let x: i32 = 5;
+
+    // These assertions should pass
+    assert(x == 5);
+    assert(x > 0);
+    assert(x < 10);
+
+    // Return success
+    42
+}

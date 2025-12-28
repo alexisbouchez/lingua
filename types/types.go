@@ -506,6 +506,12 @@ func (c *Checker) builtinType(name string, args []parser.Expr) Type {
 	case "str_eq", "str_copy":
 		return I32
 
+	// Error handling builtins
+	case "panic":
+		return Void // doesn't return
+	case "assert":
+		return Void // returns nothing on success, exits on failure
+
 	// Collection builtins - List
 	case "list_new":
 		return I32 // returns pointer to list

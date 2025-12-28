@@ -47,7 +47,7 @@ PHASE 4: LANGUAGE FEATURES
 [x] Implement structs/records
 [x] Implement arrays
 [x] Implement strings
-[ ] Implement error handling
+[x] Implement error handling (assert, panic builtins)
 
 PHASE 5: COMPONENT MODEL (WASM 3.0)
 -----------------------------------
