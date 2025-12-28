@@ -680,6 +680,149 @@ func generateFdCloseHelper(fdCloseIdx int) []byte {
 	return code
 }
 
+// generateReadHelper generates the read(fd, buf, len) helper function bytecode
+// Reads from a file descriptor using WASI fd_read
+// Params: fd (i32), buf (i32), len (i32)
+// Returns: bytes read (i32), or -1 on error
+// Uses memory at address 0 for iovec structure
+func generateReadHelper(fdReadIdx int) []byte {
+	var code []byte
+
+	// Set up iovec at address 0:
+	// iovec.buf = buf
+	// iovec.buf_len = len
+	code = append(code, 0x41, 0)           // i32.const 0 (iovec addr)
+	code = append(code, OpLocalGet, 1)     // get buf param
+	code = append(code, OpI32Store, 2, 0)  // store buf address
+
+	code = append(code, 0x41, 4)           // i32.const 4 (iovec.buf_len offset)
+	code = append(code, OpLocalGet, 2)     // get len param
+	code = append(code, OpI32Store, 2, 0)  // store buf_len
+
+	// fd_read(fd, 0, 1, 8)
+	// fd=param0, iovs=0, iovs_len=1, nread=8
+	code = append(code, OpLocalGet, 0)     // get fd param
+	code = append(code, 0x41, 0)           // i32.const 0 (iovs)
+	code = append(code, 0x41, 1)           // i32.const 1 (iovs_len)
+	code = append(code, 0x41, 8)           // i32.const 8 (nread ptr)
+	code = append(code, OpCall, byte(fdReadIdx))
+
+	// Check errno (0 = success)
+	code = append(code, 0x45)              // i32.eqz (test if errno == 0)
+	code = append(code, OpIf, 0x7f)        // if errno == 0, return nread
+
+	// Success: load nread from address 8
+	code = append(code, 0x41, 8)           // i32.const 8
+	code = append(code, OpI32Load, 2, 0)   // i32.load
+
+	code = append(code, OpElse)            // else return -1
+	code = append(code, 0x41, 0x7f)        // i32.const -1
+	code = append(code, OpEnd)
+
+	return code
+}
+
+// generateWriteHelper generates the write(fd, buf, len) helper function bytecode
+// Writes to a file descriptor using WASI fd_write
+// Params: fd (i32), buf (i32), len (i32)
+// Returns: bytes written (i32), or -1 on error
+// Uses memory at address 0 for iovec structure
+func generateWriteHelper(fdWriteIdx int) []byte {
+	var code []byte
+
+	// Set up iovec at address 0:
+	// iovec.buf = buf
+	// iovec.buf_len = len
+	code = append(code, 0x41, 0)           // i32.const 0 (iovec addr)
+	code = append(code, OpLocalGet, 1)     // get buf param
+	code = append(code, OpI32Store, 2, 0)  // store buf address
+
+	code = append(code, 0x41, 4)           // i32.const 4 (iovec.buf_len offset)
+	code = append(code, OpLocalGet, 2)     // get len param
+	code = append(code, OpI32Store, 2, 0)  // store buf_len
+
+	// fd_write(fd, 0, 1, 8)
+	// fd=param0, iovs=0, iovs_len=1, nwritten=8
+	code = append(code, OpLocalGet, 0)     // get fd param
+	code = append(code, 0x41, 0)           // i32.const 0 (iovs)
+	code = append(code, 0x41, 1)           // i32.const 1 (iovs_len)
+	code = append(code, 0x41, 8)           // i32.const 8 (nwritten ptr)
+	code = append(code, OpCall, byte(fdWriteIdx))
+
+	// Check errno (0 = success)
+	code = append(code, 0x45)              // i32.eqz (test if errno == 0)
+	code = append(code, OpIf, 0x7f)        // if errno == 0, return nwritten
+
+	// Success: load nwritten from address 8
+	code = append(code, 0x41, 8)           // i32.const 8
+	code = append(code, OpI32Load, 2, 0)   // i32.load
+
+	code = append(code, OpElse)            // else return -1
+	code = append(code, 0x41, 0x7f)        // i32.const -1
+	code = append(code, OpEnd)
+
+	return code
+}
+
+// generateSeekHelper generates the seek(fd, offset, whence, newoffset_ptr) helper function bytecode
+// Seeks in a file descriptor using WASI fd_seek
+// Params: fd (i32), offset (i32), whence (i32), newoffset_ptr (i32)
+// Returns: errno (0 on success)
+// Note: WASI fd_seek expects i64 offset but we only support i32
+func generateSeekHelper(fdSeekIdx int) []byte {
+	var code []byte
+
+	// fd_seek(fd, offset, whence, newoffset_ptr)
+	code = append(code, OpLocalGet, 0)     // get fd param
+	code = append(code, OpLocalGet, 1)     // get offset param (i32)
+	code = append(code, 0xac)              // i64.extend_i32_s (convert to i64)
+	code = append(code, OpLocalGet, 2)     // get whence param
+	code = append(code, OpLocalGet, 3)     // get newoffset_ptr param
+	code = append(code, OpCall, byte(fdSeekIdx))
+
+	// Return the errno
+	return code
+}
+
+// generateSyncHelper generates the sync(fd) helper function bytecode
+// Syncs a file descriptor using WASI fd_sync
+// Params: fd (i32)
+// Returns: errno (0 on success)
+func generateSyncHelper(fdSyncIdx int) []byte {
+	var code []byte
+
+	// fd_sync(fd)
+	code = append(code, OpLocalGet, 0)     // get fd param
+	code = append(code, OpCall, byte(fdSyncIdx))
+
+	// Return the errno
+	return code
+}
+
+// generateOpenHelper generates the open(dirfd, path, path_len, oflags, rights_base, rights_inheriting, fdflags, fd_ptr) helper function bytecode
+// Opens a file using WASI path_open
+// Params: dirfd (i32), path (i32), path_len (i32), oflags (i32), rights_base (i32), rights_inheriting (i32), fdflags (i32), fd_ptr (i32)
+// Returns: errno (0 on success), fd is written to fd_ptr
+func generateOpenHelper(pathOpenIdx int) []byte {
+	var code []byte
+
+	// path_open(dirfd, dirflags=0, path, path_len, oflags, fs_rights_base, fs_rights_inheriting, fdflags, fd_ptr)
+	// 8 params total in WASI
+	code = append(code, OpLocalGet, 0)     // get dirfd param
+	code = append(code, 0x41, 0)           // i32.const 0 (dirflags)
+	code = append(code, OpLocalGet, 1)     // get path param
+	code = append(code, OpLocalGet, 2)     // get path_len param
+	code = append(code, OpLocalGet, 3)     // get oflags param
+	code = append(code, OpLocalGet, 4)     // get rights_base param
+	code = append(code, OpLocalGet, 5)     // get rights_inheriting param
+	code = append(code, OpLocalGet, 6)     // get fdflags param
+	code = append(code, OpLocalGet, 7)     // get fd_ptr param
+	code = append(code, OpCall, byte(pathOpenIdx))
+
+	// Return the errno
+	return code
+}
+
 // generateWriteCharHelper generates the write_char(c) helper function bytecode
 // Writes a single character to stdout
 // Params: c (i32) - the character to write
@@ -988,6 +1131,66 @@ func CompileFile(file *parser.File, m *Module) {
 		usedImports["fd_close"] = true
 	}
 
+	// Ensure fd_read is imported if read is used
+	needsReadEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "read") {
+			needsReadEarly = true
+			break
+		}
+	}
+	if needsReadEarly {
+		usedImports["fd_read"] = true
+	}
+
+	// Ensure fd_write is imported if write is used
+	needsWriteEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "write") {
+			needsWriteEarly = true
+			break
+		}
+	}
+	if needsWriteEarly {
+		usedImports["fd_write"] = true
+	}
+
+	// Ensure fd_seek is imported if seek is used
+	needsSeekEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "seek") {
+			needsSeekEarly = true
+			break
+		}
+	}
+	if needsSeekEarly {
+		usedImports["fd_seek"] = true
+	}
+
+	// Ensure fd_sync is imported if sync is used
+	needsSyncEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "sync") {
+			needsSyncEarly = true
+			break
+		}
+	}
+	if needsSyncEarly {
+		usedImports["fd_sync"] = true
+	}
+
+	// Ensure path_open is imported if open is used
+	needsOpenEarly := false
+	for _, fn := range file.Fns {
+		if usesBuiltin(fn.Body, "open") {
+			needsOpenEarly = true
+			break
+		}
+	}
+	if needsOpenEarly {
+		usedImports["path_open"] = true
+	}
+
 	// Add WASI imports first
 	for name := range usedImports {
 		if numParams, ok := wasiImports[name]; ok {
@@ -1196,6 +1399,21 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsFdCloseEarly {
 		helperCount++
 	}
+	if needsReadEarly {
+		helperCount++
+	}
+	if needsWriteEarly {
+		helperCount++
+	}
+	if needsSeekEarly {
+		helperCount++
+	}
+	if needsSyncEarly {
+		helperCount++
+	}
+	if needsOpenEarly {
+		helperCount++
+	}
 
 	// Adjust function indices for helpers
 	helperIdx := 0
@@ -1305,6 +1523,26 @@ func CompileFile(file *parser.File, m *Module) {
 	}
 	if needsFdCloseEarly {
 		funcIdx["close"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsReadEarly {
+		funcIdx["read"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsWriteEarly {
+		funcIdx["write"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsSeekEarly {
+		funcIdx["seek"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsSyncEarly {
+		funcIdx["sync"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsOpenEarly {
+		funcIdx["open"] = len(m.imports) + helperIdx
 		helperIdx++
 	}
 	for i, fn := range file.Fns {
@@ -1419,6 +1657,26 @@ func CompileFile(file *parser.File, m *Module) {
 	if needsFdCloseEarly {
 		code := generateFdCloseHelper(funcIdx["fd_close"])
 		m.AddFunction("close", 1, code, 0) // 1 param (fd), 0 locals
+	}
+	if needsReadEarly {
+		code := generateReadHelper(funcIdx["fd_read"])
+		m.AddFunction("read", 3, code, 0) // 3 params (fd, buf, len), 0 locals
+	}
+	if needsWriteEarly {
+		code := generateWriteHelper(funcIdx["fd_write"])
+		m.AddFunction("write", 3, code, 0) // 3 params (fd, buf, len), 0 locals
+	}
+	if needsSeekEarly {
+		code := generateSeekHelper(funcIdx["fd_seek"])
+		m.AddFunction("seek", 4, code, 0) // 4 params (fd, offset, whence, newoffset_ptr), 0 locals
+	}
+	if needsSyncEarly {
+		code := generateSyncHelper(funcIdx["fd_sync"])
+		m.AddFunction("sync", 1, code, 0) // 1 param (fd), 0 locals
+	}
+	if needsOpenEarly {
+		code := generateOpenHelper(funcIdx["path_open"])
+		m.AddFunction("open", 8, code, 0) // 8 params (dirfd, path, path_len, oflags, rights_base, rights_inheriting, fdflags, fd_ptr), 0 locals
 	}
 
 	for _, fn := range file.Fns {

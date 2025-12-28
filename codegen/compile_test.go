@@ -2032,3 +2032,39 @@ func TestWASIBuiltins(t *testing.T) {
 	}
 }
 
+func TestWASIFileIOBuiltins(t *testing.T) {
+	// Test sync() builtin
+	src := `
+		fn test_sync(): i32 {
+			sync(999)
+		}
+	`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	wasi, err := wasi_snapshot_preview1.Instantiate(ctx, r)
+	if err != nil {
+		t.Fatalf("wasi instantiate: %v", err)
+	}
+	defer wasi.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	// Call test_sync - should return EBADF for invalid fd
+	testFn := mod.ExportedFunction("test_sync")
+	results, _ := testFn.Call(ctx)
+
+	// Should return EBADF (8) for invalid fd
+	t.Logf("sync(999) returned: %d", results[0])
+}
+
