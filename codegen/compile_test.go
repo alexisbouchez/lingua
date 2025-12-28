@@ -2508,3 +2508,58 @@ func TestClampBuiltin(t *testing.T) {
 	}
 }
 
+func TestIsEvenOddBuiltins(t *testing.T) {
+	src := `
+		fn test_even(n: i32): i32 { is_even(n) }
+		fn test_odd(n: i32): i32 { is_odd(n) }
+	`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	testEven := mod.ExportedFunction("test_even")
+	testOdd := mod.ExportedFunction("test_odd")
+
+	// is_even(4) = 1
+	results, _ := testEven.Call(ctx, 4)
+	if int32(results[0]) != 1 {
+		t.Errorf("is_even(4): expected 1, got %d", int32(results[0]))
+	}
+
+	// is_even(5) = 0
+	results, _ = testEven.Call(ctx, 5)
+	if int32(results[0]) != 0 {
+		t.Errorf("is_even(5): expected 0, got %d", int32(results[0]))
+	}
+
+	// is_odd(5) = 1
+	results, _ = testOdd.Call(ctx, 5)
+	if int32(results[0]) != 1 {
+		t.Errorf("is_odd(5): expected 1, got %d", int32(results[0]))
+	}
+
+	// is_odd(4) = 0
+	results, _ = testOdd.Call(ctx, 4)
+	if int32(results[0]) != 0 {
+		t.Errorf("is_odd(4): expected 0, got %d", int32(results[0]))
+	}
+
+	// is_even(0) = 1 (zero is even)
+	results, _ = testEven.Call(ctx, 0)
+	if int32(results[0]) != 1 {
+		t.Errorf("is_even(0): expected 1, got %d", int32(results[0]))
+	}
+}
+

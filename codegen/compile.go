@@ -3188,6 +3188,19 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 			code = append(code, n...)
 			code = append(code, OpEnd)
 			code = append(code, OpEnd)
+		case "is_even":
+			// is_even(n) - returns 1 if n is even, 0 otherwise
+			code = nil
+			code = append(code, c.compileExpr(e.Args[0])...)
+			code = append(code, 0x41, 1)    // i32.const 1
+			code = append(code, OpI32And)   // n & 1
+			code = append(code, OpI32Eqz)   // == 0 (is even)
+		case "is_odd":
+			// is_odd(n) - returns 1 if n is odd, 0 otherwise
+			code = nil
+			code = append(code, c.compileExpr(e.Args[0])...)
+			code = append(code, 0x41, 1)    // i32.const 1
+			code = append(code, OpI32And)   // n & 1 (is odd)
 		case "print":
 			// print(str, len) - prints string with newline
 			code = nil
