@@ -210,3 +210,32 @@ fn double(x: i32): i32 { add(x, x) }`
 		t.Fatalf("expected 10, got %d", results[0])
 	}
 }
+
+func TestCompileMemory(t *testing.T) {
+	// Store 42 at address 0, then load it back
+	src := `fn test(x: i32): i32 { store(0, 42); load(0) }`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1) // 1 page = 64KB
+	CompileFile(f, m)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	test := mod.ExportedFunction("test")
+	results, err := test.Call(ctx, 0)
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+	if results[0] != 42 {
+		t.Fatalf("expected 42, got %d", results[0])
+	}
+}

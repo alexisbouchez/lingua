@@ -25,6 +25,9 @@ const (
 	OpI32Sub   = 0x6b
 	OpI32Mul   = 0x6c
 	OpI32Div   = 0x6d
+
+	OpI32Load  = 0x28
+	OpI32Store = 0x36
 )
 
 type Compiler struct {
@@ -170,8 +173,15 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 		for _, arg := range e.Args {
 			code = append(code, c.compileExpr(arg)...)
 		}
-		idx := c.funcIdx[e.Name]
-		code = append(code, OpCall, byte(idx))
+		switch e.Name {
+		case "load":
+			code = append(code, OpI32Load, 2, 0) // align=4, offset=0
+		case "store":
+			code = append(code, OpI32Store, 2, 0)
+		default:
+			idx := c.funcIdx[e.Name]
+			code = append(code, OpCall, byte(idx))
+		}
 		return code
 	}
 	return nil

@@ -10,6 +10,7 @@ var version = []byte{0x01, 0x00, 0x00, 0x00}
 const (
 	SectionType     = 1
 	SectionFunction = 3
+	SectionMemory   = 5
 	SectionExport   = 7
 	SectionCode     = 10
 )
@@ -30,8 +31,10 @@ type FuncDef struct {
 }
 
 type Module struct {
-	funcs   []FuncDef
-	funcIdx map[string]int
+	funcs     []FuncDef
+	funcIdx   map[string]int
+	hasMemory bool
+	memPages  int
 }
 
 func NewModule() *Module {
@@ -52,6 +55,11 @@ func (m *Module) AddFunction(name string, numParams int, code []byte, numLocals 
 
 func (m *Module) FuncIndex(name string) int {
 	return m.funcIdx[name]
+}
+
+func (m *Module) AddMemory(pages int) {
+	m.hasMemory = true
+	m.memPages = pages
 }
 
 func (m *Module) Bytes() []byte {
@@ -90,14 +98,33 @@ func (m *Module) Bytes() []byte {
 	}
 	writeSection(&buf, SectionFunction, funcSec.Bytes())
 
+	// Memory section
+	if m.hasMemory {
+		var memSec bytes.Buffer
+		memSec.WriteByte(1)                          // 1 memory
+		memSec.WriteByte(0x00)                       // no max
+		memSec.Write(uleb128(uint64(m.memPages)))    // initial pages
+		writeSection(&buf, SectionMemory, memSec.Bytes())
+	}
+
 	// Export section
+	numExports := len(m.funcs)
+	if m.hasMemory {
+		numExports++
+	}
 	var expSec bytes.Buffer
-	expSec.Write(uleb128(uint64(len(m.funcs))))
+	expSec.Write(uleb128(uint64(numExports)))
 	for i, f := range m.funcs {
 		expSec.Write(uleb128(uint64(len(f.Name))))
 		expSec.WriteString(f.Name)
 		expSec.WriteByte(0x00) // func export
 		expSec.Write(uleb128(uint64(i)))
+	}
+	if m.hasMemory {
+		expSec.Write(uleb128(uint64(len("memory"))))
+		expSec.WriteString("memory")
+		expSec.WriteByte(0x02) // memory export
+		expSec.WriteByte(0)    // memory index 0
 	}
 	writeSection(&buf, SectionExport, expSec.Bytes())
 
