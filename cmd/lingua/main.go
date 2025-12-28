@@ -43,7 +43,17 @@ func main() {
 
 	m := codegen.NewModule()
 	m.AddMemory(1) // 1 page = 64KB, needed for WASI
-	codegen.CompileFile(f, m)
+	
+	// Compile with error handling
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Fprintf(os.Stderr, "compilation error: %v\n", r)
+				os.Exit(1)
+			}
+		}()
+		codegen.CompileFile(f, m)
+	}()
 
 	outFile := "out.wasm"
 	if len(os.Args) > 2 {
