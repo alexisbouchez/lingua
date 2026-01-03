@@ -429,7 +429,7 @@ func (c *Checker) checkExpr(expr parser.Expr) Type {
 			}
 		}
 		return I32 // assume i32 for field access
-	
+
 	case *parser.AwaitExpr:
 		// Await expressions return the same type as the awaited expression
 		// For now, we assume all async operations return i32
@@ -488,7 +488,7 @@ func (c *Checker) builtinType(name string, args []parser.Expr) Type {
 	case "print", "print_str", "println", "print_int", "write_char":
 		return I32
 
-	case "read_char":
+	case "read_char", "read_line":
 		return I32
 
 	// Memory builtins
@@ -510,15 +510,15 @@ func (c *Checker) builtinType(name string, args []parser.Expr) Type {
 		return I32
 
 	// Async builtins
-	case "async_sleep", "async_read", "_async_init", "_async_yield", "_async_resume":
+	case "async_sleep", "async_read", "async_write", "_async_init", "_async_yield", "_async_resume":
 		return I32
 
 	// Memory management builtins
-	case "memory_init", "malloc", "free", "memory_stats":
+	case "memory_init", "malloc", "free", "memory_stats", "malloc_str", "memset":
 		return I32
 
 	// String builtins
-	case "str_eq", "str_copy":
+	case "str_eq", "str_copy", "str_len", "str_concat", "str_substr":
 		return I32
 
 	// Error handling builtins

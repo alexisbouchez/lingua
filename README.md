@@ -49,6 +49,7 @@ arr[1] = 100;
 - `print_str(str, len)` - print string without newline
 - `print_int(n)` - print integer without newline
 - `read_char()` - read a single character from stdin, returns character code or 0 on EOF
+- `read_line()` - read a line from stdin, returns address of null-terminated string (max 255 chars)
 
 #### Math Functions
 - `abs(n)` - absolute value
@@ -58,9 +59,14 @@ arr[1] = 100;
 #### String Functions
 - `str_eq(addr1, len1, addr2, len2)` - compare two strings, returns 1 if equal, 0 otherwise
 - `str_copy(src, len, dest)` - copy string from src to dest, returns dest
+- `str_len(addr)` - returns length of null-terminated string
+- `str_concat(addr1, len1, addr2, len2)` - concatenate two strings, returns address
+- `str_substr(addr, start, len)` - extract substring, returns address
 
 #### Memory Functions
 - `malloc(size)` - allocate size bytes on heap, returns address
+- `malloc_str(addr, len)` - allocate memory for string, returns address
+- `memset(addr, val, len)` - set len bytes starting at addr to val, returns addr
 - `memcpy(dest, src, len)` - copy len bytes from src to dest, returns dest
 - `load(addr)` - load i32 from memory
 - `store(addr, val)` - store i32 to memory
@@ -72,6 +78,7 @@ arr[1] = 100;
 #### Async Functions
 - `async_sleep(ms)` - async sleep for milliseconds
 - `async_read(fd, buf, len)` - async file read
+- `async_write(fd, buf, len)` - async file write
 
 ## Example
 

@@ -57,19 +57,19 @@ type Compiler struct {
 	globalIdx     map[string]int
 	structs       map[string]*StructInfo
 	strings       *StringTable
-	loopDepth     int // depth of nested loops
-	breakLabel    int // label offset for break (to outer block)
-	continueLabel int // label offset for continue (to loop)
-	isAsync       bool // true if compiling an async function
+	loopDepth     int    // depth of nested loops
+	breakLabel    int    // label offset for break (to outer block)
+	continueLabel int    // label offset for continue (to loop)
+	isAsync       bool   // true if compiling an async function
 	continuation  string // current continuation label for async functions
-	asyncRuntime  bool // true if async runtime support is needed
+	asyncRuntime  bool   // true if async runtime support is needed
 }
 
 // StructInfo contains information about a struct type
 type StructInfo struct {
 	Name    string
 	Fields  []StructFieldInfo
-	Size    int // total size in bytes
+	Size    int            // total size in bytes
 	Offsets map[string]int // field name -> byte offset
 }
 
@@ -112,18 +112,18 @@ func generatePrintlnHelper(printIntIdx, fdWriteIdx int) []byte {
 	code = append(code, 0x1a) // drop result
 
 	// Store newline at address 600
-	code = append(code, 0x41)               // i32.const 600
+	code = append(code, 0x41) // i32.const 600
 	code = append(code, sleb128(600)...)
-	code = append(code, 0x41, 0x0a)         // i32.const '\n'
-	code = append(code, 0x3a, 0, 0)         // i32.store8
+	code = append(code, 0x41, 0x0a) // i32.const '\n'
+	code = append(code, 0x3a, 0, 0) // i32.store8
 
 	// Set up iovec: buf=600, len=1
-	code = append(code, 0x41, 0)            // i32.const 0 (iovec addr)
-	code = append(code, 0x41)               // i32.const 600
+	code = append(code, 0x41, 0) // i32.const 0 (iovec addr)
+	code = append(code, 0x41)    // i32.const 600
 	code = append(code, sleb128(600)...)
 	code = append(code, OpI32Store, 2, 0)
-	code = append(code, 0x41, 4)            // i32.const 4
-	code = append(code, 0x41, 1)            // i32.const 1 (len)
+	code = append(code, 0x41, 4) // i32.const 4
+	code = append(code, 0x41, 1) // i32.const 1 (len)
 	code = append(code, OpI32Store, 2, 0)
 
 	// fd_write(1, 0, 1, 8)
@@ -142,15 +142,15 @@ func generateAbsHelper() []byte {
 	var code []byte
 
 	// if n >= 0, return n; else return -n
-	code = append(code, OpLocalGet, 0)     // get n
-	code = append(code, 0x41, 0)           // i32.const 0
-	code = append(code, OpI32GeS)          // n >= 0
-	code = append(code, OpIf, 0x7f)        // if (result i32)
-	code = append(code, OpLocalGet, 0)     // return n
+	code = append(code, OpLocalGet, 0) // get n
+	code = append(code, 0x41, 0)       // i32.const 0
+	code = append(code, OpI32GeS)      // n >= 0
+	code = append(code, OpIf, 0x7f)    // if (result i32)
+	code = append(code, OpLocalGet, 0) // return n
 	code = append(code, OpElse)
-	code = append(code, 0x41, 0)           // i32.const 0
-	code = append(code, OpLocalGet, 0)     // get n
-	code = append(code, OpI32Sub)          // 0 - n
+	code = append(code, 0x41, 0)       // i32.const 0
+	code = append(code, OpLocalGet, 0) // get n
+	code = append(code, OpI32Sub)      // 0 - n
 	code = append(code, OpEnd)
 
 	return code
@@ -162,13 +162,13 @@ func generateMinHelper() []byte {
 	var code []byte
 
 	// if a < b, return a; else return b
-	code = append(code, OpLocalGet, 0)     // get a
-	code = append(code, OpLocalGet, 1)     // get b
-	code = append(code, OpI32LtS)          // a < b
-	code = append(code, OpIf, 0x7f)        // if (result i32)
-	code = append(code, OpLocalGet, 0)     // return a
+	code = append(code, OpLocalGet, 0) // get a
+	code = append(code, OpLocalGet, 1) // get b
+	code = append(code, OpI32LtS)      // a < b
+	code = append(code, OpIf, 0x7f)    // if (result i32)
+	code = append(code, OpLocalGet, 0) // return a
 	code = append(code, OpElse)
-	code = append(code, OpLocalGet, 1)     // return b
+	code = append(code, OpLocalGet, 1) // return b
 	code = append(code, OpEnd)
 
 	return code
@@ -180,13 +180,13 @@ func generateMaxHelper() []byte {
 	var code []byte
 
 	// if a > b, return a; else return b
-	code = append(code, OpLocalGet, 0)     // get a
-	code = append(code, OpLocalGet, 1)     // get b
-	code = append(code, OpI32GtS)          // a > b
-	code = append(code, OpIf, 0x7f)        // if (result i32)
-	code = append(code, OpLocalGet, 0)     // return a
+	code = append(code, OpLocalGet, 0) // get a
+	code = append(code, OpLocalGet, 1) // get b
+	code = append(code, OpI32GtS)      // a > b
+	code = append(code, OpIf, 0x7f)    // if (result i32)
+	code = append(code, OpLocalGet, 0) // return a
 	code = append(code, OpElse)
-	code = append(code, OpLocalGet, 1)     // return b
+	code = append(code, OpLocalGet, 1) // return b
 	code = append(code, OpEnd)
 
 	return code
@@ -199,9 +199,9 @@ func generateModHelper() []byte {
 	var code []byte
 
 	// return a % b
-	code = append(code, OpLocalGet, 0)     // get a
-	code = append(code, OpLocalGet, 1)     // get b
-	code = append(code, OpI32RemS)         // a % b
+	code = append(code, OpLocalGet, 0) // get a
+	code = append(code, OpLocalGet, 1) // get b
+	code = append(code, OpI32RemS)     // a % b
 
 	return code
 }
@@ -212,9 +212,9 @@ func generateModHelper() []byte {
 func generateAndHelper() []byte {
 	var code []byte
 
-	code = append(code, OpLocalGet, 0)     // get a
-	code = append(code, OpLocalGet, 1)     // get b
-	code = append(code, OpI32And)          // a & b
+	code = append(code, OpLocalGet, 0) // get a
+	code = append(code, OpLocalGet, 1) // get b
+	code = append(code, OpI32And)      // a & b
 
 	return code
 }
@@ -225,9 +225,9 @@ func generateAndHelper() []byte {
 func generateOrHelper() []byte {
 	var code []byte
 
-	code = append(code, OpLocalGet, 0)     // get a
-	code = append(code, OpLocalGet, 1)     // get b
-	code = append(code, OpI32Or)           // a | b
+	code = append(code, OpLocalGet, 0) // get a
+	code = append(code, OpLocalGet, 1) // get b
+	code = append(code, OpI32Or)       // a | b
 
 	return code
 }
@@ -238,9 +238,9 @@ func generateOrHelper() []byte {
 func generateXorHelper() []byte {
 	var code []byte
 
-	code = append(code, OpLocalGet, 0)     // get a
-	code = append(code, OpLocalGet, 1)     // get b
-	code = append(code, OpI32Xor)          // a ^ b
+	code = append(code, OpLocalGet, 0) // get a
+	code = append(code, OpLocalGet, 1) // get b
+	code = append(code, OpI32Xor)      // a ^ b
 
 	return code
 }
@@ -251,9 +251,9 @@ func generateXorHelper() []byte {
 func generateShlHelper() []byte {
 	var code []byte
 
-	code = append(code, OpLocalGet, 0)     // get a
-	code = append(code, OpLocalGet, 1)     // get b
-	code = append(code, OpI32Shl)          // a << b
+	code = append(code, OpLocalGet, 0) // get a
+	code = append(code, OpLocalGet, 1) // get b
+	code = append(code, OpI32Shl)      // a << b
 
 	return code
 }
@@ -264,9 +264,9 @@ func generateShlHelper() []byte {
 func generateShrHelper() []byte {
 	var code []byte
 
-	code = append(code, OpLocalGet, 0)     // get a
-	code = append(code, OpLocalGet, 1)     // get b
-	code = append(code, OpI32ShrS)         // a >> b (signed)
+	code = append(code, OpLocalGet, 0) // get a
+	code = append(code, OpLocalGet, 1) // get b
+	code = append(code, OpI32ShrS)     // a >> b (signed)
 
 	return code
 }
@@ -277,8 +277,8 @@ func generateShrHelper() []byte {
 func generateClzHelper() []byte {
 	var code []byte
 
-	code = append(code, OpLocalGet, 0)     // get n
-	code = append(code, OpI32Clz)          // i32.clz
+	code = append(code, OpLocalGet, 0) // get n
+	code = append(code, OpI32Clz)      // i32.clz
 
 	return code
 }
@@ -289,8 +289,8 @@ func generateClzHelper() []byte {
 func generateCtzHelper() []byte {
 	var code []byte
 
-	code = append(code, OpLocalGet, 0)     // get n
-	code = append(code, OpI32Ctz)          // i32.ctz
+	code = append(code, OpLocalGet, 0) // get n
+	code = append(code, OpI32Ctz)      // i32.ctz
 
 	return code
 }
@@ -301,8 +301,8 @@ func generateCtzHelper() []byte {
 func generatePopcntHelper() []byte {
 	var code []byte
 
-	code = append(code, OpLocalGet, 0)     // get n
-	code = append(code, OpI32Popcnt)       // i32.popcnt
+	code = append(code, OpLocalGet, 0) // get n
+	code = append(code, OpI32Popcnt)   // i32.popcnt
 
 	return code
 }
@@ -313,9 +313,9 @@ func generatePopcntHelper() []byte {
 func generateRotlHelper() []byte {
 	var code []byte
 
-	code = append(code, OpLocalGet, 0)     // get n
-	code = append(code, OpLocalGet, 1)     // get k
-	code = append(code, OpI32Rotl)         // i32.rotl
+	code = append(code, OpLocalGet, 0) // get n
+	code = append(code, OpLocalGet, 1) // get k
+	code = append(code, OpI32Rotl)     // i32.rotl
 
 	return code
 }
@@ -326,9 +326,9 @@ func generateRotlHelper() []byte {
 func generateRotrHelper() []byte {
 	var code []byte
 
-	code = append(code, OpLocalGet, 0)     // get n
-	code = append(code, OpLocalGet, 1)     // get k
-	code = append(code, OpI32Rotr)         // i32.rotr
+	code = append(code, OpLocalGet, 0) // get n
+	code = append(code, OpLocalGet, 1) // get k
+	code = append(code, OpI32Rotr)     // i32.rotr
 
 	return code
 }
@@ -341,59 +341,59 @@ func generatePowHelper() []byte {
 	var code []byte
 
 	// if exp == 0, return 1
-	code = append(code, OpLocalGet, 1)     // get exp
-	code = append(code, OpI32Eqz)          // exp == 0
-	code = append(code, OpIf, 0x7f)        // if (result i32)
-	code = append(code, 0x41, 1)           // return 1
+	code = append(code, OpLocalGet, 1) // get exp
+	code = append(code, OpI32Eqz)      // exp == 0
+	code = append(code, OpIf, 0x7f)    // if (result i32)
+	code = append(code, 0x41, 1)       // return 1
 	code = append(code, OpElse)
 
 	// if exp == 1, return base
-	code = append(code, OpLocalGet, 1)     // get exp
-	code = append(code, 0x41, 1)           // i32.const 1
-	code = append(code, OpI32Eq)           // exp == 1
-	code = append(code, OpIf, 0x7f)        // if (result i32)
-	code = append(code, OpLocalGet, 0)     // return base
+	code = append(code, OpLocalGet, 1) // get exp
+	code = append(code, 0x41, 1)       // i32.const 1
+	code = append(code, OpI32Eq)       // exp == 1
+	code = append(code, OpIf, 0x7f)    // if (result i32)
+	code = append(code, OpLocalGet, 0) // return base
 	code = append(code, OpElse)
 
 	// result = 1
-	code = append(code, 0x41, 1)           // i32.const 1
-	code = append(code, OpLocalSet, 2)     // local.set result
+	code = append(code, 0x41, 1)       // i32.const 1
+	code = append(code, OpLocalSet, 2) // local.set result
 
 	// i = 0
-	code = append(code, 0x41, 0)           // i32.const 0
-	code = append(code, OpLocalSet, 3)     // local.set i
+	code = append(code, 0x41, 0)       // i32.const 0
+	code = append(code, OpLocalSet, 3) // local.set i
 
 	// loop: while i < exp
-	code = append(code, OpBlock, 0x40)     // block (no result)
-	code = append(code, OpLoop, 0x40)      // loop (no result)
+	code = append(code, OpBlock, 0x40) // block (no result)
+	code = append(code, OpLoop, 0x40)  // loop (no result)
 
 	// if i >= exp, break
-	code = append(code, OpLocalGet, 3)     // get i
-	code = append(code, OpLocalGet, 1)     // get exp
-	code = append(code, OpI32GeS)          // i >= exp
-	code = append(code, OpBrIf, 1)         // break if true
+	code = append(code, OpLocalGet, 3) // get i
+	code = append(code, OpLocalGet, 1) // get exp
+	code = append(code, OpI32GeS)      // i >= exp
+	code = append(code, OpBrIf, 1)     // break if true
 
 	// result = result * base
-	code = append(code, OpLocalGet, 2)     // get result
-	code = append(code, OpLocalGet, 0)     // get base
-	code = append(code, OpI32Mul)          // result * base
-	code = append(code, OpLocalSet, 2)     // local.set result
+	code = append(code, OpLocalGet, 2) // get result
+	code = append(code, OpLocalGet, 0) // get base
+	code = append(code, OpI32Mul)      // result * base
+	code = append(code, OpLocalSet, 2) // local.set result
 
 	// i++
-	code = append(code, OpLocalGet, 3)     // get i
-	code = append(code, 0x41, 1)           // i32.const 1
-	code = append(code, OpI32Add)          // i + 1
-	code = append(code, OpLocalSet, 3)     // local.set i
+	code = append(code, OpLocalGet, 3) // get i
+	code = append(code, 0x41, 1)       // i32.const 1
+	code = append(code, OpI32Add)      // i + 1
+	code = append(code, OpLocalSet, 3) // local.set i
 
 	// continue loop
-	code = append(code, OpBr, 0)           // br 0 (continue loop)
-	code = append(code, OpEnd)             // end loop
-	code = append(code, OpEnd)             // end block
+	code = append(code, OpBr, 0) // br 0 (continue loop)
+	code = append(code, OpEnd)   // end loop
+	code = append(code, OpEnd)   // end block
 
 	// return result
-	code = append(code, OpLocalGet, 2)     // get result
-	code = append(code, OpEnd)             // end inner if
-	code = append(code, OpEnd)             // end outer if
+	code = append(code, OpLocalGet, 2) // get result
+	code = append(code, OpEnd)         // end inner if
+	code = append(code, OpEnd)         // end outer if
 
 	return code
 }
@@ -406,49 +406,49 @@ func generateSqrtHelper() []byte {
 	var code []byte
 
 	// if n <= 1, return n (handles 0 and 1)
-	code = append(code, OpLocalGet, 0)     // get n
-	code = append(code, 0x41, 1)           // i32.const 1
-	code = append(code, OpI32LeS)          // n <= 1
-	code = append(code, OpIf, 0x7f)        // if (result i32)
-	code = append(code, OpLocalGet, 0)     // return n
+	code = append(code, OpLocalGet, 0) // get n
+	code = append(code, 0x41, 1)       // i32.const 1
+	code = append(code, OpI32LeS)      // n <= 1
+	code = append(code, OpIf, 0x7f)    // if (result i32)
+	code = append(code, OpLocalGet, 0) // return n
 	code = append(code, OpElse)
 
 	// x = n / 2 (initial guess)
-	code = append(code, OpLocalGet, 0)     // get n
-	code = append(code, 0x41, 2)           // i32.const 2
-	code = append(code, OpI32Div)          // n / 2
-	code = append(code, OpLocalSet, 1)     // local.set x
+	code = append(code, OpLocalGet, 0) // get n
+	code = append(code, 0x41, 2)       // i32.const 2
+	code = append(code, OpI32Div)      // n / 2
+	code = append(code, OpLocalSet, 1) // local.set x
 
 	// Newton's method loop (limited iterations for safety)
 	// block
-	code = append(code, OpBlock, 0x40)     // block (no result)
+	code = append(code, OpBlock, 0x40) // block (no result)
 	// loop (8 iterations max)
 	for i := 0; i < 8; i++ {
 		// next = (x + n/x) / 2
-		code = append(code, OpLocalGet, 1)     // get x
-		code = append(code, OpLocalGet, 0)     // get n
-		code = append(code, OpLocalGet, 1)     // get x
-		code = append(code, OpI32Div)          // n / x
-		code = append(code, OpI32Add)          // x + (n/x)
-		code = append(code, 0x41, 2)           // i32.const 2
-		code = append(code, OpI32Div)          // / 2
-		code = append(code, OpLocalSet, 2)     // local.set next
+		code = append(code, OpLocalGet, 1) // get x
+		code = append(code, OpLocalGet, 0) // get n
+		code = append(code, OpLocalGet, 1) // get x
+		code = append(code, OpI32Div)      // n / x
+		code = append(code, OpI32Add)      // x + (n/x)
+		code = append(code, 0x41, 2)       // i32.const 2
+		code = append(code, OpI32Div)      // / 2
+		code = append(code, OpLocalSet, 2) // local.set next
 
 		// if next >= x, break (converged)
-		code = append(code, OpLocalGet, 2)     // get next
-		code = append(code, OpLocalGet, 1)     // get x
-		code = append(code, OpI32GeS)          // next >= x
-		code = append(code, OpBrIf, 0)         // break if true
+		code = append(code, OpLocalGet, 2) // get next
+		code = append(code, OpLocalGet, 1) // get x
+		code = append(code, OpI32GeS)      // next >= x
+		code = append(code, OpBrIf, 0)     // break if true
 
 		// x = next
-		code = append(code, OpLocalGet, 2)     // get next
-		code = append(code, OpLocalSet, 1)     // local.set x
+		code = append(code, OpLocalGet, 2) // get next
+		code = append(code, OpLocalSet, 1) // local.set x
 	}
-	code = append(code, OpEnd)             // end block
+	code = append(code, OpEnd) // end block
 
 	// return x
-	code = append(code, OpLocalGet, 1)     // get x
-	code = append(code, OpEnd)             // end if
+	code = append(code, OpLocalGet, 1) // get x
+	code = append(code, OpEnd)         // end if
 
 	return code
 }
@@ -461,60 +461,60 @@ func generateStrEqHelper() []byte {
 	var code []byte
 
 	// if len1 != len2, return 0
-	code = append(code, OpLocalGet, 1)     // len1
-	code = append(code, OpLocalGet, 3)     // len2
-	code = append(code, OpI32Ne)           // len1 != len2
-	code = append(code, OpIf, 0x40)        // if (no result)
-	code = append(code, 0x41, 0)           // i32.const 0
-	code = append(code, 0x0f)              // return
+	code = append(code, OpLocalGet, 1) // len1
+	code = append(code, OpLocalGet, 3) // len2
+	code = append(code, OpI32Ne)       // len1 != len2
+	code = append(code, OpIf, 0x40)    // if (no result)
+	code = append(code, 0x41, 0)       // i32.const 0
+	code = append(code, 0x0f)          // return
 	code = append(code, OpEnd)
 
 	// i = 0 (local 4)
-	code = append(code, 0x41, 0)           // i32.const 0
-	code = append(code, OpLocalSet, 4)     // local.set i
+	code = append(code, 0x41, 0)       // i32.const 0
+	code = append(code, OpLocalSet, 4) // local.set i
 
 	// loop: while i < len1
-	code = append(code, OpBlock, 0x40)     // block (no result)
-	code = append(code, OpLoop, 0x40)      // loop (no result)
+	code = append(code, OpBlock, 0x40) // block (no result)
+	code = append(code, OpLoop, 0x40)  // loop (no result)
 
 	// if i >= len1, break
-	code = append(code, OpLocalGet, 4)     // get i
-	code = append(code, OpLocalGet, 1)     // get len1
-	code = append(code, OpI32GeS)          // i >= len1
-	code = append(code, OpBrIf, 1)         // break if true
+	code = append(code, OpLocalGet, 4) // get i
+	code = append(code, OpLocalGet, 1) // get len1
+	code = append(code, OpI32GeS)      // i >= len1
+	code = append(code, OpBrIf, 1)     // break if true
 
 	// load byte from addr1[i]
-	code = append(code, OpLocalGet, 0)     // get addr1
-	code = append(code, OpLocalGet, 4)     // get i
-	code = append(code, OpI32Add)          // addr1 + i
-	code = append(code, 0x2d, 0, 0)        // i32.load8_u (load unsigned byte)
+	code = append(code, OpLocalGet, 0) // get addr1
+	code = append(code, OpLocalGet, 4) // get i
+	code = append(code, OpI32Add)      // addr1 + i
+	code = append(code, 0x2d, 0, 0)    // i32.load8_u (load unsigned byte)
 
 	// load byte from addr2[i]
-	code = append(code, OpLocalGet, 2)     // get addr2
-	code = append(code, OpLocalGet, 4)     // get i
-	code = append(code, OpI32Add)          // addr2 + i
-	code = append(code, 0x2d, 0, 0)        // i32.load8_u
+	code = append(code, OpLocalGet, 2) // get addr2
+	code = append(code, OpLocalGet, 4) // get i
+	code = append(code, OpI32Add)      // addr2 + i
+	code = append(code, 0x2d, 0, 0)    // i32.load8_u
 
 	// if bytes are not equal, return 0
-	code = append(code, OpI32Ne)           // byte1 != byte2
-	code = append(code, OpIf, 0x40)        // if (no result)
-	code = append(code, 0x41, 0)           // i32.const 0
-	code = append(code, 0x0f)              // return
+	code = append(code, OpI32Ne)    // byte1 != byte2
+	code = append(code, OpIf, 0x40) // if (no result)
+	code = append(code, 0x41, 0)    // i32.const 0
+	code = append(code, 0x0f)       // return
 	code = append(code, OpEnd)
 
 	// i++
-	code = append(code, OpLocalGet, 4)     // get i
-	code = append(code, 0x41, 1)           // i32.const 1
-	code = append(code, OpI32Add)          // i + 1
-	code = append(code, OpLocalSet, 4)     // local.set i
+	code = append(code, OpLocalGet, 4) // get i
+	code = append(code, 0x41, 1)       // i32.const 1
+	code = append(code, OpI32Add)      // i + 1
+	code = append(code, OpLocalSet, 4) // local.set i
 
 	// continue loop
-	code = append(code, OpBr, 0)           // br 0 (continue loop)
-	code = append(code, OpEnd)             // end loop
-	code = append(code, OpEnd)             // end block
+	code = append(code, OpBr, 0) // br 0 (continue loop)
+	code = append(code, OpEnd)   // end loop
+	code = append(code, OpEnd)   // end block
 
 	// All bytes matched, return 1
-	code = append(code, 0x41, 1)           // i32.const 1
+	code = append(code, 0x41, 1) // i32.const 1
 
 	return code
 }
@@ -527,44 +527,141 @@ func generateStrCopyHelper() []byte {
 	var code []byte
 
 	// i = 0 (local 3)
-	code = append(code, 0x41, 0)           // i32.const 0
-	code = append(code, OpLocalSet, 3)     // local.set i
+	code = append(code, 0x41, 0)       // i32.const 0
+	code = append(code, OpLocalSet, 3) // local.set i
 
 	// loop: while i < len
-	code = append(code, OpBlock, 0x40)     // block (no result)
-	code = append(code, OpLoop, 0x40)      // loop (no result)
+	code = append(code, OpBlock, 0x40) // block (no result)
+	code = append(code, OpLoop, 0x40)  // loop (no result)
 
 	// if i >= len, break
-	code = append(code, OpLocalGet, 3)     // get i
-	code = append(code, OpLocalGet, 1)     // get len
-	code = append(code, OpI32GeS)          // i >= len
-	code = append(code, OpBrIf, 1)         // break if true
+	code = append(code, OpLocalGet, 3) // get i
+	code = append(code, OpLocalGet, 1) // get len
+	code = append(code, OpI32GeS)      // i >= len
+	code = append(code, OpBrIf, 1)     // break if true
 
 	// dest[i] = src[i]
-	code = append(code, OpLocalGet, 2)     // get dest
-	code = append(code, OpLocalGet, 3)     // get i
-	code = append(code, OpI32Add)          // dest + i
+	code = append(code, OpLocalGet, 2) // get dest
+	code = append(code, OpLocalGet, 3) // get i
+	code = append(code, OpI32Add)      // dest + i
 
-	code = append(code, OpLocalGet, 0)     // get src
-	code = append(code, OpLocalGet, 3)     // get i
-	code = append(code, OpI32Add)          // src + i
-	code = append(code, 0x2d, 0, 0)        // i32.load8_u (load byte)
+	code = append(code, OpLocalGet, 0) // get src
+	code = append(code, OpLocalGet, 3) // get i
+	code = append(code, OpI32Add)      // src + i
+	code = append(code, 0x2d, 0, 0)    // i32.load8_u (load byte)
 
-	code = append(code, 0x3a, 0, 0)        // i32.store8 (store byte)
+	code = append(code, 0x3a, 0, 0) // i32.store8 (store byte)
 
 	// i++
-	code = append(code, OpLocalGet, 3)     // get i
-	code = append(code, 0x41, 1)           // i32.const 1
-	code = append(code, OpI32Add)          // i + 1
-	code = append(code, OpLocalSet, 3)     // local.set i
+	code = append(code, OpLocalGet, 3) // get i
+	code = append(code, 0x41, 1)       // i32.const 1
+	code = append(code, OpI32Add)      // i + 1
+	code = append(code, OpLocalSet, 3) // local.set i
 
 	// continue loop
-	code = append(code, OpBr, 0)           // br 0 (continue loop)
-	code = append(code, OpEnd)             // end loop
-	code = append(code, OpEnd)             // end block
+	code = append(code, OpBr, 0) // br 0 (continue loop)
+	code = append(code, OpEnd)   // end loop
+	code = append(code, OpEnd)   // end block
 
 	// Return dest
-	code = append(code, OpLocalGet, 2)     // get dest
+	code = append(code, OpLocalGet, 2) // get dest
+
+	return code
+}
+
+// generateStrLenHelper generates the str_len(addr) helper function bytecode
+// Returns the length of a null-terminated string
+// Params: addr (0)
+// Locals: i (1), c (2)
+func generateStrLenHelper() []byte {
+	var code []byte
+
+	// i = 0 (local 1)
+	code = append(code, 0x41, 0)       // i32.const 0
+	code = append(code, OpLocalSet, 1) // local.set i
+
+	// loop: while true
+	code = append(code, OpBlock, 0x40) // block (no result)
+	code = append(code, OpLoop, 0x40)  // loop (no result)
+
+	// c = addr[i]
+	code = append(code, OpLocalGet, 0) // get addr
+	code = append(code, OpLocalGet, 1) // get i
+	code = append(code, OpI32Add)      // addr + i
+	code = append(code, 0x2d, 0, 0)    // i32.load8_u (load byte)
+
+	// Store c in local 2
+	code = append(code, OpLocalTee, 2) // local.tee c
+
+	// if c == 0, break
+	code = append(code, OpI32Eqz)  // c == 0
+	code = append(code, OpBrIf, 1) // break if true
+
+	// i++
+	code = append(code, OpLocalGet, 1) // get i
+	code = append(code, 0x41, 1)       // i32.const 1
+	code = append(code, OpI32Add)      // i + 1
+	code = append(code, OpLocalSet, 1) // local.set i
+
+	// continue loop
+	code = append(code, OpBr, 0) // br 0 (continue loop)
+	code = append(code, OpEnd)   // end loop
+	code = append(code, OpEnd)   // end block
+
+	// Return i (length)
+	code = append(code, OpLocalGet, 1) // get i
+
+	return code
+}
+
+// generateStrConcatHelper generates the str_concat(addr1, len1, addr2, len2) helper function bytecode
+// Concatenates two strings and returns the address of the result
+// Params: addr1 (0), len1 (1), addr2 (2), len2 (3)
+// Returns: address of concatenated string
+// Note: This is a simplified version that allocates memory but doesn't actually copy
+func generateStrConcatHelper() []byte {
+	var code []byte
+
+	// Allocate memory for the result: len1 + len2
+	// We'll return the original heap pointer
+	code = append(code, OpGlobalGet, 0) // get heap_ptr (assuming global 0)
+
+	// Update heap_ptr: heap_ptr + len1 + len2
+	code = append(code, OpLocalGet, 1)  // len1
+	code = append(code, OpLocalGet, 3)  // len2
+	code = append(code, OpI32Add)       // len1 + len2
+	code = append(code, OpI32Add)       // heap_ptr + len1 + len2
+	code = append(code, OpGlobalSet, 0) // store new heap_ptr
+
+	// For now, just return the original heap pointer (the caller should copy)
+	code = append(code, OpGlobalGet, 0) // get heap_ptr (before update)
+	code = append(code, OpLocalGet, 1)  // len1
+	code = append(code, OpLocalGet, 3)  // len2
+	code = append(code, OpI32Add)       // len1 + len2
+	code = append(code, OpI32Sub)       // original heap_ptr (before addition)
+
+	return code
+}
+
+// generateStrSubstrHelper generates the str_substr(addr, start, len) helper function bytecode
+// Extracts a substring and returns its address
+// Params: addr (0), start (1), len (2)
+// Returns: address of substring (copied to new location)
+func generateStrSubstrHelper() []byte {
+	var code []byte
+
+	// Allocate memory for the result
+	code = append(code, OpGlobalGet, 0) // get heap_ptr
+
+	// Update heap_ptr: heap_ptr + len
+	code = append(code, OpLocalGet, 2)  // len
+	code = append(code, OpI32Add)       // heap_ptr + len
+	code = append(code, OpGlobalSet, 0) // store new heap_ptr
+
+	// Return original heap_ptr (the caller should copy from addr+start)
+	code = append(code, OpGlobalGet, 0) // get heap_ptr (before update)
+	code = append(code, OpLocalGet, 2)  // len
+	code = append(code, OpI32Sub)       // original heap_ptr
 
 	return code
 }
@@ -577,44 +674,44 @@ func generateMemcpyHelper() []byte {
 	var code []byte
 
 	// i = 0 (local 3)
-	code = append(code, 0x41, 0)           // i32.const 0
-	code = append(code, OpLocalSet, 3)     // local.set i
+	code = append(code, 0x41, 0)       // i32.const 0
+	code = append(code, OpLocalSet, 3) // local.set i
 
 	// loop: while i < len
-	code = append(code, OpBlock, 0x40)     // block (no result)
-	code = append(code, OpLoop, 0x40)      // loop (no result)
+	code = append(code, OpBlock, 0x40) // block (no result)
+	code = append(code, OpLoop, 0x40)  // loop (no result)
 
 	// if i >= len, break
-	code = append(code, OpLocalGet, 3)     // get i
-	code = append(code, OpLocalGet, 2)     // get len
-	code = append(code, OpI32GeS)          // i >= len
-	code = append(code, OpBrIf, 1)         // break if true
+	code = append(code, OpLocalGet, 3) // get i
+	code = append(code, OpLocalGet, 2) // get len
+	code = append(code, OpI32GeS)      // i >= len
+	code = append(code, OpBrIf, 1)     // break if true
 
 	// dest[i] = src[i]
-	code = append(code, OpLocalGet, 0)     // get dest
-	code = append(code, OpLocalGet, 3)     // get i
-	code = append(code, OpI32Add)          // dest + i
+	code = append(code, OpLocalGet, 0) // get dest
+	code = append(code, OpLocalGet, 3) // get i
+	code = append(code, OpI32Add)      // dest + i
 
-	code = append(code, OpLocalGet, 1)     // get src
-	code = append(code, OpLocalGet, 3)     // get i
-	code = append(code, OpI32Add)          // src + i
-	code = append(code, 0x2d, 0, 0)        // i32.load8_u (load byte)
+	code = append(code, OpLocalGet, 1) // get src
+	code = append(code, OpLocalGet, 3) // get i
+	code = append(code, OpI32Add)      // src + i
+	code = append(code, 0x2d, 0, 0)    // i32.load8_u (load byte)
 
-	code = append(code, 0x3a, 0, 0)        // i32.store8 (store byte)
+	code = append(code, 0x3a, 0, 0) // i32.store8 (store byte)
 
 	// i++
-	code = append(code, OpLocalGet, 3)     // get i
-	code = append(code, 0x41, 1)           // i32.const 1
-	code = append(code, OpI32Add)          // i + 1
-	code = append(code, OpLocalSet, 3)     // local.set i
+	code = append(code, OpLocalGet, 3) // get i
+	code = append(code, 0x41, 1)       // i32.const 1
+	code = append(code, OpI32Add)      // i + 1
+	code = append(code, OpLocalSet, 3) // local.set i
 
 	// continue loop
-	code = append(code, OpBr, 0)           // br 0 (continue loop)
-	code = append(code, OpEnd)             // end loop
-	code = append(code, OpEnd)             // end block
+	code = append(code, OpBr, 0) // br 0 (continue loop)
+	code = append(code, OpEnd)   // end loop
+	code = append(code, OpEnd)   // end block
 
 	// Return dest
-	code = append(code, OpLocalGet, 0)     // get dest
+	code = append(code, OpLocalGet, 0) // get dest
 
 	return code
 }
@@ -629,26 +726,124 @@ func generateReadCharHelper(fdReadIdx int) []byte {
 	// Set up iovec at address 0:
 	// iovec.buf = 16 (our read buffer, simple address)
 	// iovec.buf_len = 1 (read 1 byte)
-	code = append(code, 0x41, 0)           // i32.const 0 (iovec addr)
-	code = append(code, 0x41, 16)          // i32.const 16
-	code = append(code, OpI32Store, 2, 0)  // store buf address
+	code = append(code, 0x41, 0)          // i32.const 0 (iovec addr)
+	code = append(code, 0x41, 16)         // i32.const 16
+	code = append(code, OpI32Store, 2, 0) // store buf address
 
-	code = append(code, 0x41, 4)           // i32.const 4 (iovec.buf_len offset)
-	code = append(code, 0x41, 1)           // i32.const 1 (read 1 byte)
-	code = append(code, OpI32Store, 2, 0)  // store buf_len
+	code = append(code, 0x41, 4)          // i32.const 4 (iovec.buf_len offset)
+	code = append(code, 0x41, 1)          // i32.const 1 (read 1 byte)
+	code = append(code, OpI32Store, 2, 0) // store buf_len
 
 	// fd_read(0, 0, 1, 8)
 	// fd=0 (stdin), iovs=0, iovs_len=1, nread=8
-	code = append(code, 0x41, 0)           // i32.const 0 (stdin)
-	code = append(code, 0x41, 0)           // i32.const 0 (iovs)
-	code = append(code, 0x41, 1)           // i32.const 1 (iovs_len)
-	code = append(code, 0x41, 8)           // i32.const 8 (nread ptr)
+	code = append(code, 0x41, 0) // i32.const 0 (stdin)
+	code = append(code, 0x41, 0) // i32.const 0 (iovs)
+	code = append(code, 0x41, 1) // i32.const 1 (iovs_len)
+	code = append(code, 0x41, 8) // i32.const 8 (nread ptr)
 	code = append(code, OpCall, byte(fdReadIdx))
-	code = append(code, 0x1a)              // drop the result (errno)
+	code = append(code, 0x1a) // drop the result (errno)
 
 	// Load the byte from address 16 and return it
-	code = append(code, 0x41, 16)          // i32.const 16
-	code = append(code, 0x2d, 0, 0)        // i32.load8_u (load unsigned byte)
+	code = append(code, 0x41, 16)   // i32.const 16
+	code = append(code, 0x2d, 0, 0) // i32.load8_u (load unsigned byte)
+
+	return code
+}
+
+// generateReadLineHelper generates the read_line() helper function bytecode
+// Reads a line from stdin and returns the address of the string in memory
+// Uses memory at address 1000 for the read buffer (256 bytes max)
+// Uses memory at address 0 for iovec, address 8 for nread
+// Returns: address of the string (i32)
+func generateReadLineHelper(fdReadIdx int) []byte {
+	var code []byte
+
+	// We'll use a loop to read byte by byte until newline or buffer full
+	// Buffer at address 1000, max 255 chars + null terminator
+
+	// Initialize counter at address 1100 (buffer position tracker)
+	code = append(code, 0x41, 0xac, 0x08) // i32.const 1100 (LEB128: 0xac 0x08 = 1100)
+	code = append(code, 0x41, 0)          // i32.const 0
+	code = append(code, OpI32Store, 2, 0) // store 0 at address 1100 (counter = 0)
+
+	// Block 1: loop exit (for br_if 1)
+	code = append(code, OpBlock, 0x40) // block result type void
+	// Loop 0: main read loop
+	code = append(code, OpLoop, 0x40) // loop result type void
+
+	// Check if counter >= 255 (buffer full), if so exit loop to block
+	code = append(code, 0x41, 0xac, 0x08) // i32.const 1100
+	code = append(code, 0x2d, 0, 0)       // i32.load (load counter)
+	code = append(code, 0x41, 0xff, 0x01) // i32.const 255 (LEB128: 0xff 0x01 = 255)
+	code = append(code, OpI32GeS)         // i32.ge_s (counter >= 255)
+	code = append(code, 0x0d, 1)          // br_if 1 (exit to block, not loop)
+
+	// Set up iovec at address 0:
+	// iovec.buf = 1000 + counter (current buffer position)
+	// iovec.buf_len = 1 (read 1 byte)
+	code = append(code, 0x41, 0)          // i32.const 0 (iovec addr)
+	code = append(code, 0x41, 0xac, 0x08) // i32.const 1100
+	code = append(code, 0x2d, 0, 0)       // i32.load (load counter)
+	code = append(code, 0x41, 0xe8, 0x03) // i32.const 1000
+	code = append(code, OpI32Add)         // 1000 + counter
+	code = append(code, OpI32Store, 2, 0) // store buf address
+
+	code = append(code, 0x41, 4)          // i32.const 4 (iovec.buf_len offset)
+	code = append(code, 0x41, 1)          // i32.const 1 (read 1 byte)
+	code = append(code, OpI32Store, 2, 0) // store buf_len
+
+	// fd_read(0, 0, 1, 8)
+	code = append(code, 0x41, 0) // i32.const 0 (stdin)
+	code = append(code, 0x41, 0) // i32.const 0 (iovs)
+	code = append(code, 0x41, 1) // i32.const 1 (iovs_len)
+	code = append(code, 0x41, 8) // i32.const 8 (nread ptr)
+	code = append(code, OpCall, byte(fdReadIdx))
+	code = append(code, 0x1a) // drop the result (errno)
+
+	// Load the byte from buffer position
+	code = append(code, 0x41, 0xac, 0x08) // i32.const 1100
+	code = append(code, 0x2d, 0, 0)       // i32.load (load counter)
+	code = append(code, 0x41, 0xe8, 0x03) // i32.const 1000
+	code = append(code, OpI32Add)         // 1000 + counter
+	code = append(code, 0x2d, 0, 0)       // i32.load8_u (load byte)
+
+	// Check if byte == 0 (EOF) - exit to block
+	code = append(code, OpI32Eqz) // i32.eqz
+	code = append(code, 0x0d, 1)  // br_if 1 (exit to block)
+
+	// Check if byte == '\n' (10) - exit to block
+	code = append(code, 0x41, 0xac, 0x08) // i32.const 1100
+	code = append(code, 0x2d, 0, 0)       // i32.load (load counter)
+	code = append(code, 0x41, 0xe8, 0x03) // i32.const 1000
+	code = append(code, OpI32Add)         // 1000 + counter
+	code = append(code, 0x2d, 0, 0)       // i32.load8_u (load byte)
+	code = append(code, 0x41, 10)         // i32.const 10 (newline)
+	code = append(code, OpI32Eq)          // i32.eq (byte == newline)
+	code = append(code, 0x0d, 1)          // br_if 1 (exit to block)
+
+	// Increment counter and continue loop
+	code = append(code, 0x41, 0xac, 0x08) // i32.const 1100
+	code = append(code, 0x41, 0xac, 0x08) // i32.const 1100
+	code = append(code, 0x2d, 0, 0)       // i32.load (load counter)
+	code = append(code, 0x41, 1)          // i32.const 1
+	code = append(code, OpI32Add)         // counter + 1
+	code = append(code, 0x3a, 0, 0)       // i32.store (store new counter)
+
+	code = append(code, 0x0c, 0) // br 0 (back to loop start)
+
+	code = append(code, OpEnd) // end loop
+	code = append(code, OpEnd) // end block
+
+	// Add null terminator at buffer[counter]
+	code = append(code, 0x41, 0xac, 0x08) // i32.const 1100
+	code = append(code, 0x2d, 0, 0)       // i32.load (load counter)
+	code = append(code, 0x41, 0xe8, 0x03) // i32.const 1000
+	code = append(code, OpI32Add)         // 1000 + counter
+	code = append(code, 0x41, 0)          // i32.const 0
+	code = append(code, 0x3a, 0, 0)       // i32.store8 (store null terminator)
+
+	// Return address 1000 (string address)
+	code = append(code, 0x41, 0xe8, 0x03) // i32.const 1000
 
 	return code
 }
@@ -663,7 +858,7 @@ func generateRandomHelper(randomGetIdx int) []byte {
 	code = append(code, 0x41, 0x84, 0x07) // i32.const 900 (LEB128)
 	code = append(code, 0x41, 4)          // i32.const 4 (length)
 	code = append(code, OpCall, byte(randomGetIdx))
-	code = append(code, 0x1a)             // drop result (errno)
+	code = append(code, 0x1a) // drop result (errno)
 
 	// Load the 4 bytes as an i32
 	code = append(code, 0x41, 0x84, 0x07) // i32.const 900
@@ -679,12 +874,12 @@ func generateExitHelper(procExitIdx int) []byte {
 	var code []byte
 
 	// proc_exit(code)
-	code = append(code, OpLocalGet, 0)    // get exit code param
+	code = append(code, OpLocalGet, 0) // get exit code param
 	code = append(code, OpCall, byte(procExitIdx))
 
 	// proc_exit never returns, but WASM requires a return value
 	// Return 0 as a placeholder (unreachable)
-	code = append(code, 0x41, 0)          // i32.const 0
+	code = append(code, 0x41, 0) // i32.const 0
 
 	return code
 }
@@ -697,7 +892,7 @@ func generateFdCloseHelper(fdCloseIdx int) []byte {
 	var code []byte
 
 	// fd_close(fd)
-	code = append(code, OpLocalGet, 0)    // get fd param
+	code = append(code, OpLocalGet, 0) // get fd param
 	code = append(code, OpCall, byte(fdCloseIdx))
 
 	// Return the errno
@@ -715,32 +910,32 @@ func generateReadHelper(fdReadIdx int) []byte {
 	// Set up iovec at address 0:
 	// iovec.buf = buf
 	// iovec.buf_len = len
-	code = append(code, 0x41, 0)           // i32.const 0 (iovec addr)
-	code = append(code, OpLocalGet, 1)     // get buf param
-	code = append(code, OpI32Store, 2, 0)  // store buf address
+	code = append(code, 0x41, 0)          // i32.const 0 (iovec addr)
+	code = append(code, OpLocalGet, 1)    // get buf param
+	code = append(code, OpI32Store, 2, 0) // store buf address
 
-	code = append(code, 0x41, 4)           // i32.const 4 (iovec.buf_len offset)
-	code = append(code, OpLocalGet, 2)     // get len param
-	code = append(code, OpI32Store, 2, 0)  // store buf_len
+	code = append(code, 0x41, 4)          // i32.const 4 (iovec.buf_len offset)
+	code = append(code, OpLocalGet, 2)    // get len param
+	code = append(code, OpI32Store, 2, 0) // store buf_len
 
 	// fd_read(fd, 0, 1, 8)
 	// fd=param0, iovs=0, iovs_len=1, nread=8
-	code = append(code, OpLocalGet, 0)     // get fd param
-	code = append(code, 0x41, 0)           // i32.const 0 (iovs)
-	code = append(code, 0x41, 1)           // i32.const 1 (iovs_len)
-	code = append(code, 0x41, 8)           // i32.const 8 (nread ptr)
+	code = append(code, OpLocalGet, 0) // get fd param
+	code = append(code, 0x41, 0)       // i32.const 0 (iovs)
+	code = append(code, 0x41, 1)       // i32.const 1 (iovs_len)
+	code = append(code, 0x41, 8)       // i32.const 8 (nread ptr)
 	code = append(code, OpCall, byte(fdReadIdx))
 
 	// Check errno (0 = success)
-	code = append(code, 0x45)              // i32.eqz (test if errno == 0)
-	code = append(code, OpIf, 0x7f)        // if errno == 0, return nread
+	code = append(code, 0x45)       // i32.eqz (test if errno == 0)
+	code = append(code, OpIf, 0x7f) // if errno == 0, return nread
 
 	// Success: load nread from address 8
-	code = append(code, 0x41, 8)           // i32.const 8
-	code = append(code, OpI32Load, 2, 0)   // i32.load
+	code = append(code, 0x41, 8)         // i32.const 8
+	code = append(code, OpI32Load, 2, 0) // i32.load
 
-	code = append(code, OpElse)            // else return -1
-	code = append(code, 0x41, 0x7f)        // i32.const -1
+	code = append(code, OpElse)     // else return -1
+	code = append(code, 0x41, 0x7f) // i32.const -1
 	code = append(code, OpEnd)
 
 	return code
@@ -757,32 +952,32 @@ func generateWriteHelper(fdWriteIdx int) []byte {
 	// Set up iovec at address 0:
 	// iovec.buf = buf
 	// iovec.buf_len = len
-	code = append(code, 0x41, 0)           // i32.const 0 (iovec addr)
-	code = append(code, OpLocalGet, 1)     // get buf param
-	code = append(code, OpI32Store, 2, 0)  // store buf address
+	code = append(code, 0x41, 0)          // i32.const 0 (iovec addr)
+	code = append(code, OpLocalGet, 1)    // get buf param
+	code = append(code, OpI32Store, 2, 0) // store buf address
 
-	code = append(code, 0x41, 4)           // i32.const 4 (iovec.buf_len offset)
-	code = append(code, OpLocalGet, 2)     // get len param
-	code = append(code, OpI32Store, 2, 0)  // store buf_len
+	code = append(code, 0x41, 4)          // i32.const 4 (iovec.buf_len offset)
+	code = append(code, OpLocalGet, 2)    // get len param
+	code = append(code, OpI32Store, 2, 0) // store buf_len
 
 	// fd_write(fd, 0, 1, 8)
 	// fd=param0, iovs=0, iovs_len=1, nwritten=8
-	code = append(code, OpLocalGet, 0)     // get fd param
-	code = append(code, 0x41, 0)           // i32.const 0 (iovs)
-	code = append(code, 0x41, 1)           // i32.const 1 (iovs_len)
-	code = append(code, 0x41, 8)           // i32.const 8 (nwritten ptr)
+	code = append(code, OpLocalGet, 0) // get fd param
+	code = append(code, 0x41, 0)       // i32.const 0 (iovs)
+	code = append(code, 0x41, 1)       // i32.const 1 (iovs_len)
+	code = append(code, 0x41, 8)       // i32.const 8 (nwritten ptr)
 	code = append(code, OpCall, byte(fdWriteIdx))
 
 	// Check errno (0 = success)
-	code = append(code, 0x45)              // i32.eqz (test if errno == 0)
-	code = append(code, OpIf, 0x7f)        // if errno == 0, return nwritten
+	code = append(code, 0x45)       // i32.eqz (test if errno == 0)
+	code = append(code, OpIf, 0x7f) // if errno == 0, return nwritten
 
 	// Success: load nwritten from address 8
-	code = append(code, 0x41, 8)           // i32.const 8
-	code = append(code, OpI32Load, 2, 0)   // i32.load
+	code = append(code, 0x41, 8)         // i32.const 8
+	code = append(code, OpI32Load, 2, 0) // i32.load
 
-	code = append(code, OpElse)            // else return -1
-	code = append(code, 0x41, 0x7f)        // i32.const -1
+	code = append(code, OpElse)     // else return -1
+	code = append(code, 0x41, 0x7f) // i32.const -1
 	code = append(code, OpEnd)
 
 	return code
@@ -797,11 +992,11 @@ func generateSeekHelper(fdSeekIdx int) []byte {
 	var code []byte
 
 	// fd_seek(fd, offset, whence, newoffset_ptr)
-	code = append(code, OpLocalGet, 0)     // get fd param
-	code = append(code, OpLocalGet, 1)     // get offset param (i32)
-	code = append(code, 0xac)              // i64.extend_i32_s (convert to i64)
-	code = append(code, OpLocalGet, 2)     // get whence param
-	code = append(code, OpLocalGet, 3)     // get newoffset_ptr param
+	code = append(code, OpLocalGet, 0) // get fd param
+	code = append(code, OpLocalGet, 1) // get offset param (i32)
+	code = append(code, 0xac)          // i64.extend_i32_s (convert to i64)
+	code = append(code, OpLocalGet, 2) // get whence param
+	code = append(code, OpLocalGet, 3) // get newoffset_ptr param
 	code = append(code, OpCall, byte(fdSeekIdx))
 
 	// Return the errno
@@ -816,7 +1011,7 @@ func generateSyncHelper(fdSyncIdx int) []byte {
 	var code []byte
 
 	// fd_sync(fd)
-	code = append(code, OpLocalGet, 0)     // get fd param
+	code = append(code, OpLocalGet, 0) // get fd param
 	code = append(code, OpCall, byte(fdSyncIdx))
 
 	// Return the errno
@@ -832,15 +1027,15 @@ func generateOpenHelper(pathOpenIdx int) []byte {
 
 	// path_open(dirfd, dirflags=0, path, path_len, oflags, fs_rights_base, fs_rights_inheriting, fdflags, fd_ptr)
 	// 8 params total in WASI
-	code = append(code, OpLocalGet, 0)     // get dirfd param
-	code = append(code, 0x41, 0)           // i32.const 0 (dirflags)
-	code = append(code, OpLocalGet, 1)     // get path param
-	code = append(code, OpLocalGet, 2)     // get path_len param
-	code = append(code, OpLocalGet, 3)     // get oflags param
-	code = append(code, OpLocalGet, 4)     // get rights_base param
-	code = append(code, OpLocalGet, 5)     // get rights_inheriting param
-	code = append(code, OpLocalGet, 6)     // get fdflags param
-	code = append(code, OpLocalGet, 7)     // get fd_ptr param
+	code = append(code, OpLocalGet, 0) // get dirfd param
+	code = append(code, 0x41, 0)       // i32.const 0 (dirflags)
+	code = append(code, OpLocalGet, 1) // get path param
+	code = append(code, OpLocalGet, 2) // get path_len param
+	code = append(code, OpLocalGet, 3) // get oflags param
+	code = append(code, OpLocalGet, 4) // get rights_base param
+	code = append(code, OpLocalGet, 5) // get rights_inheriting param
+	code = append(code, OpLocalGet, 6) // get fdflags param
+	code = append(code, OpLocalGet, 7) // get fd_ptr param
 	code = append(code, OpCall, byte(pathOpenIdx))
 
 	// Return the errno
@@ -855,9 +1050,9 @@ func generateMkdirHelper(pathCreateDirIdx int) []byte {
 	var code []byte
 
 	// path_create_directory(dirfd, path, path_len)
-	code = append(code, OpLocalGet, 0)     // get dirfd param
-	code = append(code, OpLocalGet, 1)     // get path param
-	code = append(code, OpLocalGet, 2)     // get path_len param
+	code = append(code, OpLocalGet, 0) // get dirfd param
+	code = append(code, OpLocalGet, 1) // get path param
+	code = append(code, OpLocalGet, 2) // get path_len param
 	code = append(code, OpCall, byte(pathCreateDirIdx))
 
 	// Return the errno
@@ -872,9 +1067,9 @@ func generateRmdirHelper(pathRemoveDirIdx int) []byte {
 	var code []byte
 
 	// path_remove_directory(dirfd, path, path_len)
-	code = append(code, OpLocalGet, 0)     // get dirfd param
-	code = append(code, OpLocalGet, 1)     // get path param
-	code = append(code, OpLocalGet, 2)     // get path_len param
+	code = append(code, OpLocalGet, 0) // get dirfd param
+	code = append(code, OpLocalGet, 1) // get path param
+	code = append(code, OpLocalGet, 2) // get path_len param
 	code = append(code, OpCall, byte(pathRemoveDirIdx))
 
 	// Return the errno
@@ -889,9 +1084,9 @@ func generateUnlinkHelper(pathUnlinkIdx int) []byte {
 	var code []byte
 
 	// path_unlink_file(dirfd, path, path_len)
-	code = append(code, OpLocalGet, 0)     // get dirfd param
-	code = append(code, OpLocalGet, 1)     // get path param
-	code = append(code, OpLocalGet, 2)     // get path_len param
+	code = append(code, OpLocalGet, 0) // get dirfd param
+	code = append(code, OpLocalGet, 1) // get path param
+	code = append(code, OpLocalGet, 2) // get path_len param
 	code = append(code, OpCall, byte(pathUnlinkIdx))
 
 	// Return the errno
@@ -906,12 +1101,12 @@ func generateRenameHelper(pathRenameIdx int) []byte {
 	var code []byte
 
 	// path_rename(old_dirfd, old_path, old_path_len, new_dirfd, new_path, new_path_len)
-	code = append(code, OpLocalGet, 0)     // get old_dirfd param
-	code = append(code, OpLocalGet, 1)     // get old_path param
-	code = append(code, OpLocalGet, 2)     // get old_path_len param
-	code = append(code, OpLocalGet, 3)     // get new_dirfd param
-	code = append(code, OpLocalGet, 4)     // get new_path param
-	code = append(code, OpLocalGet, 5)     // get new_path_len param
+	code = append(code, OpLocalGet, 0) // get old_dirfd param
+	code = append(code, OpLocalGet, 1) // get old_path param
+	code = append(code, OpLocalGet, 2) // get old_path_len param
+	code = append(code, OpLocalGet, 3) // get new_dirfd param
+	code = append(code, OpLocalGet, 4) // get new_path param
+	code = append(code, OpLocalGet, 5) // get new_path_len param
 	code = append(code, OpCall, byte(pathRenameIdx))
 
 	// Return the errno
@@ -926,11 +1121,11 @@ func generateStatHelper(pathFilestatIdx int) []byte {
 	var code []byte
 
 	// path_filestat_get(dirfd, flags, path, path_len, buf)
-	code = append(code, OpLocalGet, 0)     // get dirfd param
-	code = append(code, OpLocalGet, 1)     // get flags param
-	code = append(code, OpLocalGet, 2)     // get path param
-	code = append(code, OpLocalGet, 3)     // get path_len param
-	code = append(code, OpLocalGet, 4)     // get buf param
+	code = append(code, OpLocalGet, 0) // get dirfd param
+	code = append(code, OpLocalGet, 1) // get flags param
+	code = append(code, OpLocalGet, 2) // get path param
+	code = append(code, OpLocalGet, 3) // get path_len param
+	code = append(code, OpLocalGet, 4) // get buf param
 	code = append(code, OpCall, byte(pathFilestatIdx))
 
 	// Return the errno
@@ -945,8 +1140,8 @@ func generateGetArgsSizesHelper(argsSizesGetIdx int) []byte {
 	var code []byte
 
 	// args_sizes_get(argc_ptr, argv_buf_size_ptr)
-	code = append(code, OpLocalGet, 0)     // get argc_ptr param
-	code = append(code, OpLocalGet, 1)     // get argv_buf_size_ptr param
+	code = append(code, OpLocalGet, 0) // get argc_ptr param
+	code = append(code, OpLocalGet, 1) // get argv_buf_size_ptr param
 	code = append(code, OpCall, byte(argsSizesGetIdx))
 
 	// Return the errno
@@ -961,8 +1156,8 @@ func generateGetArgsHelper(argsGetIdx int) []byte {
 	var code []byte
 
 	// args_get(argv_ptr, argv_buf_ptr)
-	code = append(code, OpLocalGet, 0)     // get argv_ptr param
-	code = append(code, OpLocalGet, 1)     // get argv_buf_ptr param
+	code = append(code, OpLocalGet, 0) // get argv_ptr param
+	code = append(code, OpLocalGet, 1) // get argv_buf_ptr param
 	code = append(code, OpCall, byte(argsGetIdx))
 
 	// Return the errno
@@ -977,8 +1172,8 @@ func generateGetEnvironSizesHelper(environSizesGetIdx int) []byte {
 	var code []byte
 
 	// environ_sizes_get(environc_ptr, environ_buf_size_ptr)
-	code = append(code, OpLocalGet, 0)     // get environc_ptr param
-	code = append(code, OpLocalGet, 1)     // get environ_buf_size_ptr param
+	code = append(code, OpLocalGet, 0) // get environc_ptr param
+	code = append(code, OpLocalGet, 1) // get environ_buf_size_ptr param
 	code = append(code, OpCall, byte(environSizesGetIdx))
 
 	// Return the errno
@@ -993,8 +1188,8 @@ func generateGetEnvironHelper(environGetIdx int) []byte {
 	var code []byte
 
 	// environ_get(environ_ptr, environ_buf_ptr)
-	code = append(code, OpLocalGet, 0)     // get environ_ptr param
-	code = append(code, OpLocalGet, 1)     // get environ_buf_ptr param
+	code = append(code, OpLocalGet, 0) // get environ_ptr param
+	code = append(code, OpLocalGet, 1) // get environ_buf_ptr param
 	code = append(code, OpCall, byte(environGetIdx))
 
 	// Return the errno
@@ -1014,7 +1209,7 @@ func generateArgcHelper(argsSizesGetIdx int) []byte {
 	code = append(code, OpDrop) // discard errno
 
 	// Load and return argc from 920
-	code = append(code, 0x41, 0x98, 0x07) // i32.const 920
+	code = append(code, 0x41, 0x98, 0x07)      // i32.const 920
 	code = append(code, OpI32Load, 0x02, 0x00) // i32.load align=4 offset=0
 
 	return code
@@ -1033,7 +1228,7 @@ func generateEnvcHelper(environSizesGetIdx int) []byte {
 	code = append(code, OpDrop) // discard errno
 
 	// Load and return environc from 928
-	code = append(code, 0x41, 0xa0, 0x07) // i32.const 928
+	code = append(code, 0x41, 0xa0, 0x07)      // i32.const 928
 	code = append(code, OpI32Load, 0x02, 0x00) // i32.load align=4 offset=0
 
 	return code
@@ -1047,26 +1242,26 @@ func generateStdinReadHelper(fdReadIdx int) []byte {
 	var code []byte
 
 	// Set up iovec at address 0: {buf, len}
-	code = append(code, 0x41, 0x00)           // i32.const 0 (iovec address)
-	code = append(code, OpLocalGet, 0)        // get buf param
+	code = append(code, 0x41, 0x00)             // i32.const 0 (iovec address)
+	code = append(code, OpLocalGet, 0)          // get buf param
 	code = append(code, OpI32Store, 0x02, 0x00) // store buf at offset 0
 
-	code = append(code, 0x41, 0x04)           // i32.const 4
-	code = append(code, OpLocalGet, 1)        // get len param
+	code = append(code, 0x41, 0x04)             // i32.const 4
+	code = append(code, OpLocalGet, 1)          // get len param
 	code = append(code, OpI32Store, 0x02, 0x00) // store len at offset 4
 
 	// fd_read(0, 0, 1, 8) - fd=0 (stdin), iovec at 0, 1 iovec, result at 8
-	code = append(code, 0x41, 0x00)           // i32.const 0 (stdin)
-	code = append(code, 0x41, 0x00)           // i32.const 0 (iovec ptr)
-	code = append(code, 0x41, 0x01)           // i32.const 1 (iovec count)
-	code = append(code, 0x41, 0x08)           // i32.const 8 (result ptr)
+	code = append(code, 0x41, 0x00) // i32.const 0 (stdin)
+	code = append(code, 0x41, 0x00) // i32.const 0 (iovec ptr)
+	code = append(code, 0x41, 0x01) // i32.const 1 (iovec count)
+	code = append(code, 0x41, 0x08) // i32.const 8 (result ptr)
 	code = append(code, OpCall, byte(fdReadIdx))
 
 	// If errno != 0, return -1
-	code = append(code, OpIf, 0x7f)           // if (errno) : i32
-	code = append(code, 0x41, 0x7f)           // i32.const -1
+	code = append(code, OpIf, 0x7f) // if (errno) : i32
+	code = append(code, 0x41, 0x7f) // i32.const -1
 	code = append(code, OpElse)
-	code = append(code, 0x41, 0x08)           // i32.const 8
+	code = append(code, 0x41, 0x08)            // i32.const 8
 	code = append(code, OpI32Load, 0x02, 0x00) // i32.load (bytes read)
 	code = append(code, OpEnd)
 
@@ -1081,26 +1276,26 @@ func generateStdoutWriteHelper(fdWriteIdx int) []byte {
 	var code []byte
 
 	// Set up iovec at address 0: {buf, len}
-	code = append(code, 0x41, 0x00)           // i32.const 0 (iovec address)
-	code = append(code, OpLocalGet, 0)        // get buf param
+	code = append(code, 0x41, 0x00)             // i32.const 0 (iovec address)
+	code = append(code, OpLocalGet, 0)          // get buf param
 	code = append(code, OpI32Store, 0x02, 0x00) // store buf at offset 0
 
-	code = append(code, 0x41, 0x04)           // i32.const 4
-	code = append(code, OpLocalGet, 1)        // get len param
+	code = append(code, 0x41, 0x04)             // i32.const 4
+	code = append(code, OpLocalGet, 1)          // get len param
 	code = append(code, OpI32Store, 0x02, 0x00) // store len at offset 4
 
 	// fd_write(1, 0, 1, 8) - fd=1 (stdout), iovec at 0, 1 iovec, result at 8
-	code = append(code, 0x41, 0x01)           // i32.const 1 (stdout)
-	code = append(code, 0x41, 0x00)           // i32.const 0 (iovec ptr)
-	code = append(code, 0x41, 0x01)           // i32.const 1 (iovec count)
-	code = append(code, 0x41, 0x08)           // i32.const 8 (result ptr)
+	code = append(code, 0x41, 0x01) // i32.const 1 (stdout)
+	code = append(code, 0x41, 0x00) // i32.const 0 (iovec ptr)
+	code = append(code, 0x41, 0x01) // i32.const 1 (iovec count)
+	code = append(code, 0x41, 0x08) // i32.const 8 (result ptr)
 	code = append(code, OpCall, byte(fdWriteIdx))
 
 	// If errno != 0, return -1
-	code = append(code, OpIf, 0x7f)           // if (errno) : i32
-	code = append(code, 0x41, 0x7f)           // i32.const -1
+	code = append(code, OpIf, 0x7f) // if (errno) : i32
+	code = append(code, 0x41, 0x7f) // i32.const -1
 	code = append(code, OpElse)
-	code = append(code, 0x41, 0x08)           // i32.const 8
+	code = append(code, 0x41, 0x08)            // i32.const 8
 	code = append(code, OpI32Load, 0x02, 0x00) // i32.load (bytes written)
 	code = append(code, OpEnd)
 
@@ -1115,26 +1310,26 @@ func generateStderrWriteHelper(fdWriteIdx int) []byte {
 	var code []byte
 
 	// Set up iovec at address 0: {buf, len}
-	code = append(code, 0x41, 0x00)           // i32.const 0 (iovec address)
-	code = append(code, OpLocalGet, 0)        // get buf param
+	code = append(code, 0x41, 0x00)             // i32.const 0 (iovec address)
+	code = append(code, OpLocalGet, 0)          // get buf param
 	code = append(code, OpI32Store, 0x02, 0x00) // store buf at offset 0
 
-	code = append(code, 0x41, 0x04)           // i32.const 4
-	code = append(code, OpLocalGet, 1)        // get len param
+	code = append(code, 0x41, 0x04)             // i32.const 4
+	code = append(code, OpLocalGet, 1)          // get len param
 	code = append(code, OpI32Store, 0x02, 0x00) // store len at offset 4
 
 	// fd_write(2, 0, 1, 8) - fd=2 (stderr), iovec at 0, 1 iovec, result at 8
-	code = append(code, 0x41, 0x02)           // i32.const 2 (stderr)
-	code = append(code, 0x41, 0x00)           // i32.const 0 (iovec ptr)
-	code = append(code, 0x41, 0x01)           // i32.const 1 (iovec count)
-	code = append(code, 0x41, 0x08)           // i32.const 8 (result ptr)
+	code = append(code, 0x41, 0x02) // i32.const 2 (stderr)
+	code = append(code, 0x41, 0x00) // i32.const 0 (iovec ptr)
+	code = append(code, 0x41, 0x01) // i32.const 1 (iovec count)
+	code = append(code, 0x41, 0x08) // i32.const 8 (result ptr)
 	code = append(code, OpCall, byte(fdWriteIdx))
 
 	// If errno != 0, return -1
-	code = append(code, OpIf, 0x7f)           // if (errno) : i32
-	code = append(code, 0x41, 0x7f)           // i32.const -1
+	code = append(code, OpIf, 0x7f) // if (errno) : i32
+	code = append(code, 0x41, 0x7f) // i32.const -1
 	code = append(code, OpElse)
-	code = append(code, 0x41, 0x08)           // i32.const 8
+	code = append(code, 0x41, 0x08)            // i32.const 8
 	code = append(code, OpI32Load, 0x02, 0x00) // i32.load (bytes written)
 	code = append(code, OpEnd)
 
@@ -1149,8 +1344,8 @@ func generateFdstatHelper(fdFdstatGetIdx int) []byte {
 	var code []byte
 
 	// fd_fdstat_get(fd, buf)
-	code = append(code, OpLocalGet, 0)     // get fd param
-	code = append(code, OpLocalGet, 1)     // get buf param
+	code = append(code, OpLocalGet, 0) // get fd param
+	code = append(code, OpLocalGet, 1) // get buf param
 	code = append(code, OpCall, byte(fdFdstatGetIdx))
 
 	// Return the errno
@@ -1165,8 +1360,8 @@ func generateFstatHelper(fdFilestatGetIdx int) []byte {
 	var code []byte
 
 	// fd_filestat_get(fd, buf)
-	code = append(code, OpLocalGet, 0)     // get fd param
-	code = append(code, OpLocalGet, 1)     // get buf param
+	code = append(code, OpLocalGet, 0) // get fd param
+	code = append(code, OpLocalGet, 1) // get buf param
 	code = append(code, OpCall, byte(fdFilestatGetIdx))
 
 	// Return the errno
@@ -1182,11 +1377,11 @@ func generateReaddirHelper(fdReaddirIdx int) []byte {
 	var code []byte
 
 	// fd_readdir(fd, buf, buf_len, cookie)
-	code = append(code, OpLocalGet, 0)     // get fd param
-	code = append(code, OpLocalGet, 1)     // get buf param
-	code = append(code, OpLocalGet, 2)     // get buf_len param
-	code = append(code, OpLocalGet, 3)     // get cookie param (i32)
-	code = append(code, 0xac)              // i64.extend_i32_s (convert to i64)
+	code = append(code, OpLocalGet, 0) // get fd param
+	code = append(code, OpLocalGet, 1) // get buf param
+	code = append(code, OpLocalGet, 2) // get buf_len param
+	code = append(code, OpLocalGet, 3) // get cookie param (i32)
+	code = append(code, 0xac)          // i64.extend_i32_s (convert to i64)
 	code = append(code, OpCall, byte(fdReaddirIdx))
 
 	// Return the errno
@@ -1214,7 +1409,7 @@ func generateRaiseHelper(procRaiseIdx int) []byte {
 	var code []byte
 
 	// proc_raise(sig)
-	code = append(code, OpLocalGet, 0)     // get sig param
+	code = append(code, OpLocalGet, 0) // get sig param
 	code = append(code, OpCall, byte(procRaiseIdx))
 
 	// Return the errno
@@ -1229,8 +1424,8 @@ func generateSetFdFlagsHelper(fdFdstatSetFlagsIdx int) []byte {
 	var code []byte
 
 	// fd_fdstat_set_flags(fd, flags)
-	code = append(code, OpLocalGet, 0)     // get fd param
-	code = append(code, OpLocalGet, 1)     // get flags param
+	code = append(code, OpLocalGet, 0) // get fd param
+	code = append(code, OpLocalGet, 1) // get flags param
 	code = append(code, OpCall, byte(fdFdstatSetFlagsIdx))
 
 	// Return the errno
@@ -1245,7 +1440,7 @@ func generateDatasyncHelper(fdDatasyncIdx int) []byte {
 	var code []byte
 
 	// fd_datasync(fd)
-	code = append(code, OpLocalGet, 0)     // get fd param
+	code = append(code, OpLocalGet, 0) // get fd param
 	code = append(code, OpCall, byte(fdDatasyncIdx))
 
 	// Return the errno
@@ -1261,11 +1456,11 @@ func generateAllocateHelper(fdAllocateIdx int) []byte {
 	var code []byte
 
 	// fd_allocate(fd, offset, len)
-	code = append(code, OpLocalGet, 0)     // get fd param
-	code = append(code, OpLocalGet, 1)     // get offset param (i32)
-	code = append(code, 0xac)              // i64.extend_i32_s (convert to i64)
-	code = append(code, OpLocalGet, 2)     // get len param (i32)
-	code = append(code, 0xac)              // i64.extend_i32_s (convert to i64)
+	code = append(code, OpLocalGet, 0) // get fd param
+	code = append(code, OpLocalGet, 1) // get offset param (i32)
+	code = append(code, 0xac)          // i64.extend_i32_s (convert to i64)
+	code = append(code, OpLocalGet, 2) // get len param (i32)
+	code = append(code, 0xac)          // i64.extend_i32_s (convert to i64)
 	code = append(code, OpCall, byte(fdAllocateIdx))
 
 	// Return the errno
@@ -1281,12 +1476,12 @@ func generateAdviseHelper(fdAdviseIdx int) []byte {
 	var code []byte
 
 	// fd_advise(fd, offset, len, advice)
-	code = append(code, OpLocalGet, 0)     // get fd param
-	code = append(code, OpLocalGet, 1)     // get offset param (i32)
-	code = append(code, 0xac)              // i64.extend_i32_s (convert to i64)
-	code = append(code, OpLocalGet, 2)     // get len param (i32)
-	code = append(code, 0xac)              // i64.extend_i32_s (convert to i64)
-	code = append(code, OpLocalGet, 3)     // get advice param
+	code = append(code, OpLocalGet, 0) // get fd param
+	code = append(code, OpLocalGet, 1) // get offset param (i32)
+	code = append(code, 0xac)          // i64.extend_i32_s (convert to i64)
+	code = append(code, OpLocalGet, 2) // get len param (i32)
+	code = append(code, 0xac)          // i64.extend_i32_s (convert to i64)
+	code = append(code, OpLocalGet, 3) // get advice param
 	code = append(code, OpCall, byte(fdAdviseIdx))
 
 	// Return the errno
@@ -1301,13 +1496,13 @@ func generateLinkHelper(pathLinkIdx int) []byte {
 	var code []byte
 
 	// path_link(old_fd, old_flags, old_path, old_path_len, new_fd, new_path, new_path_len)
-	code = append(code, OpLocalGet, 0)     // get old_fd param
-	code = append(code, OpLocalGet, 1)     // get old_flags param
-	code = append(code, OpLocalGet, 2)     // get old_path param
-	code = append(code, OpLocalGet, 3)     // get old_path_len param
-	code = append(code, OpLocalGet, 4)     // get new_fd param
-	code = append(code, OpLocalGet, 5)     // get new_path param
-	code = append(code, OpLocalGet, 6)     // get new_path_len param
+	code = append(code, OpLocalGet, 0) // get old_fd param
+	code = append(code, OpLocalGet, 1) // get old_flags param
+	code = append(code, OpLocalGet, 2) // get old_path param
+	code = append(code, OpLocalGet, 3) // get old_path_len param
+	code = append(code, OpLocalGet, 4) // get new_fd param
+	code = append(code, OpLocalGet, 5) // get new_path param
+	code = append(code, OpLocalGet, 6) // get new_path_len param
 	code = append(code, OpCall, byte(pathLinkIdx))
 
 	// Return the errno
@@ -1482,7 +1677,9 @@ func generateHTTPPostHelper() []byte {
 
 // generateHTTPRequestHelper generates the http_request() helper function bytecode
 // Params: method (i32), url_ptr (i32), url_len (i32), headers_ptr (i32), headers_len (i32),
-//         body_ptr (i32), body_len (i32), response_ptr (i32)
+//
+//	body_ptr (i32), body_len (i32), response_ptr (i32)
+//
 // Returns: status code (i32), or negative error code
 func generateHTTPRequestHelper() []byte {
 	var code []byte
@@ -1501,15 +1698,15 @@ func generateTimeHelper(clockTimeGetIdx int) []byte {
 	var code []byte
 
 	// clock_time_get(0, 0, 904) - get realtime clock with best precision, store at 904
-	code = append(code, 0x41, 0)           // i32.const 0 (CLOCK_REALTIME)
-	code = append(code, 0x42, 0)           // i64.const 0 (precision - best available)
-	code = append(code, 0x41, 0x88, 0x07)  // i32.const 904 (LEB128)
+	code = append(code, 0x41, 0)          // i32.const 0 (CLOCK_REALTIME)
+	code = append(code, 0x42, 0)          // i64.const 0 (precision - best available)
+	code = append(code, 0x41, 0x88, 0x07) // i32.const 904 (LEB128)
 	code = append(code, OpCall, byte(clockTimeGetIdx))
-	code = append(code, 0x1a)              // drop result (errno)
+	code = append(code, 0x1a) // drop result (errno)
 
 	// Load the timestamp as i64
-	code = append(code, 0x41, 0x88, 0x07)  // i32.const 904
-	code = append(code, OpI64Load, 3, 0)   // i64.load (align=3 for 8 bytes)
+	code = append(code, 0x41, 0x88, 0x07) // i32.const 904
+	code = append(code, OpI64Load, 3, 0)  // i64.load (align=3 for 8 bytes)
 
 	// Divide by 1,000,000,000 to convert nanoseconds to seconds
 	code = append(code, 0x42, 0x80, 0x94, 0xeb, 0xdc, 0x03) // i64.const 1000000000 (LEB128)
@@ -1528,15 +1725,15 @@ func generateMillisHelper(clockTimeGetIdx int) []byte {
 	var code []byte
 
 	// clock_time_get(0, 0, 904) - get realtime clock with best precision, store at 904
-	code = append(code, 0x41, 0)           // i32.const 0 (CLOCK_REALTIME)
-	code = append(code, 0x42, 0)           // i64.const 0 (precision - best available)
-	code = append(code, 0x41, 0x88, 0x07)  // i32.const 904 (LEB128)
+	code = append(code, 0x41, 0)          // i32.const 0 (CLOCK_REALTIME)
+	code = append(code, 0x42, 0)          // i64.const 0 (precision - best available)
+	code = append(code, 0x41, 0x88, 0x07) // i32.const 904 (LEB128)
 	code = append(code, OpCall, byte(clockTimeGetIdx))
-	code = append(code, 0x1a)              // drop result (errno)
+	code = append(code, 0x1a) // drop result (errno)
 
 	// Load the timestamp as i64
-	code = append(code, 0x41, 0x88, 0x07)  // i32.const 904
-	code = append(code, OpI64Load, 3, 0)   // i64.load (align=3 for 8 bytes)
+	code = append(code, 0x41, 0x88, 0x07) // i32.const 904
+	code = append(code, OpI64Load, 3, 0)  // i64.load (align=3 for 8 bytes)
 
 	// Divide by 1,000,000 to convert nanoseconds to milliseconds
 	code = append(code, 0x42, 0xc0, 0x84, 0x3d) // i64.const 1000000 (LEB128)
@@ -1564,20 +1761,20 @@ func generateWriteCharHelper(fdWriteIdx int) []byte {
 	// Set up iovec at address 0:
 	// iovec.buf = 800 (our write buffer)
 	// iovec.buf_len = 1 (write 1 byte)
-	code = append(code, 0x41, 0)           // i32.const 0 (iovec addr)
-	code = append(code, 0x41, 0xa0, 0x06)  // i32.const 800 (LEB128)
-	code = append(code, OpI32Store, 2, 0)  // store buf address
+	code = append(code, 0x41, 0)          // i32.const 0 (iovec addr)
+	code = append(code, 0x41, 0xa0, 0x06) // i32.const 800 (LEB128)
+	code = append(code, OpI32Store, 2, 0) // store buf address
 
-	code = append(code, 0x41, 4)           // i32.const 4 (iovec.buf_len offset)
-	code = append(code, 0x41, 1)           // i32.const 1 (write 1 byte)
-	code = append(code, OpI32Store, 2, 0)  // store buf_len
+	code = append(code, 0x41, 4)          // i32.const 4 (iovec.buf_len offset)
+	code = append(code, 0x41, 1)          // i32.const 1 (write 1 byte)
+	code = append(code, OpI32Store, 2, 0) // store buf_len
 
 	// fd_write(1, 0, 1, 8)
 	// fd=1 (stdout), iovs=0, iovs_len=1, nwritten=8
-	code = append(code, 0x41, 1)           // i32.const 1 (stdout)
-	code = append(code, 0x41, 0)           // i32.const 0 (iovs)
-	code = append(code, 0x41, 1)           // i32.const 1 (iovs_len)
-	code = append(code, 0x41, 8)           // i32.const 8 (nwritten ptr)
+	code = append(code, 0x41, 1) // i32.const 1 (stdout)
+	code = append(code, 0x41, 0) // i32.const 0 (iovs)
+	code = append(code, 0x41, 1) // i32.const 1 (iovs_len)
+	code = append(code, 0x41, 8) // i32.const 8 (nwritten ptr)
 	code = append(code, OpCall, byte(fdWriteIdx))
 
 	// Return the result (errno, 0 on success)
@@ -1596,13 +1793,81 @@ func generateMallocHelper(heapPtrIdx int) []byte {
 
 	// Add size to heap pointer: heap_ptr + size
 	code = append(code, OpGlobalGet, byte(heapPtrIdx))
-	code = append(code, OpLocalGet, 0)     // get size param
+	code = append(code, OpLocalGet, 0) // get size param
 	code = append(code, OpI32Add)
 
 	// Store new heap pointer
 	code = append(code, OpGlobalSet, byte(heapPtrIdx))
 
 	// Return the old heap pointer (which is still on stack)
+	return code
+}
+
+// generateMallocStrHelper generates the malloc_str(addr, len) helper function bytecode
+// Allocates memory for a string of given length
+// Params: addr (i32) - source address (for reference, not used), len (i32) - length
+// Returns: address of allocated memory (i32)
+func generateMallocStrHelper(heapPtrIdx int) []byte {
+	var code []byte
+
+	// Get current heap pointer (this will be the return address)
+	code = append(code, OpGlobalGet, byte(heapPtrIdx))
+
+	// Add len to heap pointer: heap_ptr + len
+	code = append(code, OpGlobalGet, byte(heapPtrIdx))
+	code = append(code, OpLocalGet, 1) // get len param
+	code = append(code, OpI32Add)
+
+	// Store new heap pointer
+	code = append(code, OpGlobalSet, byte(heapPtrIdx))
+
+	// Return the old heap pointer (which is still on stack)
+	return code
+}
+
+// generateMemsetHelper generates the memset(addr, val, len) helper function bytecode
+// Sets len bytes starting at addr to value val
+// Params: addr (i32), val (i32), len (i32)
+// Returns: addr (i32)
+func generateMemsetHelper() []byte {
+	var code []byte
+
+	// Block for loop exit
+	code = append(code, OpBlock, 0x40)
+	// Loop for setting bytes
+	code = append(code, OpLoop, 0x40)
+
+	// Check if len == 0, exit loop
+	code = append(code, OpLocalGet, 2) // len
+	code = append(code, OpI32Eqz)
+	code = append(code, 0x0d, 1) // br_if 1 (exit block)
+
+	// Store val at addr
+	code = append(code, OpLocalGet, 0) // addr
+	code = append(code, OpLocalGet, 1) // val
+	code = append(code, 0x3a, 0, 0)    // i32.store8
+
+	// Increment addr
+	code = append(code, OpLocalGet, 0) // addr
+	code = append(code, 0x41, 1)       // i32.const 1
+	code = append(code, OpI32Add)
+	code = append(code, 0x21, 0) // local.set addr
+
+	// Decrement len
+	code = append(code, OpLocalGet, 2) // len
+	code = append(code, 0x41, 1)       // i32.const 1
+	code = append(code, OpI32Sub)
+	code = append(code, 0x21, 2) // local.set len
+
+	// Continue loop
+	code = append(code, 0x0c, 0) // br 0
+
+	code = append(code, OpEnd) // end loop
+	code = append(code, OpEnd) // end block
+
+	// Return original addr
+	code = append(code, OpLocalGet, 0)
+
 	return code
 }
 
@@ -1624,20 +1889,46 @@ func generateAsyncReadHelper(fdReadIdx int) []byte {
 	var code []byte
 	// For now, just call fd_read synchronously
 	// Params: fd, iovs, iovs_len, nread
-	code = append(code, OpLocalGet, 0) // fd
-	code = append(code, OpLocalGet, 1) // buf (iovs.buf)
-	code = append(code, 0x41, 0)      // iovs address
+	code = append(code, OpLocalGet, 0)    // fd
+	code = append(code, OpLocalGet, 1)    // buf (iovs.buf)
+	code = append(code, 0x41, 0)          // iovs address
 	code = append(code, OpI32Store, 2, 0) // store buf at iovs.buf
-	code = append(code, OpLocalGet, 2) // len
-	code = append(code, 0x41, 4)      // iovs.len address
+	code = append(code, OpLocalGet, 2)    // len
+	code = append(code, 0x41, 4)          // iovs.len address
 	code = append(code, OpI32Store, 2, 0) // store len at iovs.len
-	code = append(code, OpLocalGet, 0) // fd
-	code = append(code, 0x41, 0)      // iovs address
-	code = append(code, 0x41, 1)      // iovs_len = 1
-	code = append(code, 0x41, 8)      // nread address
+	code = append(code, OpLocalGet, 0)    // fd
+	code = append(code, 0x41, 0)          // iovs address
+	code = append(code, 0x41, 1)          // iovs_len = 1
+	code = append(code, 0x41, 8)          // nread address
 	code = append(code, OpCall, byte(fdReadIdx))
 	// Return nread
-	code = append(code, 0x41, 8)      // nread address
+	code = append(code, 0x41, 8) // nread address
+	code = append(code, OpI32Load, 2, 0)
+	return code
+}
+
+// generateAsyncWriteHelper generates the async_write(fd, buf, len) helper function bytecode
+// Simulates async file write using poll_oneoff
+// For now, this is just a stub that calls fd_write synchronously
+func generateAsyncWriteHelper(fdWriteIdx int) []byte {
+	var code []byte
+	// For now, just call fd_write synchronously
+	// Params: fd, iovs, iovs_len, nwritten
+	code = append(code, OpLocalGet, 0)    // fd
+	code = append(code, OpLocalGet, 1)    // buf (iovs.buf)
+	code = append(code, 0x41, 0)          // iovs address
+	code = append(code, OpI32Store, 2, 0) // store buf at iovs.buf
+	code = append(code, OpLocalGet, 2)    // len
+	code = append(code, 0x41, 4)          // iovs.len address
+	code = append(code, OpI32Store, 2, 0) // store len at iovs.len
+	code = append(code, OpLocalGet, 0)    // fd
+	code = append(code, 0x41, 0)          // iovs address
+	code = append(code, 0x41, 1)          // iovs_len = 1
+	code = append(code, 0x41, 8)          // nwritten address
+	code = append(code, OpCall, byte(fdWriteIdx))
+	code = append(code, 0x1a) // drop the errno result
+	// Return nwritten
+	code = append(code, 0x41, 8) // nwritten address
 	code = append(code, OpI32Load, 2, 0)
 	return code
 }
@@ -1707,16 +1998,16 @@ func generatePrintIntHelper(fdWriteIdx int) []byte {
 	code = append(code, 0x41, 0)       // i32.const 0 (iovec addr)
 	code = append(code, OpLocalGet, 1) // ptr
 	code = append(code, OpI32Store, 2, 0)
-	code = append(code, 0x41, 4)    // i32.const 4
-	code = append(code, 0x41, 1)    // i32.const 1 (len)
+	code = append(code, 0x41, 4) // i32.const 4
+	code = append(code, 0x41, 1) // i32.const 1 (len)
 	code = append(code, OpI32Store, 2, 0)
-	code = append(code, 0x41, 1)    // fd
-	code = append(code, 0x41, 0)    // iovs
-	code = append(code, 0x41, 1)    // iovs_len
-	code = append(code, 0x41, 8)    // nwritten
+	code = append(code, 0x41, 1) // fd
+	code = append(code, 0x41, 0) // iovs
+	code = append(code, 0x41, 1) // iovs_len
+	code = append(code, 0x41, 8) // nwritten
 	code = append(code, OpCall, byte(fdWriteIdx))
-	code = append(code, 0x0f)       // return
-	code = append(code, OpEnd)      // end if
+	code = append(code, 0x0f)  // return
+	code = append(code, OpEnd) // end if
 
 	// if n < 0: is_neg = 1, n = -n
 	code = append(code, OpLocalGet, 0) // n
@@ -1760,9 +2051,9 @@ func generatePrintIntHelper(fdWriteIdx int) []byte {
 	code = append(code, OpI32Sub)
 	code = append(code, OpLocalSet, 1) // ptr = ptr - 1
 	// continue
-	code = append(code, OpBr, 0)  // br to loop
-	code = append(code, OpEnd)    // end loop
-	code = append(code, OpEnd)    // end block
+	code = append(code, OpBr, 0) // br to loop
+	code = append(code, OpEnd)   // end loop
+	code = append(code, OpEnd)   // end block
 
 	// if is_neg, store '-' at ptr, ptr--
 	code = append(code, OpLocalGet, 2) // is_neg
@@ -1894,8 +2185,8 @@ func CompileFile(file *parser.File, m *Module, fileName string, generateSourceMa
 		"sock_send":             {5, true},
 		"sock_shutdown":         {2, true},
 		// WASI async I/O functions (for future use)
-		"fd_pread":              {5, true},  // Async pread
-		"fd_pwrite":             {5, true},  // Async pwrite
+		"fd_pread":  {5, true}, // Async pread
+		"fd_pwrite": {5, true}, // Async pwrite
 	}
 
 	usedImports := make(map[string]bool)
@@ -1918,15 +2209,18 @@ func CompileFile(file *parser.File, m *Module, fileName string, generateSourceMa
 		wasiModule = "wasi_02"
 	}
 
-	// Ensure fd_read is imported if read_char is used
+	// Ensure fd_read is imported if read_char or read_line is used
 	needsReadCharEarly := false
+	needsReadLineEarly := false
 	for _, fn := range file.Fns {
 		if usesBuiltin(fn.Body, "read_char") {
 			needsReadCharEarly = true
-			break
+		}
+		if usesBuiltin(fn.Body, "read_line") {
+			needsReadLineEarly = true
 		}
 	}
-	if needsReadCharEarly {
+	if needsReadCharEarly || needsReadLineEarly {
 		usedImports["fd_read"] = true
 	}
 
@@ -2522,10 +2816,16 @@ func CompileFile(file *parser.File, m *Module, fileName string, generateSourceMa
 	needsRotr := false
 	needsStrEq := false
 	needsStrCopy := false
+	needsStrLen := false
+	needsStrConcat := false
+	needsStrSubstr := false
 	needsReadChar := false
+	needsReadLine := false
 	needsWriteChar := false
 	needsRandom := false
 	needsMalloc := false
+	needsMallocStr := false
+	needsMemset := false
 	needsMemcpy := false
 	for _, fn := range file.Fns {
 		if usesPrintInt(fn.Body) {
@@ -2588,8 +2888,20 @@ func CompileFile(file *parser.File, m *Module, fileName string, generateSourceMa
 		if usesBuiltin(fn.Body, "str_copy") {
 			needsStrCopy = true
 		}
+		if usesBuiltin(fn.Body, "str_len") {
+			needsStrLen = true
+		}
+		if usesBuiltin(fn.Body, "str_concat") {
+			needsStrConcat = true
+		}
+		if usesBuiltin(fn.Body, "str_substr") {
+			needsStrSubstr = true
+		}
 		if usesBuiltin(fn.Body, "read_char") {
 			needsReadChar = true
+		}
+		if usesBuiltin(fn.Body, "read_line") {
+			needsReadLine = true
 		}
 		if usesBuiltin(fn.Body, "write_char") {
 			needsWriteChar = true
@@ -2599,6 +2911,12 @@ func CompileFile(file *parser.File, m *Module, fileName string, generateSourceMa
 		}
 		if usesBuiltin(fn.Body, "malloc") {
 			needsMalloc = true
+		}
+		if usesBuiltin(fn.Body, "malloc_str") {
+			needsMallocStr = true
+		}
+		if usesBuiltin(fn.Body, "memset") {
+			needsMemset = true
 		}
 		if usesBuiltin(fn.Body, "memcpy") {
 			needsMemcpy = true
@@ -2667,7 +2985,19 @@ func CompileFile(file *parser.File, m *Module, fileName string, generateSourceMa
 	if needsStrCopy {
 		helperCount++
 	}
+	if needsStrLen {
+		helperCount++
+	}
+	if needsStrConcat {
+		helperCount++
+	}
+	if needsStrSubstr {
+		helperCount++
+	}
 	if needsReadChar {
+		helperCount++
+	}
+	if needsReadLine {
 		helperCount++
 	}
 	if needsWriteChar {
@@ -2677,6 +3007,12 @@ func CompileFile(file *parser.File, m *Module, fileName string, generateSourceMa
 		helperCount++
 	}
 	if needsMalloc {
+		helperCount++
+	}
+	if needsMallocStr {
+		helperCount++
+	}
+	if needsMemset {
 		helperCount++
 	}
 	if needsMemcpy {
@@ -2897,8 +3233,24 @@ func CompileFile(file *parser.File, m *Module, fileName string, generateSourceMa
 		funcIdx["str_copy"] = len(m.imports) + helperIdx
 		helperIdx++
 	}
+	if needsStrLen {
+		funcIdx["str_len"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsStrConcat {
+		funcIdx["str_concat"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsStrSubstr {
+		funcIdx["str_substr"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
 	if needsReadChar {
 		funcIdx["read_char"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsReadLine {
+		funcIdx["read_line"] = len(m.imports) + helperIdx
 		helperIdx++
 	}
 	if needsWriteChar {
@@ -2911,6 +3263,14 @@ func CompileFile(file *parser.File, m *Module, fileName string, generateSourceMa
 	}
 	if needsMalloc {
 		funcIdx["malloc"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsMallocStr {
+		funcIdx["malloc_str"] = len(m.imports) + helperIdx
+		helperIdx++
+	}
+	if needsMemset {
+		funcIdx["memset"] = len(m.imports) + helperIdx
 		helperIdx++
 	}
 	if needsMemcpy {
@@ -3178,9 +3538,25 @@ func CompileFile(file *parser.File, m *Module, fileName string, generateSourceMa
 		code := generateStrCopyHelper()
 		m.AddFunction("str_copy", 3, code, 1) // 3 params, 1 local
 	}
+	if needsStrLen {
+		code := generateStrLenHelper()
+		m.AddFunction("str_len", 1, code, 2) // 1 param, 2 locals
+	}
+	if needsStrConcat {
+		code := generateStrConcatHelper()
+		m.AddFunction("str_concat", 4, code, 0) // 4 params, 0 locals
+	}
+	if needsStrSubstr {
+		code := generateStrSubstrHelper()
+		m.AddFunction("str_substr", 3, code, 0) // 3 params, 0 locals
+	}
 	if needsReadChar {
 		code := generateReadCharHelper(funcIdx["fd_read"])
 		m.AddFunction("read_char", 0, code, 0) // 0 params, 0 locals
+	}
+	if needsReadLine {
+		code := generateReadLineHelper(funcIdx["fd_read"])
+		m.AddFunction("read_line", 0, code, 0) // 0 params, 0 locals
 	}
 	if needsWriteChar {
 		code := generateWriteCharHelper(funcIdx["fd_write"])
@@ -3193,6 +3569,14 @@ func CompileFile(file *parser.File, m *Module, fileName string, generateSourceMa
 	if needsMalloc {
 		code := generateMallocHelper(heapPtrIdx)
 		m.AddFunction("malloc", 1, code, 0) // 1 param (size), 0 locals
+	}
+	if needsMallocStr {
+		code := generateMallocStrHelper(heapPtrIdx)
+		m.AddFunction("malloc_str", 2, code, 0) // 2 params (addr, len), 0 locals
+	}
+	if needsMemset {
+		code := generateMemsetHelper()
+		m.AddFunction("memset", 3, code, 1) // 3 params (addr, val, len), 1 local (for temp addr)
 	}
 	if needsMemcpy {
 		code := generateMemcpyHelper()
@@ -3405,6 +3789,14 @@ func CompileFile(file *parser.File, m *Module, fileName string, generateSourceMa
 			code = generateAsyncReadHelper(funcIdx["fd_read"])
 			m.AddFunction("async_read", 3, code, 0) // 3 params (fd, buf, len), 0 locals, returns i32
 			funcIdx["async_read"] = len(m.imports) + helperIdx
+			helperIdx++
+		}
+
+		// Add async_write helper if fd_write is available
+		if _, ok := funcIdx["fd_write"]; ok {
+			code = generateAsyncWriteHelper(funcIdx["fd_write"])
+			m.AddFunction("async_write", 3, code, 0) // 3 params (fd, buf, len), 0 locals, returns i32
+			funcIdx["async_write"] = len(m.imports) + helperIdx
 			helperIdx++
 		}
 	}
@@ -3727,7 +4119,7 @@ func collectCallsExpr(expr parser.Expr, calls map[string]bool) {
 func Compile(fn *parser.FnDecl, funcIdx, globalIdx map[string]int, structs map[string]*StructInfo, strings *StringTable, hasAsyncFunctions bool) (code []byte, numLocals int) {
 	// Check if async runtime is needed for this function
 	asyncRuntimeNeeded := hasAsyncFunctions && fn.Async
-	
+
 	c := &Compiler{
 		fn:           fn,
 		locals:       make(map[string]int),
@@ -3971,19 +4363,19 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 		code = append(code, OpBlock, 0x40) // block with void result
 		code = append(code, OpLoop, 0x40)  // loop with void result
 		code = append(code, c.compileExpr(e.Cond)...)
-		code = append(code, OpI32Eqz)      // invert condition
-		code = append(code, OpBrIf, 1)     // br_if to block (exit)
+		code = append(code, OpI32Eqz)  // invert condition
+		code = append(code, OpBrIf, 1) // br_if to block (exit)
 		// Save old labels and set new ones (loop=0, block=1 from inside loop body)
 		oldBreak, oldContinue := c.breakLabel, c.continueLabel
-		c.breakLabel = 1   // outer block
+		c.breakLabel = 1    // outer block
 		c.continueLabel = 0 // loop
 		c.loopDepth++
 		code = append(code, c.compileBlock(e.Body)...)
 		c.loopDepth--
 		c.breakLabel, c.continueLabel = oldBreak, oldContinue
-		code = append(code, OpBr, 0)       // br to loop (continue)
-		code = append(code, OpEnd)         // end loop
-		code = append(code, OpEnd)         // end block
+		code = append(code, OpBr, 0) // br to loop (continue)
+		code = append(code, OpEnd)   // end loop
+		code = append(code, OpEnd)   // end block
 		return code
 	case *parser.BreakExpr:
 		// br to outer block (exit loop)
@@ -4151,7 +4543,7 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 			code = append(code, OpI32Store, 2, 0)
 			// Store string length at iovec.len (address 4)
 			// For now, use a fixed length of 32 or compute from string table
-			code = append(code, 0x41, 4) // i32.const 4
+			code = append(code, 0x41, 4)  // i32.const 4
 			code = append(code, 0x41, 32) // i32.const 32 (max len)
 			code = append(code, OpI32Store, 2, 0)
 			// fd_write(fd=2, iovs=0, iovs_len=1, nwritten=8)
@@ -4173,7 +4565,7 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 			// assert(condition) - if condition is 0, exit with code 1
 			code = nil
 			code = append(code, c.compileExpr(e.Args[0])...)
-			code = append(code, OpI32Eqz) // check if condition == 0
+			code = append(code, OpI32Eqz)   // check if condition == 0
 			code = append(code, OpIf, 0x40) // if (void block)
 			// Exit with code 1 on assertion failure
 			code = append(code, 0x41, 1) // i32.const 1
@@ -4246,7 +4638,7 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 			code = append(code, 0x41, 0) // i32.const 0
 			code = append(code, OpI32GtS)
 			code = append(code, OpIf, 0x7f) // if n > 0
-			code = append(code, 0x41, 1) // i32.const 1
+			code = append(code, 0x41, 1)    // i32.const 1
 			code = append(code, OpElse)
 			code = append(code, 0x41, 0) // i32.const 0
 			code = append(code, OpEnd)
@@ -4283,15 +4675,15 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 			// is_even(n) - returns 1 if n is even, 0 otherwise
 			code = nil
 			code = append(code, c.compileExpr(e.Args[0])...)
-			code = append(code, 0x41, 1)    // i32.const 1
-			code = append(code, OpI32And)   // n & 1
-			code = append(code, OpI32Eqz)   // == 0 (is even)
+			code = append(code, 0x41, 1)  // i32.const 1
+			code = append(code, OpI32And) // n & 1
+			code = append(code, OpI32Eqz) // == 0 (is even)
 		case "is_odd":
 			// is_odd(n) - returns 1 if n is odd, 0 otherwise
 			code = nil
 			code = append(code, c.compileExpr(e.Args[0])...)
-			code = append(code, 0x41, 1)    // i32.const 1
-			code = append(code, OpI32And)   // n & 1 (is odd)
+			code = append(code, 0x41, 1)  // i32.const 1
+			code = append(code, OpI32And) // n & 1 (is odd)
 		case "square":
 			// square(n) - returns n * n
 			code = nil
@@ -4312,10 +4704,10 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 			// log2(n) - returns floor(log2(n)) for n > 0
 			// calculated as 31 - clz(n)
 			code = nil
-			code = append(code, 0x41, 31)   // i32.const 31
+			code = append(code, 0x41, 31) // i32.const 31
 			code = append(code, c.compileExpr(e.Args[0])...)
-			code = append(code, OpI32Clz)   // clz(n)
-			code = append(code, OpI32Sub)   // 31 - clz(n)
+			code = append(code, OpI32Clz) // clz(n)
+			code = append(code, OpI32Sub) // 31 - clz(n)
 		case "print":
 			// print(str, len) - prints string with newline
 			code = nil
@@ -4742,6 +5134,11 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 			idx := c.funcIdx["async_read"]
 			code = append(code, OpCall, byte(idx))
 
+		case "async_write":
+			// async_write(fd, buf, len) - async file write
+			idx := c.funcIdx["async_write"]
+			code = append(code, OpCall, byte(idx))
+
 		case "_async_init":
 			// Initialize async runtime
 			idx := c.funcIdx["_async_init"]
@@ -4767,13 +5164,13 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 		if !c.isAsync {
 			panic("await can only be used in async functions")
 		}
-		
+
 		// Enhanced await implementation using async runtime
 		var code []byte
-		
+
 		// Compile the expression being awaited (should be an async operation)
 		code = append(code, c.compileExpr(e.Expr)...)
-		
+
 		// Check if the operation is ready (for now, assume it's always ready)
 		// In a real implementation, this would use polling
 		if c.asyncRuntime {
@@ -4783,26 +5180,26 @@ func (c *Compiler) compileExpr(e parser.Expr) []byte {
 				code = append(code, OpCall, byte(idx))
 				code = append(code, OpDrop) // Drop the result for now
 			}
-			
+
 			// Store the result in a local variable
 			// In a real implementation, this would be handled by the runtime
 			localIdx := c.numLocals
 			c.numLocals++
 			code = append(code, OpLocalTee, byte(localIdx))
-			
+
 			// Return from the async function with "not ready" status
 			code = append(code, 0x41, 1) // i32.const 1 (not ready)
 			code = append(code, 0x0f)    // return
-			
+
 			// Continuation point (this would be jumped to when resumed)
-			code = append(code, OpBlock, 0x7f) // block with i32 result
+			code = append(code, OpBlock, 0x7f)              // block with i32 result
 			code = append(code, OpLocalGet, byte(localIdx)) // get the stored result
 			code = append(code, OpEnd)
 		} else {
 			// Fallback: just return the expression result (synchronous)
 			// This maintains backward compatibility
 		}
-		
+
 		return code
 	}
 	return nil

@@ -2689,7 +2689,7 @@ func TestAsyncFunctions(t *testing.T) {
 	if len(m.funcs) < 2 {
 		t.Errorf("expected at least 2 functions, got %d", len(m.funcs))
 	}
-	
+
 	// Check that our async function is present
 	foundAsyncAdd := false
 	for _, funcDef := range m.funcs {
@@ -2711,20 +2711,308 @@ func TestAwaitExpressions(t *testing.T) {
 			0
 		}
 	`
-	
+
 	// This should panic during compilation
 	defer func() {
 		if r := recover(); r == nil {
 			t.Errorf("expected panic when using await in non-async function")
 		}
 	}()
-	
+
 	p := parser.New(src)
 	f := p.ParseFile()
 	m := NewModule()
 	m.AddMemory(1)
 	CompileFile(f, m, "test.lingua", false, false)
-	
+
 	t.Errorf("should have panicked")
 }
 
+func TestReadLine(t *testing.T) {
+	src := `fn _start(): i32 { read_line() }`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m, "test.lingua", false, false)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	stdin := bytes.NewReader([]byte("hello\n"))
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+
+	config := wazero.NewModuleConfig().WithStdin(stdin)
+	mod, err := r.InstantiateWithConfig(ctx, m.Bytes(), config)
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	start := mod.ExportedFunction("_start")
+	results, err := start.Call(ctx)
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+
+	// read_line returns the address of the string in memory
+	// The exact address depends on implementation but should be non-zero
+	if results[0] == 0 {
+		t.Fatalf("expected non-zero address, got 0")
+	}
+
+	// Verify we can read back the string from memory
+	mem := mod.Memory()
+	if mem == nil {
+		t.Fatalf("no memory exported")
+	}
+
+	// Read the string back (null-terminated)
+	addr := int(results[0])
+	var str []byte
+	for i := 0; i < 256; i++ {
+		b, ok := mem.Read(uint32(addr+i), 1)
+		if !ok || b[0] == 0 {
+			break
+		}
+		str = append(str, b[0])
+	}
+
+	if string(str) != "hello" {
+		t.Fatalf("expected 'hello', got %q", string(str))
+	}
+}
+
+func TestReadLineEmpty(t *testing.T) {
+	src := `fn _start(): i32 { read_line() }`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m, "test.lingua", false, false)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	// Test EOF (empty stdin)
+	stdin := bytes.NewReader([]byte{})
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+
+	config := wazero.NewModuleConfig().WithStdin(stdin)
+	mod, err := r.InstantiateWithConfig(ctx, m.Bytes(), config)
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	start := mod.ExportedFunction("_start")
+	results, err := start.Call(ctx)
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+
+	// Should return a valid address (empty string)
+	if results[0] == 0 {
+		t.Fatalf("expected non-zero address, got 0")
+	}
+}
+
+func TestMemset(t *testing.T) {
+	src := `fn _start(): i32 {
+		let addr: i32 = malloc(10);
+		memset(addr, 42, 10);
+		load(addr)
+	}`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m, "test.lingua", false, false)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	start := mod.ExportedFunction("_start")
+	results, err := start.Call(ctx)
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+
+	// memset should set all bytes to 42, load returns i32 which is 0x2a2a2a2a
+	if results[0] != 0x2a2a2a2a {
+		t.Fatalf("expected 0x2a2a2a2a, got 0x%x", results[0])
+	}
+}
+
+func TestMallocStr(t *testing.T) {
+	src := `fn _start(): i32 {
+		let addr: i32 = malloc(10);
+		store(addr, 72);
+		store(addr + 1, 101);
+		store(addr + 2, 108);
+		store(addr + 3, 108);
+		store(addr + 4, 111);
+		let new_addr: i32 = malloc_str(addr, 5);
+		new_addr
+	}`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m, "test.lingua", false, false)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	start := mod.ExportedFunction("_start")
+	results, err := start.Call(ctx)
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+
+	// malloc_str should return a different address (original heap ptr)
+	// that contains the copied string
+	if results[0] == 0 {
+		t.Fatalf("expected non-zero address")
+	}
+}
+
+func TestStrLen(t *testing.T) {
+	src := `fn _start(): i32 {
+		let addr: i32 = malloc(20);
+		store(addr, 72);  // 'H'
+		store(addr + 1, 101);  // 'e'
+		store(addr + 2, 108);  // 'l'
+		store(addr + 3, 108);  // 'l'
+		store(addr + 4, 111);  // 'o'
+		store(addr + 5, 0);  // null terminator
+		str_len(addr)
+	}`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m, "test.lingua", false, false)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	start := mod.ExportedFunction("_start")
+	results, err := start.Call(ctx)
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+
+	// str_len("Hello") should return 5
+	if results[0] != 5 {
+		t.Fatalf("expected 5, got %d", results[0])
+	}
+}
+
+func TestStrConcat(t *testing.T) {
+	src := `fn _start(): i32 {
+		let addr1: i32 = malloc(10);
+		let addr2: i32 = malloc(10);
+		store(addr1, 72);  // 'H'
+		store(addr1 + 1, 105);  // 'i'
+		store(addr1 + 2, 0);  // null terminator
+		store(addr2, 33);  // '!'
+		store(addr2 + 1, 0);  // null terminator
+		let result: i32 = str_concat(addr1, 2, addr2, 1);
+		result
+	}`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m, "test.lingua", false, false)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	start := mod.ExportedFunction("_start")
+	results, err := start.Call(ctx)
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+
+	// str_concat should return a non-zero address
+	if results[0] == 0 {
+		t.Fatalf("expected non-zero address")
+	}
+}
+
+func TestStrSubstr(t *testing.T) {
+	src := `fn _start(): i32 {
+		let addr: i32 = malloc(20);
+		store(addr, 72);  // 'H'
+		store(addr + 1, 101);  // 'e'
+		store(addr + 2, 108);  // 'l'
+		store(addr + 3, 108);  // 'l'
+		store(addr + 4, 111);  // 'o'
+		store(addr + 5, 0);  // null terminator
+		let result: i32 = str_substr(addr, 1, 3);  // "ell"
+		result
+	}`
+	p := parser.New(src)
+	f := p.ParseFile()
+
+	m := NewModule()
+	m.AddMemory(1)
+	CompileFile(f, m, "test.lingua", false, false)
+
+	ctx := context.Background()
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+
+	mod, err := r.Instantiate(ctx, m.Bytes())
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+
+	start := mod.ExportedFunction("_start")
+	results, err := start.Call(ctx)
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+
+	// str_substr should return a non-zero address
+	if results[0] == 0 {
+		t.Fatalf("expected non-zero address")
+	}
+}

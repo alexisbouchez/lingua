@@ -9,8 +9,8 @@ import (
 
 func main() {
 	// Create a new REPL instance
-	repl := repl.New(os.Stdin, os.Stdout)
-	
+	repl := repl.NewREPL(os.Stdin, os.Stdout)
+
 	// Start the REPL
 	repl.Start()
 }

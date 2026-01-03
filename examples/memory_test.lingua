@@ -1,27 +1,29 @@
 // Memory management test
 
 fn _start(): i32 {
-    // Initialize memory management
-    memory_init();
+    // Test malloc - allocate 100 bytes
+    let addr: i32 = malloc(100);
     
-    // Allocate some memory
-    let ptr: i32 = malloc(100);
+    // Test memset - set 10 bytes to 'A' (65 ASCII)
+    memset(addr, 65, 10);
     
-    // Store a value in the allocated memory
-    store(ptr, 42);
+    // Load and verify the first value (should be 65 = 'A')
+    let val: i32 = load(addr);
+    println(val);  // Should print 65
     
-    // Load the value back
-    let value: i32 = load(ptr);
+    // Store different values at different offsets
+    store(addr + 4, 66);  // 'B'
+    store(addr + 8, 67);  // 'C'
     
-    // Print the value
-    println(value);
+    // Load and verify
+    let val2: i32 = load(addr + 4);
+    let val3: i32 = load(addr + 8);
+    println(val2);  // Should print 66
+    println(val3);  // Should print 67
     
-    // Get memory statistics
-    let stats: i32 = memory_stats();
-    println(stats);
+    // Test malloc_str - allocate memory for a string
+    let str_addr: i32 = malloc_str(addr, 10);
     
-    // Free the memory
-    free(ptr);
-    
+    // Return success
     0
 }

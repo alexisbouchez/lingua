@@ -1,0 +1,3 @@
+fn _start(): i32 {
+    write_char(65)
+}

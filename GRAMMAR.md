@@ -291,6 +291,7 @@ The following functions are available as built-ins and do not need to be declare
 - `print_str(str: i32, len: i32): i32` - Print string without newline
 - `print_int(n: i32): i32` - Print integer without newline
 - `read_char(): i32` - Read a single character from stdin, returns character code or 0 on EOF
+- `read_line(): i32` - Read a line from stdin, returns address of null-terminated string (max 255 chars)
 
 ### Math Functions
 - `abs(n: i32): i32` - Absolute value
@@ -300,9 +301,14 @@ The following functions are available as built-ins and do not need to be declare
 ### String Functions
 - `str_eq(addr1: i32, len1: i32, addr2: i32, len2: i32): i32` - Compare strings
 - `str_copy(src: i32, len: i32, dest: i32): i32` - Copy string
+- `str_len(addr: i32): i32` - Get length of null-terminated string
+- `str_concat(addr1: i32, len1: i32, addr2: i32, len2: i32): i32` - Concatenate strings
+- `str_substr(addr: i32, start: i32, len: i32): i32` - Extract substring
 
 ### Memory Functions
 - `malloc(size: i32): i32` - Allocate size bytes on heap, returns address
+- `malloc_str(addr: i32, len: i32): i32` - Allocate memory for string, returns address
+- `memset(addr: i32, val: i32, len: i32): i32` - Set len bytes starting at addr to val, returns addr
 - `memcpy(dest: i32, src: i32, len: i32): i32` - Copy len bytes from src to dest, returns dest
 - `load(addr: i32): i32` - Load i32 from memory
 - `store(addr: i32, val: i32): i32` - Store i32 to memory

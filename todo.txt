@@ -42,7 +42,7 @@ PHASE 4: LANGUAGE FEATURES
 [x] Implement control flow (if, else, loops, blocks, break, continue, return)
 [x] Implement functions and function calls
 [x] Implement local and global variables
-[~] Implement memory management (basic allocator and free added)
+[~] Implement memory management (malloc, malloc_str, memset, free, memcpy added)
 [x] Implement linear memory operations
 [x] Implement structs/records
 [x] Implement arrays
@@ -62,19 +62,19 @@ PHASE 6: TOOLING
 [x] Build CLI compiler tool
 [~] Implement source maps for debugging (basic source map generation added)
 [x] Add error reporting with line/column info
-[~] Create REPL for interactive development (basic REPL implemented)
+[~] Create REPL for interactive development (REPL now compiles and executes WASM)
 [x] Add language server protocol (LSP) support
 [x] Create VS Code extension
 
 PHASE 7: STANDARD LIBRARY
 -------------------------
 [x] Implement python-like print() builtin
-[~] Implement I/O primitives (read_char added, more needed)
+[~] Implement I/O primitives (read_char, read_line added, more needed)
 [x] Implement string utilities
 [x] Implement math functions (abs, min, max, sign, negate, clamp, square, cube, is_even, is_odd, log2)
 [x] Implement collections (list, map, set)
 [~] Implement async/await primitives (basic support added)
-[~] Implement memory management (basic allocator and free added)
+[~] Implement memory management (malloc, malloc_str, memset, free, memcpy added)
 
 PHASE 8: TESTING & DOCUMENTATION
 --------------------------------
