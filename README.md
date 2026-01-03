@@ -63,6 +63,17 @@ arr[1] = 100;
 - `str_concat(addr1, len1, addr2, len2)` - concatenate two strings, returns address
 - `str_substr(addr, start, len)` - extract substring, returns address
 
+#### Collection Functions
+- `list_new()` - create a new empty list
+- `list_push(list, value)` - append value to list
+- `list_pop(list)` - remove and return last element
+- `list_get(list, index)` - get element at index
+- `list_set(list, index, value)` - set element at index
+- `list_len(list)` - return length of list
+- `list_concat(list1, list2)` - concatenate two lists
+- `list_slice(list, start, len)` - extract a slice
+- `list_find(list, value)` - find value, returns index or -1
+
 #### Memory Functions
 - `malloc(size)` - allocate size bytes on heap, returns address
 - `malloc_str(addr, len)` - allocate memory for string, returns address

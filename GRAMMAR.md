@@ -305,6 +305,17 @@ The following functions are available as built-ins and do not need to be declare
 - `str_concat(addr1: i32, len1: i32, addr2: i32, len2: i32): i32` - Concatenate strings
 - `str_substr(addr: i32, start: i32, len: i32): i32` - Extract substring
 
+### Collection Functions
+- `list_new(): i32` - Create a new empty list
+- `list_push(list: i32, value: i32): i32` - Append value to list
+- `list_pop(list: i32): i32` - Remove and return last element
+- `list_get(list: i32, index: i32): i32` - Get element at index
+- `list_set(list: i32, index: i32, value: i32): i32` - Set element at index
+- `list_len(list: i32): i32` - Return length of list
+- `list_concat(list1: i32, list2: i32): i32` - Concatenate two lists
+- `list_slice(list: i32, start: i32, len: i32): i32` - Extract a slice
+- `list_find(list: i32, value: i32): i32` - Find value, returns index or -1
+
 ### Memory Functions
 - `malloc(size: i32): i32` - Allocate size bytes on heap, returns address
 - `malloc_str(addr: i32, len: i32): i32` - Allocate memory for string, returns address

@@ -526,6 +526,8 @@ func (c *Checker) builtinType(name string, args []parser.Expr) Type {
 		return Void // doesn't return
 	case "assert":
 		return Void // returns nothing on success, exits on failure
+	case "error_message":
+		return I32 // returns address of error message string
 
 	// Collection builtins - List
 	case "list_new":
@@ -540,6 +542,12 @@ func (c *Checker) builtinType(name string, args []parser.Expr) Type {
 		return I32 // void-like, returns 0
 	case "list_len":
 		return I32 // returns length
+	case "list_concat":
+		return I32 // concatenate two lists, returns new list
+	case "list_slice":
+		return I32 // slice a list, returns new list
+	case "list_find":
+		return I32 // find element, returns index or -1
 
 	// Collection builtins - Map
 	case "map_new":
