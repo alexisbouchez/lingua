@@ -1,0 +1,53 @@
+// Factorial example
+pub fn factorial(n: i32) -> i32 {
+  if n <= 1 {
+    1
+  } else {
+    n * factorial(n - 1)
+  }
+}
+
+// Fibonacci example
+pub fn fib(n: i32) -> i32 {
+  if n <= 1 {
+    n
+  } else {
+    fib(n - 1) + fib(n - 2)
+  }
+}
+
+// Simple arithmetic
+pub fn add(a: i32, b: i32) -> i32 {
+  a + b
+}
+
+pub fn sub(a: i32, b: i32) -> i32 {
+  a - b
+}
+
+pub fn mul(a: i32, b: i32) -> i32 {
+  a * b
+}
+
+// Sum 1 to n using a loop
+pub fn sum_to_n(n: i32) -> i32 {
+  let mut sum = 0
+  let mut i = 1
+  while i <= n {
+    sum = sum + i
+    i = i + 1
+  }
+  sum
+}
+
+// GCD using Euclidean algorithm
+pub fn gcd(a: i32, b: i32) -> i32 {
+  let mut x = a
+  let mut y = b
+  while y != 0 {
+    let t = y
+    y = x % y
+    x = t
+  }
+  x
+}

@@ -1,0 +1,402 @@
+================================================================================
+                          LINGUA DEVELOPMENT TODO
+================================================================================
+
+Legend:
+  [ ] Not started
+  [~] In progress
+  [x] Complete
+  [!] Blocked
+
+================================================================================
+PHASE 1: FOUNDATION (MVP)
+================================================================================
+
+## 1.1 Project Setup
+--------------------------------------------------------------------------------
+[x] Initialize Deno project structure
+    [x] deno.json configuration
+    [x] src/ directory structure
+    [ ] tests/ directory structure
+    [ ] scripts for build/test/run
+
+[x] Set up testing framework
+    [x] Unit test structure
+    [x] Integration test structure
+    [x] WASM output validation tests
+
+## 1.2 Lexer
+--------------------------------------------------------------------------------
+[x] Token type definitions
+    [x] Keywords (fn, let, mut, if, else, match, for, while, loop, etc.)
+    [x] Operators (+, -, *, /, %, ==, !=, <, >, <=, >=, &&, ||, etc.)
+    [x] Delimiters ({, }, (, ), [, ], ,, ;, :, ->)
+    [x] Literals (integers, floats, strings, chars, booleans)
+    [x] Identifiers
+    [x] Comments (// and /* */)
+
+[x] Lexer implementation
+    [x] Character stream reader
+    [x] Token scanner
+    [x] Source location tracking (line, column, span)
+    [x] Error recovery
+
+[x] Lexer tests (54 tests passing)
+    [x] Token recognition tests
+    [x] Error case tests
+    [x] Edge case tests (Unicode, escapes, etc.)
+
+## 1.3 Parser
+--------------------------------------------------------------------------------
+[x] AST node definitions
+    [x] Expression nodes
+    [x] Statement nodes
+    [x] Item nodes (fn, struct, enum, use)
+    [x] Type nodes
+    [x] Pattern nodes
+
+[x] Parser implementation
+    [x] Recursive descent parser
+    [x] Expression parsing with precedence
+    [x] Pattern parsing
+    [x] Type parsing
+    [x] Error recovery and synchronization
+
+[x] Parser tests (55 tests passing)
+    [ ] Expression nodes
+        [ ] Literals (int, float, string, bool)
+        [ ] Binary expressions
+        [ ] Unary expressions
+        [ ] Call expressions
+        [ ] Field access
+        [ ] Index access
+        [ ] If expressions
+        [ ] Match expressions
+        [ ] Block expressions
+        [ ] Closure expressions
+    [ ] Statement nodes
+        [ ] Let statements
+        [ ] Expression statements
+        [ ] Return statements
+    [ ] Item nodes
+        [ ] Function definitions
+        [ ] Struct definitions
+        [ ] Enum definitions
+        [ ] Trait definitions
+        [ ] Impl blocks
+        [ ] Use declarations
+    [ ] Type nodes
+        [ ] Named types
+        [ ] Generic types
+        [ ] Function types
+        [ ] Tuple types
+        [ ] Array types
+
+[ ] Parser implementation
+    [ ] Recursive descent parser
+    [ ] Expression parsing with precedence
+    [ ] Pattern parsing
+    [ ] Type parsing
+    [ ] Error recovery and synchronization
+
+[ ] Parser tests
+    [ ] Expression parsing tests
+    [ ] Statement parsing tests
+    [ ] Item parsing tests
+    [ ] Error recovery tests
+
+## 1.4 Type System (Basic)
+--------------------------------------------------------------------------------
+[x] Type representation (src/types/types.ts)
+    [x] Primitive types (i8-i64, u8-u64, f32, f64, bool, char, str, unit)
+    [x] Function types
+    [x] Tuple types
+    [x] Array types
+    [x] Struct types
+    [x] Enum types
+    [x] Generic types
+    [x] Type variables (for inference)
+    [x] Never type
+    [x] Unknown type (error recovery)
+
+[x] Type environment (src/types/environment.ts)
+    [x] Scope management (push/pop scopes)
+    [x] Variable lookup
+    [x] Function lookup
+    [x] Type definition lookup
+    [x] Substitution map for inference
+
+[x] Type inference (src/types/inference.ts)
+    [x] Unification algorithm
+    [x] Occurs check (infinite type detection)
+    [x] Constraint-based inference
+    [x] Type instantiation
+    [x] Free type variable collection
+    [x] Error reporting
+
+[x] Type checker (src/types/checker.ts)
+    [x] Expression type checking (all expression types)
+    [x] Statement type checking (let, expr, items)
+    [x] Function type checking
+    [x] Struct type checking
+    [x] Enum type checking
+    [x] Pattern binding
+    [x] Mutability checking
+
+[x] Type system tests (147 steps passing)
+    [x] Type representation tests (src/types/types_test.ts)
+    [x] Unification tests
+    [x] Constraint solving tests
+    [x] Type checker tests (src/types/checker_test.ts)
+
+## 1.5 Code Generation (Basic)
+--------------------------------------------------------------------------------
+[x] WASM binary format (src/codegen/binary.ts)
+    [x] LEB128 encoding (signed/unsigned, 32/64-bit)
+    [x] IEEE 754 float encoding (f32, f64)
+    [x] Module structure
+    [x] Section encoding
+    [x] Type section
+    [x] Function section
+    [x] Import section
+    [x] Memory section
+    [x] Global section
+    [x] Export section
+    [x] Code section
+
+[x] Module builder (src/codegen/wasm.ts)
+    [x] WasmModule class for building modules
+    [x] CodeBuilder class for building function bodies
+    [x] All WASM opcodes defined
+    [x] Type deduplication
+
+[x] Code generator (src/codegen/codegen.ts)
+    [x] Function compilation
+        [x] Parameter binding
+        [x] Locals allocation
+        [x] Expression compilation (all basic types)
+        [x] Statement compilation (let, expr)
+        [x] Control flow (if/else, while, loop, return)
+    [x] Type mapping (Lingua -> WASM)
+    [x] Function calls
+    [x] Arithmetic operators (+, -, *, /, %)
+    [x] Comparison operators (==, !=, <, >, <=, >=)
+    [x] Logical operators (&&, ||, !)
+    [x] Bitwise operators (&, |, ^, <<, >>)
+    [x] Compound assignment (+=, -=, *=, /=)
+
+[ ] Runtime support
+    [ ] print() function (via import)
+    [ ] Memory allocation stub
+
+[x] Code generation tests (124 steps passing)
+    [x] Binary encoding tests (src/codegen/binary_test.ts)
+    [x] WASM module tests (src/codegen/wasm_test.ts)
+    [x] Codegen tests (src/codegen/codegen_test.ts)
+        [x] Arithmetic expressions
+        [x] Comparisons
+        [x] Logical operations
+        [x] Bitwise operations
+        [x] Control flow
+        [x] Function calls
+        [x] Recursion
+        [x] Variables
+
+## 1.6 CLI Tool
+--------------------------------------------------------------------------------
+[x] Command structure
+    [x] lingua build
+    [x] lingua run
+    [x] lingua check
+
+[x] File handling
+    [x] Source file reading
+    [x] Output file writing
+    [x] Error formatting
+
+[x] Integration with wasmtime
+    [x] Spawn wasmtime process
+    [x] Pass WASM file
+    [x] Capture output
+
+================================================================================
+PHASE 2: CORE LANGUAGE
+================================================================================
+
+## 2.1 Composite Types
+--------------------------------------------------------------------------------
+[x] Struct support
+    [x] Struct definition parsing
+    [x] Struct type representation
+    [x] Struct instantiation
+    [x] Field access
+    [x] Linear memory struct emission (bump allocator)
+
+[~] Enum support
+    [x] Enum definition parsing
+    [x] Enum type representation
+    [x] Variant construction (unit variants)
+    [x] Match expression compilation
+    [x] Tuple variant pattern matching
+    [ ] WASM GC variant emission
+
+[x] Tuple support
+    [x] Tuple type parsing
+    [x] Tuple expressions
+    [x] Tuple field access (t.0, t.1)
+    [x] Tuple destructuring in patterns
+
+[ ] Pattern matching
+    [ ] Pattern AST nodes
+    [ ] Pattern type checking
+    [ ] Exhaustiveness checking
+    [ ] Pattern compilation to WASM
+
+## 2.2 Generics
+--------------------------------------------------------------------------------
+[ ] Generic parsing
+    [ ] Type parameters
+    [ ] Type bounds
+
+[ ] Generic type representation
+[ ] Monomorphization
+[ ] Generic inference
+
+## 2.3 Traits
+--------------------------------------------------------------------------------
+[ ] Trait definition parsing
+[ ] Trait representation
+[ ] Impl block parsing
+[ ] Method resolution
+[ ] Trait bound checking
+
+## 2.4 Arrays and Strings
+--------------------------------------------------------------------------------
+[x] Array type
+[x] Array literals
+[x] Array indexing
+[ ] Array methods
+[ ] String type
+[ ] String interpolation
+
+## 2.5 Error Handling
+--------------------------------------------------------------------------------
+[ ] Result type
+[ ] Option type
+[ ] ? operator
+[ ] Error propagation
+
+================================================================================
+PHASE 3: WASI INTEGRATION
+================================================================================
+
+## 3.1 WIT Parsing
+--------------------------------------------------------------------------------
+[ ] WIT lexer
+[ ] WIT parser
+[ ] WIT type mapping
+
+## 3.2 WASI Interfaces
+--------------------------------------------------------------------------------
+[ ] wasi:io
+[ ] wasi:clocks
+[ ] wasi:random
+[ ] wasi:filesystem
+[ ] wasi:cli
+[ ] wasi:http
+[ ] wasi:sockets
+
+## 3.3 Async Support
+--------------------------------------------------------------------------------
+[ ] Async function syntax
+[ ] Future type
+[ ] Await compilation
+[ ] Pollable integration
+
+================================================================================
+PHASE 4: COMPONENT MODEL
+================================================================================
+
+[ ] Component binary format
+[ ] Interface exports
+[ ] Resource types
+[ ] Component imports
+
+================================================================================
+PHASE 5: DEVELOPER EXPERIENCE
+================================================================================
+
+## 5.1 Standard Library
+--------------------------------------------------------------------------------
+[ ] Option methods
+[ ] Result methods
+[ ] Array methods
+[ ] String methods
+[ ] Iterator trait
+[ ] Math functions
+
+## 5.2 Tooling
+--------------------------------------------------------------------------------
+[ ] lingua fmt
+[ ] Language Server Protocol
+[ ] Documentation generator
+[ ] Package manager
+
+## 5.3 Testing Framework
+--------------------------------------------------------------------------------
+[ ] #[test] attribute
+[ ] Assertions
+[ ] Test runner
+[ ] Coverage
+
+================================================================================
+CURRENT SPRINT
+================================================================================
+
+PHASE 1 COMPLETE!
+
+Completed:
+1. [x] Create src/ directory structure
+2. [x] Define Token types
+3. [x] Implement Lexer (54 tests passing)
+4. [x] Define AST types
+5. [x] Implement Parser (55 tests passing)
+6. [x] Type representation (src/types/types.ts)
+7. [x] Type environment and scope management (src/types/environment.ts)
+8. [x] Type inference with Hindley-Milner (src/types/inference.ts)
+9. [x] Type checker implementation (src/types/checker.ts)
+10. [x] Write type system tests (147 steps passing)
+11. [x] WASM binary format (LEB128, sections) - src/codegen/binary.ts
+12. [x] WASM module builder - src/codegen/wasm.ts
+13. [x] Code generator - src/codegen/codegen.ts
+14. [x] Code generation tests - 124 steps passing
+15. [x] Integration tests - 39 steps passing
+16. [x] CLI tool (build, run, check commands) - src/cli/cli.ts
+
+Total tests: 141 test suites, 353 steps
+
+Phase 2 Progress:
+1. [x] Struct support (definition, instantiation, field access)
+2. [x] Enum support (unit variants, match expressions, tuple variants)
+3. [x] Tuple support (expressions, field access, destructuring)
+4. [x] Runtime support (print function)
+5. [x] Array support (literals, indexing)
+
+Next up:
+- Generics (type parameters, monomorphization)
+- Traits (definition, impl blocks, method resolution)
+- String support
+
+================================================================================
+NOTES
+================================================================================
+
+- Use Deno's built-in testing
+- Target WASM 3.0 spec with GC
+- Keep things simple - iterate
+- TDD everything
+- Write spec-compliant WASM binary directly (no external tools)
+
+================================================================================
+Last updated: 2026-01-26
+================================================================================
