@@ -126,7 +126,7 @@ function validate(doc: TextDocument): Diagnostic[] {
   const text = doc.getText();
   const tokens = tokenize(text);
   const diagnostics: Diagnostic[] = [];
-  const declaredVars = new Set<string>();
+  const declaredVars = new Map<string, "const" | "var">();
   let i = 0;
 
   function current(): Token {
@@ -195,11 +195,12 @@ function validate(doc: TextDocument): Diagnostic[] {
       continue;
     }
 
-    // --- let <ident> = <string> ; ---
-    if (tok.text === "let") {
+    // --- const/var <ident> = <string> ; ---
+    if (tok.text === "const" || tok.text === "var") {
+      const keyword = tok.text;
       const name = current();
       if (name.type !== TokenType.Ident) {
-        diagnostics.push(makeDiag(name.offset, Math.max(name.length, 1), "Expected variable name after 'let'"));
+        diagnostics.push(makeDiag(name.offset, Math.max(name.length, 1), `Expected variable name after '${keyword}'`));
         recover();
         continue;
       }
@@ -236,7 +237,43 @@ function validate(doc: TextDocument): Diagnostic[] {
       }
       advance();
 
-      declaredVars.add(name.text);
+      declaredVars.set(name.text, keyword as "const" | "var");
+      continue;
+    }
+
+    // --- <ident> = <string> ; (assignment) ---
+    if (tok.text !== "print" && current().type === TokenType.Equals) {
+      const eq = current();
+      advance(); // skip =
+
+      const str = current();
+      if (str.type === TokenType.Error && str.text.startsWith('"')) {
+        diagnostics.push(makeDiag(str.offset, str.length, "Unterminated string literal"));
+        advance();
+        recover();
+        continue;
+      }
+      if (str.type !== TokenType.String) {
+        diagnostics.push(makeDiag(str.offset, Math.max(str.length, 1), "Expected string literal"));
+        recover();
+        continue;
+      }
+      checkEscapes(str);
+      advance();
+
+      const semi = current();
+      if (semi.type !== TokenType.Semicolon) {
+        diagnostics.push(makeDiag(str.offset + str.length, 0, "Expected ';' after string literal"));
+        recover();
+        continue;
+      }
+      advance();
+
+      if (!declaredVars.has(tok.text)) {
+        diagnostics.push(makeDiag(tok.offset, tok.length, `Undefined variable '${tok.text}'`, DiagnosticSeverity.Warning));
+      } else if (declaredVars.get(tok.text) === "const") {
+        diagnostics.push(makeDiag(tok.offset, tok.length, `Cannot reassign const variable '${tok.text}'`));
+      }
       continue;
     }
 
@@ -306,7 +343,7 @@ connection.onInitialize((): InitializeResult => {
   return {
     capabilities: {
       textDocumentSync: TextDocumentSyncKind.Incremental,
-      completionProvider: { triggerCharacters: ["p", "l"] },
+      completionProvider: { triggerCharacters: ["p", "c", "v"] },
       hoverProvider: true,
     },
   };
@@ -327,10 +364,17 @@ connection.onCompletion((): CompletionItem[] => {
       insertTextFormat: InsertTextFormat.Snippet,
     },
     {
-      label: "let",
+      label: "const",
       kind: CompletionItemKind.Keyword,
-      detail: "Declare a variable",
-      insertText: 'let $1 = "$2";',
+      detail: "Declare an immutable variable",
+      insertText: 'const $1 = "$2";',
+      insertTextFormat: InsertTextFormat.Snippet,
+    },
+    {
+      label: "var",
+      kind: CompletionItemKind.Keyword,
+      detail: "Declare a mutable variable",
+      insertText: 'var $1 = "$2";',
       insertTextFormat: InsertTextFormat.Snippet,
     },
   ];
@@ -359,11 +403,20 @@ connection.onHover((params): Hover | null => {
     };
   }
 
-  if (word === "let") {
+  if (word === "const") {
     return {
       contents: {
         kind: "markdown",
-        value: "```lingua\nlet name = \"value\";\n```\nDeclares a variable with a string value.",
+        value: "```lingua\nconst name = \"value\";\n```\nDeclares an immutable variable with a string value.",
+      },
+    };
+  }
+
+  if (word === "var") {
+    return {
+      contents: {
+        kind: "markdown",
+        value: "```lingua\nvar name = \"value\";\n```\nDeclares a mutable variable with a string value.",
       },
     };
   }

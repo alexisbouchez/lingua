@@ -49,16 +49,21 @@ ASTNode *parse(Lexer *lexer) {
         if (tok.type == TOKEN_EOF)
             break;
 
-        if (tok.type == TOKEN_IDENT && tok.length == 3 &&
-            memcmp(tok.start, "let", 3) == 0) {
-            /* let <ident> = <string> ; */
+        int is_const = (tok.type == TOKEN_IDENT && tok.length == 5 &&
+                        memcmp(tok.start, "const", 5) == 0);
+        int is_var   = (tok.type == TOKEN_IDENT && tok.length == 3 &&
+                        memcmp(tok.start, "var", 3) == 0);
+
+        if (is_const || is_var) {
+            /* const/var <ident> = <string> ; */
             Token name = expect(lexer, TOKEN_IDENT, "variable name");
             expect(lexer, TOKEN_EQUALS, "'='");
             Token str = expect(lexer, TOKEN_STRING, "string literal");
             expect(lexer, TOKEN_SEMICOLON, "';'");
 
             ASTNode *node = malloc(sizeof(ASTNode));
-            node->type = NODE_LET;
+            node->type = NODE_VAR_DECL;
+            node->is_const = is_const;
             node->var_name = malloc(name.length + 1);
             memcpy(node->var_name, name.start, name.length);
             node->var_name[name.length] = '\0';
@@ -99,6 +104,28 @@ ASTNode *parse(Lexer *lexer) {
 
             expect(lexer, TOKEN_RPAREN, "')'");
             expect(lexer, TOKEN_SEMICOLON, "';'");
+
+            if (tail) {
+                tail->next = node;
+            } else {
+                head = node;
+            }
+            tail = node;
+        } else if (tok.type == TOKEN_IDENT) {
+            /* <ident> = <string> ; (assignment) */
+            expect(lexer, TOKEN_EQUALS, "'='");
+            Token str = expect(lexer, TOKEN_STRING, "string literal");
+            expect(lexer, TOKEN_SEMICOLON, "';'");
+
+            ASTNode *node = malloc(sizeof(ASTNode));
+            node->type = NODE_ASSIGN;
+            node->var_name = malloc(tok.length + 1);
+            memcpy(node->var_name, tok.start, tok.length);
+            node->var_name[tok.length] = '\0';
+            node->string = process_escapes(str.start, str.length, &node->string_len);
+            node->is_var_ref = 0;
+            node->is_const = 0;
+            node->next = NULL;
 
             if (tail) {
                 tail->next = node;

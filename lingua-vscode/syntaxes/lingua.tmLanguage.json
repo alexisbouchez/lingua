@@ -10,7 +10,7 @@
   ],
   "repository": {
     "keyword": {
-      "match": "\\b(let)\\b",
+      "match": "\\b(const|var)\\b",
       "name": "keyword.declaration.lingua"
     },
     "function-call": {

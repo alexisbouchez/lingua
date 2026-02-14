@@ -32,9 +32,10 @@ Or compile to a standalone binary:
 ## Language
 
 ```lingua
-let greeting = "Hello, world!\n";
+const greeting = "Hello, world!\n";
+var name = "Lingua\n";
 print(greeting);
-print("Hi!\n");
+print(name);
 ```
 
 Supported escape sequences: `\n`, `\t`, `\r`, `\\`, `\"`, `\0`

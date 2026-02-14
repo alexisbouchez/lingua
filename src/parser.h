@@ -5,7 +5,8 @@
 
 typedef enum {
     NODE_PRINT,
-    NODE_LET,
+    NODE_VAR_DECL,
+    NODE_ASSIGN,
 } NodeType;
 
 typedef struct ASTNode {
@@ -14,6 +15,7 @@ typedef struct ASTNode {
     int string_len;
     char *var_name;
     int is_var_ref;
+    int is_const;
     struct ASTNode *next;
 } ASTNode;
 
