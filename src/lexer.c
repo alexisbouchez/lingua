@@ -48,6 +48,14 @@ Token lexer_next(Lexer *l) {
         return tok;
     }
 
+    if (c == '=') {
+        tok.type = TOKEN_EQUALS;
+        tok.start = &l->source[l->pos];
+        tok.length = 1;
+        l->pos++;
+        return tok;
+    }
+
     if (c == '"') {
         l->pos++; /* skip opening quote */
         int start = l->pos;

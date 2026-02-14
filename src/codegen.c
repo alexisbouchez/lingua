@@ -99,22 +99,73 @@ static void buf_write_segname(Buffer *b, const char *name) {
 #define PAGE_SIZE          16384
 
 int codegen(ASTNode *ast, const char *output_path) {
-    /* First pass: collect strings */
+    /* Pre-pass: resolve variable references */
+    /* Build symbol table from NODE_LET nodes */
+    int sym_count = 0;
+    for (ASTNode *n = ast; n; n = n->next)
+        if (n->type == NODE_LET)
+            sym_count++;
+
+    char **sym_names = malloc(sym_count * sizeof(char *));
+    char **sym_values = malloc(sym_count * sizeof(char *));
+    int *sym_lengths = malloc(sym_count * sizeof(int));
+
+    int si = 0;
+    for (ASTNode *n = ast; n; n = n->next) {
+        if (n->type == NODE_LET) {
+            sym_names[si] = n->var_name;
+            sym_values[si] = n->string;
+            sym_lengths[si] = n->string_len;
+            si++;
+        }
+    }
+
+    /* Resolve variable references in NODE_PRINT nodes */
+    for (ASTNode *n = ast; n; n = n->next) {
+        if (n->type == NODE_PRINT && n->is_var_ref) {
+            int found = 0;
+            for (int j = 0; j < sym_count; j++) {
+                if (strcmp(n->var_name, sym_names[j]) == 0) {
+                    n->string = malloc(sym_lengths[j] + 1);
+                    memcpy(n->string, sym_values[j], sym_lengths[j]);
+                    n->string[sym_lengths[j]] = '\0';
+                    n->string_len = sym_lengths[j];
+                    found = 1;
+                    break;
+                }
+            }
+            if (!found) {
+                fprintf(stderr, "error: undefined variable '%s'\n", n->var_name);
+                free(sym_names); free(sym_values); free(sym_lengths);
+                return 1;
+            }
+        }
+    }
+
+    free(sym_names);
+    free(sym_values);
+    free(sym_lengths);
+
+    /* First pass: collect strings from print statements */
     int string_count = 0;
     for (ASTNode *n = ast; n; n = n->next)
-        string_count++;
+        if (n->type == NODE_PRINT)
+            string_count++;
 
     int *str_offsets = malloc(string_count * sizeof(int));
-    int *str_lengths = malloc(string_count * sizeof(int));
+    int *str_lengths_arr = malloc(string_count * sizeof(int));
 
     Buffer strings;
     buf_init(&strings);
 
     int i = 0;
-    for (ASTNode *n = ast; n; n = n->next, i++) {
-        str_offsets[i] = strings.len;
-        str_lengths[i] = n->string_len;
-        buf_write(&strings, n->string, n->string_len);
+    for (ASTNode *n = ast; n; n = n->next) {
+        if (n->type == NODE_PRINT) {
+            str_offsets[i] = strings.len;
+            str_lengths_arr[i] = n->string_len;
+            buf_write(&strings, n->string, n->string_len);
+            i++;
+        }
     }
 
     /* Generate ARM64 code */
@@ -124,13 +175,15 @@ int codegen(ASTNode *ast, const char *output_path) {
     buf_init(&code);
 
     i = 0;
-    for (ASTNode *n = ast; n; n = n->next, i++) {
+    for (ASTNode *n = ast; n; n = n->next) {
+        if (n->type != NODE_PRINT) continue;
         int str_off = instr_size - code.len + str_offsets[i];
         buf_write32(&code, adr(1, str_off));
         buf_write32(&code, movz(0, 1, 0));
-        buf_write32(&code, movz(2, str_lengths[i], 0));
+        buf_write32(&code, movz(2, str_lengths_arr[i], 0));
         buf_write32(&code, movz(16, 4, 0));
         buf_write32(&code, svc(0x80));
+        i++;
     }
 
     buf_write32(&code, movz(0, 0, 0));
@@ -364,7 +417,7 @@ int codegen(ASTNode *ast, const char *output_path) {
     if (!f) {
         fprintf(stderr, "error: cannot open '%s' for writing\n", output_path);
         free(code.data); free(strings.data);
-        free(str_offsets); free(str_lengths);
+        free(str_offsets); free(str_lengths_arr);
         free(out.data);
         return 1;
     }
@@ -382,7 +435,7 @@ int codegen(ASTNode *ast, const char *output_path) {
     free(code.data);
     free(strings.data);
     free(str_offsets);
-    free(str_lengths);
+    free(str_lengths_arr);
     free(out.data);
 
     return 0;

@@ -21,6 +21,7 @@ enum TokenType {
   LParen,
   RParen,
   Semicolon,
+  Equals,
   EOF,
   Error,
 }
@@ -64,6 +65,12 @@ function tokenize(source: string): Token[] {
 
     if (c === ";") {
       tokens.push({ type: TokenType.Semicolon, text: ";", offset: pos, length: 1 });
+      pos++;
+      continue;
+    }
+
+    if (c === "=") {
+      tokens.push({ type: TokenType.Equals, text: "=", offset: pos, length: 1 });
       pos++;
       continue;
     }
@@ -119,6 +126,7 @@ function validate(doc: TextDocument): Diagnostic[] {
   const text = doc.getText();
   const tokens = tokenize(text);
   const diagnostics: Diagnostic[] = [];
+  const declaredVars = new Set<string>();
   let i = 0;
 
   function current(): Token {
@@ -131,11 +139,11 @@ function validate(doc: TextDocument): Diagnostic[] {
     return tok;
   }
 
-  function makeDiag(offset: number, length: number, message: string): Diagnostic {
+  function makeDiag(offset: number, length: number, message: string, severity: DiagnosticSeverity = DiagnosticSeverity.Error): Diagnostic {
     const startPos = doc.positionAt(offset);
     const endPos = doc.positionAt(offset + Math.max(length, 1));
     return {
-      severity: DiagnosticSeverity.Error,
+      severity,
       range: { start: startPos, end: endPos },
       message,
       source: "lingua",
@@ -164,59 +172,106 @@ function validate(doc: TextDocument): Diagnostic[] {
     }
 
     if (tok.type !== TokenType.Ident) {
-      diagnostics.push(makeDiag(tok.offset, tok.length, `Expected function name, got '${tok.text}'`));
+      diagnostics.push(makeDiag(tok.offset, tok.length, `Expected statement, got '${tok.text}'`));
       recover();
       continue;
     }
 
-    // We have an identifier — check it's "print"
-    if (tok.text !== "print") {
-      diagnostics.push(makeDiag(tok.offset, tok.length, `Unknown function '${tok.text}'`));
-      recover();
-      continue;
-    }
-
-    // Expect '('
-    const lp = current();
-    if (lp.type !== TokenType.LParen) {
-      diagnostics.push(makeDiag(tok.offset + tok.length, 0, "Expected '(' after 'print'"));
-      recover();
-      continue;
-    }
-    advance();
-
-    // Expect string literal
-    const str = current();
-    if (str.type === TokenType.Error && str.text.startsWith('"')) {
-      diagnostics.push(makeDiag(str.offset, str.length, "Unterminated string literal"));
+    // --- let <ident> = <string> ; ---
+    if (tok.text === "let") {
+      const name = current();
+      if (name.type !== TokenType.Ident) {
+        diagnostics.push(makeDiag(name.offset, Math.max(name.length, 1), "Expected variable name after 'let'"));
+        recover();
+        continue;
+      }
       advance();
-      recover();
-      continue;
-    }
-    if (str.type !== TokenType.String) {
-      diagnostics.push(makeDiag(str.offset, Math.max(str.length, 1), "Expected string literal"));
-      recover();
-      continue;
-    }
-    advance();
 
-    // Expect ')'
-    const rp = current();
-    if (rp.type !== TokenType.RParen) {
-      diagnostics.push(makeDiag(rp.offset, Math.max(rp.length, 1), "Expected ')' after string"));
-      recover();
-      continue;
-    }
-    advance();
+      const eq = current();
+      if (eq.type !== TokenType.Equals) {
+        diagnostics.push(makeDiag(eq.offset, Math.max(eq.length, 1), "Expected '=' after variable name"));
+        recover();
+        continue;
+      }
+      advance();
 
-    // Expect ';'
-    const semi = current();
-    if (semi.type !== TokenType.Semicolon) {
-      diagnostics.push(makeDiag(rp.offset + rp.length, 0, "Expected ';' after ')'"));
-      recover();
+      const str = current();
+      if (str.type === TokenType.Error && str.text.startsWith('"')) {
+        diagnostics.push(makeDiag(str.offset, str.length, "Unterminated string literal"));
+        advance();
+        recover();
+        continue;
+      }
+      if (str.type !== TokenType.String) {
+        diagnostics.push(makeDiag(str.offset, Math.max(str.length, 1), "Expected string literal"));
+        recover();
+        continue;
+      }
+      advance();
+
+      const semi = current();
+      if (semi.type !== TokenType.Semicolon) {
+        diagnostics.push(makeDiag(str.offset + str.length, 0, "Expected ';' after string literal"));
+        recover();
+        continue;
+      }
+      advance();
+
+      declaredVars.add(name.text);
       continue;
     }
-    advance();
+
+    // --- print ( <string|ident> ) ; ---
+    if (tok.text === "print") {
+      const lp = current();
+      if (lp.type !== TokenType.LParen) {
+        diagnostics.push(makeDiag(tok.offset + tok.length, 0, "Expected '(' after 'print'"));
+        recover();
+        continue;
+      }
+      advance();
+
+      const arg = current();
+      if (arg.type === TokenType.Error && arg.text.startsWith('"')) {
+        diagnostics.push(makeDiag(arg.offset, arg.length, "Unterminated string literal"));
+        advance();
+        recover();
+        continue;
+      }
+      if (arg.type === TokenType.String) {
+        advance();
+      } else if (arg.type === TokenType.Ident) {
+        if (!declaredVars.has(arg.text)) {
+          diagnostics.push(makeDiag(arg.offset, arg.length, `Undefined variable '${arg.text}'`, DiagnosticSeverity.Warning));
+        }
+        advance();
+      } else {
+        diagnostics.push(makeDiag(arg.offset, Math.max(arg.length, 1), "Expected string literal or variable name"));
+        recover();
+        continue;
+      }
+
+      const rp = current();
+      if (rp.type !== TokenType.RParen) {
+        diagnostics.push(makeDiag(rp.offset, Math.max(rp.length, 1), "Expected ')' after argument"));
+        recover();
+        continue;
+      }
+      advance();
+
+      const semi = current();
+      if (semi.type !== TokenType.Semicolon) {
+        diagnostics.push(makeDiag(rp.offset + rp.length, 0, "Expected ';' after ')'"));
+        recover();
+        continue;
+      }
+      advance();
+      continue;
+    }
+
+    // Unknown identifier
+    diagnostics.push(makeDiag(tok.offset, tok.length, `Unknown statement '${tok.text}'`));
+    recover();
   }
 
   return diagnostics;
@@ -231,7 +286,7 @@ connection.onInitialize((): InitializeResult => {
   return {
     capabilities: {
       textDocumentSync: TextDocumentSyncKind.Incremental,
-      completionProvider: { triggerCharacters: ["p"] },
+      completionProvider: { triggerCharacters: ["p", "l"] },
       hoverProvider: true,
     },
   };
@@ -249,6 +304,13 @@ connection.onCompletion((): CompletionItem[] => {
       kind: CompletionItemKind.Function,
       detail: "Print a string to stdout",
       insertText: 'print("$1");',
+      insertTextFormat: InsertTextFormat.Snippet,
+    },
+    {
+      label: "let",
+      kind: CompletionItemKind.Keyword,
+      detail: "Declare a variable",
+      insertText: 'let $1 = "$2";',
       insertTextFormat: InsertTextFormat.Snippet,
     },
   ];
@@ -272,7 +334,16 @@ connection.onHover((params): Hover | null => {
     return {
       contents: {
         kind: "markdown",
-        value: "```lingua\nprint(message)\n```\nPrints a string to standard output followed by a newline.",
+        value: "```lingua\nprint(message)\n```\nPrints a string to standard output.",
+      },
+    };
+  }
+
+  if (word === "let") {
+    return {
+      contents: {
+        kind: "markdown",
+        value: "```lingua\nlet name = \"value\";\n```\nDeclares a variable with a string value.",
       },
     };
   }
