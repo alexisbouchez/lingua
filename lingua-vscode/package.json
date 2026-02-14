@@ -4,6 +4,11 @@
   "description": "Language support for Lingua (.lingua files)",
   "version": "0.1.0",
   "publisher": "lingua",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alexkreidler/lingua"
+  },
+  "license": "MIT",
   "engines": {
     "vscode": "^1.75.0"
   },
