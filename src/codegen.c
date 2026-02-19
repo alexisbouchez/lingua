@@ -67,6 +67,7 @@ int codegen(ASTNode *ast, const char *output_path) {
     char **sym_values = malloc(sym_cap * sizeof(char *));
     int *sym_lengths = malloc(sym_cap * sizeof(int));
     int *sym_is_const = malloc(sym_cap * sizeof(int));
+    int *sym_mutated = malloc(sym_cap * sizeof(int));
 
     for (ASTNode *n = ast; n; n = n->next) {
         if (n->type == NODE_VAR_DECL) {
@@ -76,11 +77,13 @@ int codegen(ASTNode *ast, const char *output_path) {
                 sym_values = realloc(sym_values, sym_cap * sizeof(char *));
                 sym_lengths = realloc(sym_lengths, sym_cap * sizeof(int));
                 sym_is_const = realloc(sym_is_const, sym_cap * sizeof(int));
+                sym_mutated = realloc(sym_mutated, sym_cap * sizeof(int));
             }
             sym_names[sym_count] = n->var_name;
             sym_values[sym_count] = n->string;
             sym_lengths[sym_count] = n->string_len;
             sym_is_const[sym_count] = n->is_const;
+            sym_mutated[sym_count] = 0;
             sym_count++;
         } else if (n->type == NODE_ASSIGN) {
             int found = 0;
@@ -88,11 +91,12 @@ int codegen(ASTNode *ast, const char *output_path) {
                 if (strcmp(n->var_name, sym_names[j]) == 0) {
                     if (sym_is_const[j]) {
                         fprintf(stderr, "error: cannot reassign const variable '%s'\n", n->var_name);
-                        free(sym_names); free(sym_values); free(sym_lengths); free(sym_is_const);
+                        free(sym_names); free(sym_values); free(sym_lengths); free(sym_is_const); free(sym_mutated);
                         return 1;
                     }
                     sym_values[j] = n->string;
                     sym_lengths[j] = n->string_len;
+                    sym_mutated[j] = 1;
                     found = 1;
                     break;
                 }
@@ -122,10 +126,16 @@ int codegen(ASTNode *ast, const char *output_path) {
         }
     }
 
+    for (int j = 0; j < sym_count; j++) {
+        if (!sym_is_const[j] && !sym_mutated[j])
+            fprintf(stderr, "\033[1;33mwarning:\033[0m variable '\033[1m%s\033[0m' is never mutated, consider using '\033[1mconst\033[0m'\n", sym_names[j]);
+    }
+
     free(sym_names);
     free(sym_values);
     free(sym_lengths);
     free(sym_is_const);
+    free(sym_mutated);
 
     /* First pass: collect strings from print statements */
     int string_count = 0;
