@@ -1,12 +1,14 @@
-#define _POSIX_C_SOURCE 200809L
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <limits.h>
 #include "lexer.h"
 #include "parser.h"
 #include "codegen.h"
+#include "diagnostic.h"
 
 static char *read_file(const char *path) {
     FILE *f = fopen(path, "r");
@@ -47,20 +49,25 @@ static int build(const char *input_path, const char *output_path) {
     if (!source)
         return 1;
 
+    /* Resolve to absolute path for import resolution */
+    char *abs_path = realpath(input_path, NULL);
+    if (!abs_path)
+        abs_path = strdup(input_path); /* fallback */
+
+    diag_init(abs_path, source);
+
     Lexer lexer;
     lexer_init(&lexer, source);
 
     ASTNode *ast = parse(&lexer);
-    if (!ast) {
-        fprintf(stderr, "error: no statements found\n");
-        free(source);
-        return 1;
-    }
+    if (!ast)
+        diag_error_no_loc("no statements found");
 
-    int result = codegen(ast, output_path);
+    int result = codegen(ast, output_path, abs_path);
 
     ast_free(ast);
     free(source);
+    free(abs_path);
 
     return result;
 }
@@ -163,10 +170,8 @@ int main(int argc, char **argv) {
         if (strcmp(argv[2], "bash") == 0) completions_bash();
         else if (strcmp(argv[2], "zsh") == 0) completions_zsh();
         else if (strcmp(argv[2], "fish") == 0) completions_fish();
-        else {
-            fprintf(stderr, "error: unknown shell '%s' (expected bash, zsh, or fish)\n", argv[2]);
-            return 1;
-        }
+        else
+            diag_error_no_loc("unknown shell '%s' (expected bash, zsh, or fish)", argv[2]);
         return 0;
     }
 
@@ -182,10 +187,8 @@ int main(int argc, char **argv) {
     if (ends_with(argv[1], ".lingua")) {
         char tmp[] = "/tmp/lingua_XXXXXX";
         int fd = mkstemp(tmp);
-        if (fd < 0) {
-            fprintf(stderr, "error: cannot create temporary file\n");
-            return 1;
-        }
+        if (fd < 0)
+            diag_error_no_loc("cannot create temporary file");
         close(fd);
 
         int rc = build(argv[1], tmp);

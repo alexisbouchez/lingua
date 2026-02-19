@@ -1,0 +1,3 @@
+import { b_val } from "./circular_b";
+pub const a_val = 1;
+print(b_val);

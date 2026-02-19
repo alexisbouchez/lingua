@@ -1,21 +1,39 @@
 {
   "scopeName": "source.lingua",
   "patterns": [
+    { "include": "#line-comment" },
+    { "include": "#block-comment" },
     { "include": "#keyword" },
     { "include": "#function-call" },
+    { "include": "#string-function" },
     { "include": "#string" },
+    { "include": "#hex-number" },
+    { "include": "#number" },
     { "include": "#operator" },
     { "include": "#punctuation" },
     { "include": "#variable" }
   ],
   "repository": {
+    "line-comment": {
+      "match": "//.*$",
+      "name": "comment.line.double-slash.lingua"
+    },
+    "block-comment": {
+      "begin": "/\\*",
+      "end": "\\*/",
+      "name": "comment.block.lingua"
+    },
     "keyword": {
-      "match": "\\b(const|var)\\b",
+      "match": "\\b(const|var|fn|return|and|or|true|false|for|if|else|match|class|new|extends|break|continue|import|from|pub)\\b",
       "name": "keyword.declaration.lingua"
     },
     "function-call": {
       "match": "\\b(print)\\b",
       "name": "support.function.lingua"
+    },
+    "string-function": {
+      "match": "\\b(len|trim|contains|replace|to_upper|to_lower|starts_with|ends_with|index_of|char_at|substr)\\b",
+      "name": "support.function.builtin.lingua"
     },
     "string": {
       "begin": "\"",
@@ -23,27 +41,59 @@
       "name": "string.quoted.double.lingua",
       "patterns": [
         {
-          "match": "\\\\[ntr\\\\\"0]",
+          "match": "\\\\[ntr\\\\\"0{}]",
           "name": "constant.character.escape.lingua"
         },
         {
           "match": "\\\\.",
           "name": "invalid.illegal.unknown-escape.lingua"
+        },
+        {
+          "begin": "\\{",
+          "end": "\\}",
+          "name": "meta.interpolation.lingua",
+          "contentName": "source.lingua.embedded",
+          "patterns": [
+            { "include": "#hex-number" },
+            { "include": "#number" },
+            { "include": "#operator" },
+            { "include": "#variable" }
+          ]
         }
       ]
     },
+    "hex-number": {
+      "match": "\\b0x[0-9a-fA-F]+\\b",
+      "name": "constant.numeric.hex.lingua"
+    },
+    "number": {
+      "match": "\\b\\d+(\\.\\d+)?\\b",
+      "name": "constant.numeric.lingua"
+    },
     "operator": {
-      "match": "=",
-      "name": "keyword.operator.assignment.lingua"
+      "patterns": [
+        {
+          "match": "=>|==|!=|>=|<=|->|<<=|>>=|<<|>>",
+          "name": "keyword.operator.comparison.lingua"
+        },
+        {
+          "match": "\\+\\+|--|\\+=|-=|\\*=|/=|%=|&=|\\|=|\\^=",
+          "name": "keyword.operator.assignment.lingua"
+        },
+        {
+          "match": "[+\\-*/%><=.&|^~]",
+          "name": "keyword.operator.lingua"
+        }
+      ]
     },
     "punctuation": {
       "patterns": [
         {
-          "match": "[()]",
+          "match": "[(){}\\[\\]]",
           "name": "punctuation.bracket.lingua"
         },
         {
-          "match": ";",
+          "match": "[;:,]",
           "name": "punctuation.terminator.lingua"
         }
       ]

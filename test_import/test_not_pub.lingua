@@ -1,0 +1,2 @@
+import { internal_helper } from "./math";
+print(internal_helper());

@@ -1,0 +1,5 @@
+import { add, PI, multiply } from "./math";
+
+print(add(1, 2));
+print(PI);
+print(multiply(3, 4));

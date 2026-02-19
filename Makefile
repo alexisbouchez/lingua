@@ -1,13 +1,13 @@
 CC = cc
 CFLAGS = -Wall -Wextra -std=c11 -Isrc
-SRC = src/main.c src/lexer.c src/parser.c \
+SRC = src/main.c src/lexer.c src/parser.c src/diagnostic.c src/import.c \
       src/codegen/codegen.c src/codegen/elf_x86_64.c src/codegen/macho_arm64.c
 TARGET = lingua
 VSIX = lingua-vscode/lingua-0.1.0.vsix
 
 all: $(TARGET) vscode
 
-$(TARGET): $(SRC) src/lexer.h src/parser.h src/codegen.h src/codegen/codegen_internal.h
+$(TARGET): $(SRC) src/lexer.h src/parser.h src/codegen.h src/codegen/codegen_internal.h src/diagnostic.h src/import.h
 	$(CC) $(CFLAGS) -o $(TARGET) $(SRC)
 
 lingua-vscode/node_modules:

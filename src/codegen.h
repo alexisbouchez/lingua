@@ -3,6 +3,6 @@
 
 #include "parser.h"
 
-int codegen(ASTNode *ast, const char *output_path);
+int codegen(ASTNode *ast, const char *output_path, const char *source_file);
 
 #endif

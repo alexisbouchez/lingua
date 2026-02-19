@@ -1,2 +1,154 @@
-var greeting = "Hello, World!\n";
-print(greeting);
+// Shorthand function
+fn add(a: int, b: int) -> int return a + b;
+fn greet(name: string) -> string return "Hello, " + name + "!";
+
+print(add(3, 4));
+print(greet("World"));
+
+// print auto-appends \n; use newline: false to suppress
+print("a", newline: false);
+print("b", newline: false);
+print("c");
+
+// if requires parentheses around condition
+const x = 10;
+if (x > 5) print("big");
+else print("small");
+
+// Braceless if/else-if/else
+if (x == 1) print("one");
+else if (x == 10) print("ten");
+else print("other");
+
+// Braceless for with ++
+for (var i = 0; i < 3; i++) print(i, newline: false);
+print("");
+
+// Braceless match
+match (x) {
+    10 => print("matched ten");
+    _ => print("no match");
+}
+
+// Classes with inheritance
+class Animal {
+    name: string;
+    kind: string;
+    fn speak() -> string {
+        return kind + " says hello";
+    }
+}
+
+class Dog extends Animal {
+    breed: string;
+    fn speak() -> string {
+        return name + " the " + breed + " barks!";
+    }
+}
+
+const dog = new Dog(name: "Rex", kind: "canine", breed: "Labrador");
+print(dog.speak());
+print(dog.name);
+
+// Field mutation
+class Point {
+    x_val: int;
+    y_val: int;
+}
+
+var p = new Point(x_val: 1, y_val: 2);
+p.x_val = 10;
+print(p.x_val);
+
+// === break / continue ===
+// break: print 0-4, then break at 5
+for (var i = 0; i < 10; i++) {
+    if (i == 5) break;
+    print(i, newline: false);
+}
+print("");
+
+// continue: print odd numbers 1,3
+for (var i = 0; i < 5; i++) {
+    if (i % 2 == 0) continue;
+    print(i, newline: false);
+}
+print("");
+
+// === Recursion ===
+fn fib(n: int) -> int {
+    if (n <= 1) return n;
+    return fib(n - 1) + fib(n - 2);
+}
+print(fib(10));
+
+// === String interpolation ===
+const name = "World";
+print("Hello, {name}!");
+const a = 3;
+const b = 4;
+print("{a} + {b} = {a + b}");
+
+// Escaped braces
+print("literal \{braces\}");
+
+// === String operations ===
+print(len("hello"));
+print(to_upper("hello"));
+print(to_lower("HELLO"));
+print(contains("hello world", "world"));
+print(starts_with("hello", "hel"));
+print(ends_with("hello", "llo"));
+print(index_of("hello", "ll"));
+print(char_at("hello", 1));
+print(replace("hello world", "world", "lingua"));
+print(trim("  hello  "));
+print(substr("hello world", 0, 5));
+
+// Indexing and slicing
+print("hello"[0]);
+print("hello"[1:4]);
+
+// === Bitwise operators ===
+print(0xFF & 0x0F);
+print(1 << 4);
+print(~0);
+print(5 | 3);
+print(5 ^ 3);
+print(16 >> 2);
+
+// === Compound assignment ===
+var y = 10;
+y += 5;
+print(y);
+y -= 3;
+print(y);
+y *= 2;
+print(y);
+y /= 6;
+print(y);
+y %= 3;
+print(y);
+
+// Compound assignment with bitwise
+var z = 0xFF;
+z &= 0x0F;
+print(z);
+z |= 0xF0;
+print(z);
+z ^= 0xFF;
+print(z);
+z = 1;
+z <<= 4;
+print(z);
+z >>= 2;
+print(z);
+
+// === ++ / -- ===
+var counter = 0;
+counter++;
+counter++;
+counter++;
+print(counter);
+counter--;
+print(counter);

@@ -1,6 +1,7 @@
 #if defined(__linux__) && defined(__x86_64__)
 
 #include "codegen_internal.h"
+#include "diagnostic.h"
 
 #define ELF_HEADER_SIZE  64
 #define PHDR_SIZE        56
@@ -110,9 +111,7 @@ int emit_binary(int string_count, int *str_offsets, int *str_lengths_arr,
     /* Write to file */
     FILE *f = fopen(output_path, "wb");
     if (!f) {
-        fprintf(stderr, "error: cannot open '%s' for writing\n", output_path);
-        buf_free(&code); buf_free(&out);
-        return 1;
+        diag_error_no_loc("cannot open '%s' for writing", output_path);
     }
 
     fwrite(out.data, 1, out.len, f);
