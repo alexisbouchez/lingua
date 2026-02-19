@@ -73,4 +73,48 @@ static inline void buf_free(Buffer *b) {
 int emit_binary(int string_count, int *str_offsets, int *str_lengths_arr,
                 Buffer *strings, const char *output_path);
 
+/* ================================================================
+ * HTTP route entry for std/http
+ * ================================================================ */
+
+typedef struct {
+    const char *method;    /* "GET" or "POST" */
+    const char *path;      /* e.g. "/" or "/about" */
+    int path_len;
+    const char *body;      /* response body string */
+    int body_len;
+} HttpRouteEntry;
+
+int emit_http_binary(HttpRouteEntry *routes, int route_count, int port,
+                     const char *output_path);
+
+/* ================================================================
+ * Net config for std/net
+ * ================================================================ */
+
+typedef enum {
+    NET_TCP_LISTEN,
+    NET_TCP_CONNECT,
+    NET_UDP_LISTEN,
+    NET_UDP_SEND,
+} NetMode;
+
+typedef struct {
+    NetMode mode;
+    int port;
+    const char *host;       /* for connect/send modes; NULL for listen modes */
+    const char *data;       /* response (server) or message (client) */
+    int data_len;
+} NetConfig;
+
+int emit_net_binary(NetConfig *config, const char *output_path);
+
+/* ================================================================
+ * IR-based binary emission
+ * ================================================================ */
+
+#include "codegen/ir.h"
+
+int emit_binary_ir(IRProgram *prog, const char *output_path);
+
 #endif

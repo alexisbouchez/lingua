@@ -28,7 +28,9 @@ const char *value_type_name(ValueType vt) {
         case VAL_BOOL:   return "bool";
         case VAL_VOID:   return "void";
         case VAL_OBJECT: return "object";
-        default:         return "unknown";
+        case VAL_ARRAY:   return "Array";
+        case VAL_CHANNEL: return "Channel";
+        default:          return "unknown";
     }
 }
 
@@ -62,6 +64,9 @@ static char *process_escapes(const char *raw, int raw_len, int *out_len, SourceL
     return buf;
 }
 
+/* Forward declaration */
+static Token expect(Lexer *lexer, TokenType type, const char *what);
+
 /* Parse a type name token and return its ValueType.
    If out_class_name is non-NULL and the type is a class name, *out_class_name
    is set to a malloc'd copy of the class name. */
@@ -90,6 +95,44 @@ static Token expect(Lexer *lexer, TokenType type, const char *what) {
         diag_emit((SourceLoc){tok.line, tok.col}, DIAG_ERROR, "expected %s", what);
     }
     return tok;
+}
+
+/* Parse a type that may be Array<T>. Reads additional tokens from lexer if needed.
+   type_tok is the already-consumed identifier token. */
+static ValueType parse_full_type(Lexer *lexer, Token *type_tok, char **out_class_name,
+                                 ValueType *out_array_elem_type) {
+    if (out_array_elem_type) *out_array_elem_type = VAL_VOID;
+    if (type_tok->length == 7 && memcmp(type_tok->start, "Channel", 7) == 0) {
+        Token peek = lexer_peek(lexer);
+        if (peek.type == TOKEN_LT) {
+            lexer_next(lexer); /* consume '<' */
+            Token elem_tok = expect(lexer, TOKEN_IDENT, "element type");
+            expect(lexer, TOKEN_GT, "'>'");
+            ValueType elem_type = parse_type_name(&elem_tok, NULL);
+            if (elem_type == VAL_OBJECT)
+                diag_emit((SourceLoc){elem_tok.line, elem_tok.col}, DIAG_ERROR,
+                          "Channel element type must be int, float, string, or bool");
+            if (out_array_elem_type) *out_array_elem_type = elem_type;
+            if (out_class_name) *out_class_name = NULL;
+            return VAL_CHANNEL;
+        }
+    }
+    if (type_tok->length == 5 && memcmp(type_tok->start, "Array", 5) == 0) {
+        Token peek = lexer_peek(lexer);
+        if (peek.type == TOKEN_LT) {
+            lexer_next(lexer); /* consume '<' */
+            Token elem_tok = expect(lexer, TOKEN_IDENT, "element type");
+            expect(lexer, TOKEN_GT, "'>'");
+            ValueType elem_type = parse_type_name(&elem_tok, NULL);
+            if (elem_type == VAL_OBJECT)
+                diag_emit((SourceLoc){elem_tok.line, elem_tok.col}, DIAG_ERROR,
+                          "Array element type must be int, float, string, or bool");
+            if (out_array_elem_type) *out_array_elem_type = elem_type;
+            if (out_class_name) *out_class_name = NULL;
+            return VAL_ARRAY;
+        }
+    }
+    return parse_type_name(type_tok, out_class_name);
 }
 
 /* ================================================================
@@ -145,6 +188,15 @@ void expr_free(Expr *expr) {
                     free(expr->as.fn_call.arg_names[i]);
                 free(expr->as.fn_call.arg_names);
             }
+            break;
+        case EXPR_ARRAY_LIT:
+            if (expr->as.array_lit.elements) {
+                for (int i = 0; i < expr->as.array_lit.count; i++)
+                    expr_free(expr->as.array_lit.elements[i]);
+                free(expr->as.array_lit.elements);
+            }
+            break;
+        case EXPR_CHANNEL_LIT:
             break;
         default:
             break;
@@ -320,6 +372,26 @@ static Expr *parse_primary(Lexer *lexer) {
     }
 
     if (tok.type == TOKEN_IDENT) {
+        /* channel<T>() expression */
+        if (tok.length == 7 && memcmp(tok.start, "channel", 7) == 0) {
+            Token peek = lexer_peek(lexer);
+            if (peek.type == TOKEN_LT) {
+                lexer_next(lexer); /* consume '<' */
+                Token elem_tok = expect(lexer, TOKEN_IDENT, "element type");
+                expect(lexer, TOKEN_GT, "'>'");
+                expect(lexer, TOKEN_LPAREN, "'('");
+                expect(lexer, TOKEN_RPAREN, "')'");
+                ValueType elem_type = parse_type_name(&elem_tok, NULL);
+                if (elem_type == VAL_OBJECT)
+                    diag_emit((SourceLoc){elem_tok.line, elem_tok.col}, DIAG_ERROR,
+                              "channel element type must be int, float, string, or bool");
+                Expr *e = expr_alloc(EXPR_CHANNEL_LIT);
+                e->loc = loc;
+                e->value_type = VAL_CHANNEL;
+                e->as.channel_lit.elem_type = elem_type;
+                return e;
+            }
+        }
         Expr *e = expr_alloc(EXPR_VAR_REF);
         e->loc = loc;
         e->as.var_ref.name = malloc(tok.length + 1);
@@ -331,6 +403,33 @@ static Expr *parse_primary(Lexer *lexer) {
     if (tok.type == TOKEN_LPAREN) {
         Expr *e = parse_expr(lexer);
         expect(lexer, TOKEN_RPAREN, "')'");
+        return e;
+    }
+
+    if (tok.type == TOKEN_LBRACKET) {
+        Expr *e = expr_alloc(EXPR_ARRAY_LIT);
+        e->loc = loc;
+        e->value_type = VAL_ARRAY;
+        int cap = 4;
+        e->as.array_lit.elements = malloc(cap * sizeof(Expr *));
+        e->as.array_lit.count = 0;
+        Token peek = lexer_peek(lexer);
+        if (peek.type != TOKEN_RBRACKET) {
+            for (;;) {
+                if (e->as.array_lit.count == cap) {
+                    cap *= 2;
+                    e->as.array_lit.elements = realloc(e->as.array_lit.elements, cap * sizeof(Expr *));
+                }
+                e->as.array_lit.elements[e->as.array_lit.count++] = parse_expr(lexer);
+                peek = lexer_peek(lexer);
+                if (peek.type == TOKEN_COMMA) {
+                    lexer_next(lexer);
+                } else {
+                    break;
+                }
+            }
+        }
+        expect(lexer, TOKEN_RBRACKET, "']'");
         return e;
     }
 
@@ -879,7 +978,7 @@ static ASTNode *parse_fn_decl(Lexer *lexer, SourceLoc fn_loc) {
             p->name = malloc(pname.length + 1);
             memcpy(p->name, pname.start, pname.length);
             p->name[pname.length] = '\0';
-            p->type = parse_type_name(&ptype, &p->class_type_name);
+            p->type = parse_full_type(lexer, &ptype, &p->class_type_name, &p->array_elem_type);
             p->has_default = 0;
             p->default_value = NULL;
             p->default_value_len = 0;
@@ -925,13 +1024,13 @@ static ASTNode *parse_fn_decl(Lexer *lexer, SourceLoc fn_loc) {
     }
     expect(lexer, TOKEN_RPAREN, "')'");
 
-    /* Parse optional return type: -> TYPE */
+    /* Parse optional return type: -> TYPE or -> Array<T> */
     peek = lexer_peek(lexer);
     if (peek.type == TOKEN_ARROW) {
         lexer_next(lexer); /* consume '->' */
         Token ret_type = expect(lexer, TOKEN_IDENT, "return type");
         node->has_return_type = 1;
-        node->return_type = parse_type_name(&ret_type, NULL);
+        node->return_type = parse_full_type(lexer, &ret_type, NULL, &node->return_array_elem_type);
     } else {
         node->has_return_type = 0;
         node->return_type = VAL_VOID;
@@ -1051,6 +1150,81 @@ static ASTNode *parse_class_decl(Lexer *lexer, SourceLoc class_loc) {
     }
 
     node->class_methods = method_head;
+    return node;
+}
+
+/* Parse an enum declaration: enum Name { Variant [= int], ... } */
+static ASTNode *parse_enum_decl(Lexer *lexer, SourceLoc enum_loc) {
+    Token name = expect(lexer, TOKEN_IDENT, "enum name");
+
+    ASTNode *node = malloc(sizeof(ASTNode));
+    memset(node, 0, sizeof(ASTNode));
+    node->type = NODE_ENUM_DECL;
+    node->loc = enum_loc;
+    node->enum_name = malloc(name.length + 1);
+    memcpy(node->enum_name, name.start, name.length);
+    node->enum_name[name.length] = '\0';
+
+    expect(lexer, TOKEN_LBRACE, "'{'");
+
+    int variant_cap = 4;
+    node->enum_variants = malloc(variant_cap * sizeof(EnumVariant));
+    node->enum_variant_count = 0;
+    long next_value = 0;
+
+    for (;;) {
+        Token peek = lexer_peek(lexer);
+        if (peek.type == TOKEN_RBRACE) { lexer_next(lexer); break; }
+        if (peek.type == TOKEN_EOF)
+            diag_emit((SourceLoc){peek.line, peek.col}, DIAG_ERROR, "unexpected end of file in enum body");
+
+        Token vname = expect(lexer, TOKEN_IDENT, "variant name");
+
+        if (node->enum_variant_count == variant_cap) {
+            variant_cap *= 2;
+            node->enum_variants = realloc(node->enum_variants, variant_cap * sizeof(EnumVariant));
+        }
+
+        EnumVariant *v = &node->enum_variants[node->enum_variant_count];
+        v->name = malloc(vname.length + 1);
+        memcpy(v->name, vname.start, vname.length);
+        v->name[vname.length] = '\0';
+
+        /* Check for explicit value: = <int> */
+        peek = lexer_peek(lexer);
+        if (peek.type == TOKEN_EQUALS) {
+            lexer_next(lexer); /* consume '=' */
+            Token val_tok = lexer_next(lexer);
+            SourceLoc val_loc = {val_tok.line, val_tok.col};
+            int negate = 0;
+            if (val_tok.type == TOKEN_MINUS) {
+                negate = 1;
+                val_tok = lexer_next(lexer);
+                val_loc = (SourceLoc){val_tok.line, val_tok.col};
+            }
+            if (val_tok.type != TOKEN_INT)
+                diag_emit(val_loc, DIAG_ERROR, "enum variant value must be an integer");
+            char buf[32];
+            int len = val_tok.length < 31 ? val_tok.length : 31;
+            memcpy(buf, val_tok.start, len);
+            buf[len] = '\0';
+            long val = strtol(buf, NULL, 0);
+            v->value = negate ? -val : val;
+            next_value = v->value + 1;
+        } else {
+            v->value = next_value;
+            next_value++;
+        }
+
+        node->enum_variant_count++;
+
+        /* Expect comma or closing brace */
+        peek = lexer_peek(lexer);
+        if (peek.type == TOKEN_COMMA) {
+            lexer_next(lexer);
+        }
+    }
+
     return node;
 }
 
@@ -1421,6 +1595,8 @@ static ASTNode *parse_statement(Lexer *lexer, Token tok) {
                      memcmp(tok.start, "return", 6) == 0);
     int is_class = (tok.type == TOKEN_IDENT && tok.length == 5 &&
                     memcmp(tok.start, "class", 5) == 0);
+    int is_enum  = (tok.type == TOKEN_IDENT && tok.length == 4 &&
+                    memcmp(tok.start, "enum", 4) == 0);
 
     if (tok.type == TOKEN_BREAK) {
         if (parse_loop_depth <= 0)
@@ -1444,6 +1620,18 @@ static ASTNode *parse_statement(Lexer *lexer, Token tok) {
         return node;
     }
 
+    if (tok.type == TOKEN_SPAWN) {
+        ASTNode *node = malloc(sizeof(ASTNode));
+        memset(node, 0, sizeof(ASTNode));
+        node->type = NODE_SPAWN;
+        node->loc = stmt_loc;
+        node->spawn_expr = parse_expr(lexer);
+        if (node->spawn_expr->kind != EXPR_FN_CALL)
+            diag_emit(stmt_loc, DIAG_ERROR, "spawn requires a function call");
+        expect(lexer, TOKEN_SEMICOLON, "';'");
+        return node;
+    }
+
     if (tok.type == TOKEN_FOR) {
         return parse_for_loop(lexer, stmt_loc);
     }
@@ -1458,6 +1646,10 @@ static ASTNode *parse_statement(Lexer *lexer, Token tok) {
 
     if (is_class) {
         return parse_class_decl(lexer, stmt_loc);
+    }
+
+    if (is_enum) {
+        return parse_enum_decl(lexer, stmt_loc);
     }
 
     if (is_fn) {
@@ -1483,12 +1675,13 @@ static ASTNode *parse_statement(Lexer *lexer, Token tok) {
 
         int has_annotation = 0;
         ValueType annotated_type = VAL_STRING;
+        ValueType annotated_array_elem_type = VAL_VOID;
 
         Token after_name = lexer_next(lexer);
         if (after_name.type == TOKEN_COLON) {
             Token type_tok = expect(lexer, TOKEN_IDENT, "type name");
             has_annotation = 1;
-            annotated_type = parse_type_name(&type_tok, NULL);
+            annotated_type = parse_full_type(lexer, &type_tok, NULL, &annotated_array_elem_type);
             expect(lexer, TOKEN_EQUALS, "'='");
         } else if (after_name.type != TOKEN_EQUALS) {
             diag_emit((SourceLoc){after_name.line, after_name.col}, DIAG_ERROR, "expected ':' or '='");
@@ -1499,6 +1692,7 @@ static ASTNode *parse_statement(Lexer *lexer, Token tok) {
         node->type = NODE_VAR_DECL;
         node->loc = stmt_loc;
         node->is_const = is_const;
+        node->var_array_elem_type = annotated_array_elem_type;
 
         if (!try_parse_new_only(lexer, node)) {
             node->expr = parse_expr(lexer);
@@ -1510,9 +1704,10 @@ static ASTNode *parse_statement(Lexer *lexer, Token tok) {
 
         /* Type checking for annotations on non-fn-call expressions */
         if (has_annotation && !node->is_fn_call && !node->is_new_expr && node->expr) {
-            /* For simple literals, check immediately */
-            if (node->expr->kind != EXPR_BINARY && node->expr->kind != EXPR_VAR_REF
-                && node->expr->kind != EXPR_MEMBER_ACCESS) {
+            /* For simple literals, check immediately (skip arrays — checked at codegen) */
+            if (annotated_type != VAL_ARRAY &&
+                node->expr->kind != EXPR_BINARY && node->expr->kind != EXPR_VAR_REF
+                && node->expr->kind != EXPR_MEMBER_ACCESS && node->expr->kind != EXPR_ARRAY_LIT) {
                 if (annotated_type != node->expr->value_type) {
                     diag_emit(node->expr->loc, DIAG_ERROR,
                               "type mismatch: variable '%s' declared as '%s', but assigned '%s'",
@@ -1822,6 +2017,13 @@ void ast_free(ASTNode *node) {
             ast_free(node->class_methods);
         free(node->obj_name);
         free(node->field_name);
+        free(node->enum_name);
+        if (node->enum_variants) {
+            for (int i = 0; i < node->enum_variant_count; i++)
+                free(node->enum_variants[i].name);
+            free(node->enum_variants);
+        }
+        expr_free(node->spawn_expr);
         free(node->import_path);
         if (node->import_names) {
             for (int i = 0; i < node->import_name_count; i++)

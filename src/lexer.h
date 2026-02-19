@@ -60,6 +60,7 @@ typedef enum {
     TOKEN_IMPORT,
     TOKEN_FROM,
     TOKEN_PUB,
+    TOKEN_SPAWN,
     TOKEN_EOF,
 } TokenType;
 

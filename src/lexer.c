@@ -459,6 +459,8 @@ Token lexer_next(Lexer *l) {
             tok.type = TOKEN_FROM;
         } else if (tok.length == 3 && memcmp(tok.start, "pub", 3) == 0) {
             tok.type = TOKEN_PUB;
+        } else if (tok.length == 5 && memcmp(tok.start, "spawn", 5) == 0) {
+            tok.type = TOKEN_SPAWN;
         } else {
             tok.type = TOKEN_IDENT;
         }

@@ -300,4 +300,26 @@ int emit_binary(int string_count, int *str_offsets, int *str_lengths_arr,
     return 0;
 }
 
+int emit_http_binary(HttpRouteEntry *routes, int route_count, int port,
+                     const char *output_path)
+{
+    (void)routes; (void)route_count; (void)port; (void)output_path;
+    diag_error_no_loc("HTTP server binary not yet supported on macOS ARM64");
+    return 1;
+}
+
+int emit_net_binary(NetConfig *config, const char *output_path)
+{
+    (void)config; (void)output_path;
+    diag_error_no_loc("network binary not yet supported on macOS ARM64");
+    return 1;
+}
+
+int emit_binary_ir(IRProgram *prog, const char *output_path)
+{
+    (void)prog; (void)output_path;
+    diag_error_no_loc("IR-based binary not yet supported on macOS ARM64");
+    return 1;
+}
+
 #endif

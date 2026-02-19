@@ -39,14 +39,18 @@ make vscode-install  # Install .vsix to VS Code
 
 The compiler follows a classic pipeline: **source -> lexer -> parser (AST) -> codegen -> native binary**.
 
+The codegen stage operates in **dual mode**: programs using only `const` and compile-time expressions follow the original path (pre-compute all values, embed strings in the binary). Programs with `var int` or `var bool` declarations activate the **IR path**: an intermediate representation is generated, then lowered to native code with real stack frames, runtime arithmetic, runtime control flow (if/else branching, for loops with break/continue), and runtime bool printing.
+
 - **`src/diagnostic.c/h`** - Diagnostic reporting. Provides `SourceLoc` for position tracking, `diag_emit()` for colored error/warning messages with source-line caret display, and `diag_error_no_loc()` for locationless errors. Errors are fatal (`exit(1)`); warnings continue compilation.
-- **`src/lexer.c/h`** - Tokenizer. Produces tokens for identifiers, strings, ints (decimal and hex `0x`), floats, bools, arithmetic ops (`+`, `-`, `*`, `/`, `%`), comparison ops (`==`, `!=`, `>`, `>=`, `<`, `<=`), bitwise ops (`&`, `|`, `^`, `~`, `<<`, `>>`), compound assignment (`+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `|=`, `^=`, `<<=`, `>>=`), increment/decrement (`++`, `--`), `.` for member access, `[]` for indexing/slicing, and keywords (`break`, `continue`, `import`, `from`, `pub`). Handles escape sequences (including `\{`, `\}`), `//` line comments, `/* */` block comments, and position tracking for error reporting.
-- **`src/parser.c/h`** - Recursive descent parser. Builds an AST with a recursive `Expr` type (tagged union) supporting literals, variable references, binary operations (arithmetic, comparison, logical, bitwise), unary operations (`-`, `~`), member access (`obj.field`), indexing (`s[i]`), slicing (`s[i:j]`), and function calls in expressions (`EXPR_FN_CALL`). Precedence chain: `parse_or` > `parse_and` > `parse_comparison` > `parse_bitor` > `parse_bitxor` > `parse_bitand` > `parse_shift` > `parse_additive` > `parse_multiplicative` > `parse_unary` > `parse_postfix` > `parse_primary`. Includes `parse_interpolated_string()` for `"{expr}"` interpolation, `parse_update_clause()` for for-loop update with `++`/`--`/compound assignment, `try_parse_new_only()` for `new ClassName(...)` on RHS (all other function/method calls use `EXPR_FN_CALL` in expressions). Supports `NODE_BREAK`, `NODE_CONTINUE`, `NODE_IMPORT`, `is_pub` flag, and `parse_scope_depth`/`parse_loop_depth` tracking.
+- **`src/lexer.c/h`** - Tokenizer. Produces tokens for identifiers, strings, ints (decimal and hex `0x`), floats, bools, arithmetic ops (`+`, `-`, `*`, `/`, `%`), comparison ops (`==`, `!=`, `>`, `>=`, `<`, `<=`), bitwise ops (`&`, `|`, `^`, `~`, `<<`, `>>`), compound assignment (`+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `|=`, `^=`, `<<=`, `>>=`), increment/decrement (`++`, `--`), `.` for member access, `[]` for indexing/slicing, and keywords (`break`, `continue`, `import`, `from`, `pub`, `spawn`). Handles escape sequences (including `\{`, `\}`), `//` line comments, `/* */` block comments, and position tracking for error reporting.
+- **`src/parser.c/h`** - Recursive descent parser. Builds an AST with a recursive `Expr` type (tagged union) supporting literals, variable references, binary operations (arithmetic, comparison, logical, bitwise), unary operations (`-`, `~`), member access (`obj.field`), indexing (`s[i]`), slicing (`s[i:j]`), array literals (`EXPR_ARRAY_LIT` for `[expr, ...]`), channel literals (`EXPR_CHANNEL_LIT` for `channel<T>()`), and function calls in expressions (`EXPR_FN_CALL`). Precedence chain: `parse_or` > `parse_and` > `parse_comparison` > `parse_bitor` > `parse_bitxor` > `parse_bitand` > `parse_shift` > `parse_additive` > `parse_multiplicative` > `parse_unary` > `parse_postfix` > `parse_primary`. Includes `parse_interpolated_string()` for `"{expr}"` interpolation, `parse_update_clause()` for for-loop update with `++`/`--`/compound assignment, `try_parse_new_only()` for `new ClassName(...)` on RHS (all other function/method calls use `EXPR_FN_CALL` in expressions), and `parse_full_type()` for `Array<T>` and `Channel<T>` generic type annotations in variable declarations, function parameters, and return types. Supports `NODE_BREAK`, `NODE_CONTINUE`, `NODE_IMPORT`, `NODE_ENUM_DECL`, `NODE_SPAWN`, `is_pub` flag, and `parse_scope_depth`/`parse_loop_depth` tracking.
 - **`src/codegen.h`** - Public codegen interface. Declares `codegen()` used by `main.c`.
-- **`src/codegen/codegen.c`** - Platform-agnostic codegen entry point. Recursively evaluates `Expr` trees at compile time via `eval_expr()`. Supports arithmetic with int/float type promotion, string concatenation with `+` (auto-converts non-string operand), comparison operators, logical operators, bitwise operators (int-only), unary negation and bitwise NOT, string indexing/slicing, member access on objects, and `EXPR_FN_CALL` evaluation (via globals `g_ft`, `g_ct`, `g_prints`). Uses a `SymTable` with parent-chain scoping, `EvalResult` values (including `VAL_OBJECT` with `ObjData`), a `ClassTable` for class definitions (with inheritance field flattening), `eval_new_expr()` for object construction, and `evaluate_method_call()` for method dispatch. `ReturnCtx` tracks `has_return`, `has_break`, and `has_continue` for control flow. Standard library string functions (`len`, `trim`, `contains`, `replace`, `to_upper`, `to_lower`, `starts_with`, `ends_with`, `index_of`, `char_at`, `substr`) live in the `"std/string"` stdlib module — resolved in-compiler (no file), gated behind explicit import via `g_stdlib_imported_flags`. User-defined functions shadow stdlib. Recursion supported with a depth limit of 1000. Dispatches to platform-specific backend for binary emission.
-- **`src/codegen/elf_x86_64.c`** - Linux x86-64 backend. Emits ELF binary with direct syscalls (no libc). Base address 0x400000.
-- **`src/codegen/macho_arm64.c`** - macOS ARM64 backend. Emits Mach-O binary with full headers, segments, load commands, and symbol table. Page alignment 16384.
-- **`src/codegen/codegen_internal.h`** - Shared `Buffer` struct and write utilities (`buf_init`, `buf_write`, `buf_write8/16/32/64`, `buf_pad_to`, `buf_free`).
+- **`src/codegen/ir.h`** - IR instruction set and `IRProgram` struct. Defines opcodes (`IR_CONST_INT`, `IR_CONST_STR`, `IR_LOAD_LOCAL`, `IR_STORE_LOCAL`, arithmetic/bitwise/comparison ops, `IR_NEG`, `IR_BIT_NOT`, `IR_LABEL`, `IR_JMP`, `IR_JZ`, `IR_JNZ`, `IR_PRINT_STR`, `IR_PRINT_INT`, `IR_PRINT_BOOL`, `IR_EXIT`), `IRInstr` with virtual registers (unlimited, SSA-lite), `IRString` table, and `IRProgram` with vreg/label/slot allocators.
+- **`src/codegen/ir.c`** - IR program init/free/emit/alloc implementations. Convenience functions for emitting common IR patterns (`ir_emit_const_int`, `ir_emit_binop`, `ir_emit_load`, `ir_emit_store`, `ir_emit_print_int`, `ir_emit_print_str`, `ir_emit_print_bool`, etc.).
+- **`src/codegen/codegen.c`** - Platform-agnostic codegen entry point. Operates in dual mode: compile-time evaluation via `eval_expr()` (original path) and IR compilation via `ir_compile_expr()` (for expressions involving runtime `var int`/`var bool` variables). Key IR helpers: `expr_is_runtime(expr, st)` checks if an expression references any `has_slot` symbol; `ir_compile_expr(expr, st, prog)` compiles int/bool expressions to IR instructions; `expr_runtime_type(expr, st)` determines whether a runtime expression produces `VAL_BOOL` or `VAL_INT` for print dispatch; `ir_compile_stmts(stmts, st, prog, break_label, continue_label)` compiles a full statement list to IR (handles `NODE_VAR_DECL`, `NODE_ASSIGN`, `NODE_PRINT`, `NODE_IF_STMT`, `NODE_FOR_LOOP`, `NODE_BLOCK`, `NODE_BREAK`, `NODE_CONTINUE`, `NODE_MATCH_STMT`, `NODE_SPAWN`, `NODE_FN_CALL`); `flush_prints_to_ir(prints)` transitions from compile-time to IR mode by flushing pending print list entries as `IR_PRINT_STR`. `Symbol` now has `has_slot`/`slot` fields for runtime variable tracking. `g_ir` global points to the active `IRProgram`; `g_ir_mode` flag tracks whether IR prints have been emitted (for output ordering). `NODE_VAR_DECL` allocates IR slots for `var int` and `var bool`; `NODE_ASSIGN` emits `IR_STORE_LOCAL` for slotted vars; `NODE_PRINT` detects runtime expressions and emits `IR_PRINT_INT`/`IR_PRINT_BOOL`/`IR_PRINT_STR`; `NODE_IF_STMT` detects runtime conditions and compiles if/else chains to IR with `IR_JZ`/`IR_JMP` and labels; `NODE_FOR_LOOP` detects runtime loop variables and compiles for-loops to IR with loop/continue/break labels; `NODE_MATCH_STMT` detects runtime scrutinee and compiles match arms to IR with comparison chains and branch labels. At the end, `codegen()` chooses between `emit_binary()` (compile-time only), `emit_binary_ir()` (runtime IR), `emit_http_binary()`, or `emit_net_binary()`. Also handles compile-time evaluation of `Expr` trees, `SymTable` with parent-chain scoping, `EvalResult` values (including `VAL_OBJECT`, `VAL_ARRAY`, `VAL_CHANNEL`), `ClassTable`, `EnumTable`, `eval_new_expr()`, `evaluate_method_call()`, `ReturnCtx`, stdlib dispatch, and recursion (depth limit 1000).
+- **`src/codegen/elf_x86_64.c`** - Linux x86-64 backend. Emits ELF binary with direct syscalls (no libc). Base address 0x400000. Implements `emit_binary()` (compile-time string prints), `emit_binary_ir()` (IR-based binary with stack frames, runtime arithmetic, runtime control flow via label/jump patching, and inline itoa subroutine), `emit_http_binary()` (TCP server with HTTP parsing and route matching), and `emit_net_binary()` (4 modes: TCP listen/connect, UDP listen/send) — all via raw syscalls. The IR backend maps vregs and local slots to stack positions (`[rbp - 8*(slot+1)]` for locals, `[rbp - 8*(slot_count + vreg + 1)]` for vregs), uses `rax`/`rcx`/`rdx` as expression temporaries, includes a complete itoa subroutine for `IR_PRINT_INT`, and emits inline branching for `IR_PRINT_BOOL` (test + branch to write "true" or "false" from data section).
+- **`src/codegen/macho_arm64.c`** - macOS ARM64 backend. Emits Mach-O binary with full headers, segments, load commands, and symbol table. Page alignment 16384. `emit_binary_ir()` is stubbed (not yet supported).
+- **`src/codegen/codegen_internal.h`** - Shared `Buffer` struct and write utilities (`buf_init`, `buf_write`, `buf_write8/16/32/64`, `buf_pad_to`, `buf_free`). Also defines `HttpRouteEntry` struct and declares `emit_http_binary()`, `NetMode`/`NetConfig` types with `emit_net_binary()` for `std/net`, includes `codegen/ir.h`, and declares `emit_binary_ir()` for the IR-based backend.
 - **`src/import.c/h`** - Module import system. Resolves import paths (relative with `./` or project-root-relative), caches parsed module ASTs to avoid re-parsing, and detects circular imports via an import stack. `import_init()` sets the project root, `import_resolve()` resolves a path and returns the cached/parsed AST, `import_push_file()`/`import_pop_file()` manage the circular detection stack, `import_cleanup()` frees all cached modules. Uses `DiagContext` save/restore for multi-file diagnostic reporting.
 - **`src/main.c`** - CLI entry point. Handles `build`, `completions`, direct execution, and `--help`.
 
@@ -69,6 +73,8 @@ Unterminated `/* */` block comments are a compile error.
 | `int`    | `0`, `42`, `0xFF`, `0x1A`    | Integer (decimal or hex, parsed as `long`) |
 | `float`  | `3.14`, `0.5`                | Floating-point (`double`)    |
 | `bool`   | `true`, `false`              | Boolean                      |
+| `Array<T>` | `[1, 2, 3]`, `["a", "b"]` | Generic array (`T` is `int`, `float`, `string`, or `bool`) |
+| `Channel<T>` | `channel<int>()` | Channel for concurrent communication (`T` is a scalar type) |
 
 ### Escape Sequences (in string literals)
 
@@ -107,6 +113,8 @@ Expressions are evaluated at compile time and follow this precedence (lowest to 
 - Both operands must have the same type (or int/float with promotion)
 - `int`, `float`, and `string` support all comparison operators (`==`, `!=`, `>`, `>=`, `<`, `<=`)
 - For `bool`, only `==` and `!=` are allowed
+- For `Array`, only `==` and `!=` are allowed (element-wise comparison)
+- For `Channel`, only `==` and `!=` are allowed (identity/pointer comparison)
 - Result is always `bool`
 
 **Parenthesized expressions:** `(expr)` for grouping
@@ -120,7 +128,7 @@ const <name>: <type> = <expr>;  # immutable, type annotated
 var <name>: <type> = <expr>;    # mutable, type annotated
 ```
 
-- `<type>` must be one of: `int`, `float`, `string`, `bool`.
+- `<type>` must be one of: `int`, `float`, `string`, `bool`, `Array<T>`, or `Channel<T>` (where `T` is one of the scalar types).
 - If a type annotation is present, the value's inferred type must match exactly (no coercion).
 - `const` variables cannot be reassigned. `var` variables that are never reassigned produce a warning suggesting `const`.
 
@@ -334,7 +342,7 @@ import { len, trim, contains, replace, to_upper, to_lower, starts_with, ends_wit
 | `char_at(s, i)` | `string, int -> string` | Single character at index |
 | `substr(s, start, end)` | `string, int, int -> string` | Substring from start to end (exclusive) |
 
-User-defined functions with the same name as a stdlib function shadow the stdlib version.
+User-defined functions with the same name as a stdlib function shadow the stdlib version. `len`, `contains`, and `index_of` are shared with `std/array` — they can be imported from either module and dispatch based on the first argument's type.
 
 **Indexing and slicing:**
 
@@ -345,6 +353,193 @@ User-defined functions with the same name as a stdlib function shadow the stdlib
 
 - Negative indices wrap around from the end of the string.
 - Out-of-bounds access is a compile error for indexing; slicing clamps to valid range.
+
+### Arrays
+
+Arrays are a first-class type with generic type annotations. All array operations are functional (return new arrays, never mutate).
+
+**Array literals:**
+
+```
+const nums = [1, 2, 3];
+const names: Array<string> = ["alice", "bob"];
+const empty: Array<int> = [];
+```
+
+- Element types are inferred from the first element, or from the type annotation for empty arrays.
+- All elements must have the same type; mixed-type arrays are a compile error.
+- Nested arrays (`Array<Array<int>>`) are not supported.
+
+**Indexing and slicing:**
+
+```
+nums[0]       // 1 — single element access
+nums[1:3]     // [2, 3] — slice (start inclusive, end exclusive), returns new array
+```
+
+- Out-of-bounds indexing is a compile error.
+- Slicing clamps to valid range.
+
+**Equality:**
+
+```
+[1, 2, 3] == [1, 2, 3]   // true — element-wise comparison
+[1, 2, 3] != [1, 2]      // true
+```
+
+- Only `==` and `!=` are supported for arrays.
+
+**Type annotations in functions:**
+
+```
+fn sum(arr: Array<int>) -> int { ... }
+fn make_range(n: int) -> Array<int> { ... }
+```
+
+- `Array<T>` can be used as parameter types and return types.
+
+### Array Operations
+
+Array functions live in the `std/array` standard library module and must be explicitly imported before use:
+
+```
+import { len, contains, index_of } from "std/array";
+import { push, pop, shift, concat, reverse, sort, join, remove } from "std/array";
+```
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `len(arr)` | `Array<T> -> int` | Number of elements |
+| `contains(arr, elem)` | `Array<T>, T -> bool` | Check if array contains element |
+| `index_of(arr, elem)` | `Array<T>, T -> int` | Index of first occurrence (-1 if not found) |
+| `push(arr, elem)` | `Array<T>, T -> Array<T>` | Return new array with element appended |
+| `pop(arr)` | `Array<T> -> Array<T>` | Return new array without last element |
+| `shift(arr)` | `Array<T> -> Array<T>` | Return new array without first element |
+| `concat(arr1, arr2)` | `Array<T>, Array<T> -> Array<T>` | Return new array with both arrays concatenated |
+| `reverse(arr)` | `Array<T> -> Array<T>` | Return new array with elements reversed |
+| `sort(arr)` | `Array<T> -> Array<T>` | Return new array with elements sorted |
+| `join(arr, sep)` | `Array<string>, string -> string` | Join elements with separator |
+| `remove(arr, index)` | `Array<T>, int -> Array<T>` | Return new array with element at index removed |
+
+`len`, `contains`, and `index_of` are shared with `std/string` — they can be imported from either module and dispatch based on the first argument's type.
+
+### Concurrency (Channels and Spawn)
+
+Lingua provides Go-style concurrency primitives: channels for communication and `spawn` for launching concurrent tasks.
+
+**Channels:**
+
+```
+import { send, receive } from "std/concurrency";
+
+const ch = channel<int>();     // Create a channel of int
+send(ch, 42);                  // Send a value to the channel
+const val = receive(ch);       // Receive a value from the channel
+```
+
+- `channel<T>()` creates a new channel. `T` must be a scalar type (`int`, `float`, `string`, or `bool`).
+- Channels have reference semantics — passing a channel to a function shares the same underlying queue.
+- `send(ch, value)` appends to the channel's buffer. The value's type must match the channel's element type. Never blocks (unbounded capacity).
+- `receive(ch)` reads the next value from the channel. Receiving from an empty channel is a compile error.
+- Channels support `==` and `!=` for identity comparison (pointer equality).
+- `Channel<T>` can be used as function parameter types.
+- Printing a channel shows `Channel<T>(N items)`.
+
+**Spawn:**
+
+```
+fn worker(ch: Channel<int>) {
+    send(ch, 42);
+}
+
+const ch = channel<int>();
+spawn worker(ch);              // Execute worker(ch) immediately
+print(receive(ch));            // 42
+```
+
+- `spawn` is a statement (like Go's `go`) — fire-and-forget, no return value.
+- `spawn` must be followed by a function call (free function or method call).
+- At compile time, `spawn` executes the function immediately and discards the result.
+- `spawn` is a reserved keyword.
+
+**Channel Operations (std/concurrency):**
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `send(ch, value)` | `Channel<T>, T -> void` | Send a value to the channel |
+| `receive(ch)` | `Channel<T> -> T` | Receive the next value from the channel |
+
+### HTTP Server (std/http)
+
+Lingua can compile HTTP server binaries that listen on a port, accept connections, parse HTTP requests, match routes, and send responses — all via raw Linux syscalls (no libc). Routes and responses are resolved at compile time; the emitted binary runs a real TCP accept loop.
+
+```
+import { get, post, listen } from "std/http";
+
+get("/", "Hello, World!");
+get("/about", "About page");
+post("/echo", "Echo response");
+
+listen(8080);
+```
+
+- `get(path, body)` — register a GET route with a static string response body
+- `post(path, body)` — register a POST route with a static string response body
+- `listen(port)` — emit an HTTP server binary that serves the registered routes on the given port
+- `listen()` can only be called once per program
+- Port must be between 1 and 65535
+- Unmatched routes return HTTP 404 "Not Found"
+- Linux x86-64 only; macOS ARM64 produces an error
+
+**HTTP Functions (std/http):**
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `get(path, body)` | `string, string -> void` | Register a GET route |
+| `post(path, body)` | `string, string -> void` | Register a POST route |
+| `listen(port)` | `int -> void` | Compile and emit HTTP server binary |
+
+### TCP/UDP Networking (std/net)
+
+Lingua can compile native networking binaries (TCP/UDP servers and clients) that perform socket operations via raw Linux syscalls (no libc). Each program uses one networking mode, configured at compile time, and `start()` triggers binary emission.
+
+```
+import { tcp_listen, start } from "std/net";
+tcp_listen(8080, "Welcome to Lingua!\n");
+start();
+
+import { tcp_connect, start } from "std/net";
+tcp_connect("127.0.0.1", 8080, "Hello server!\n");
+start();
+
+import { udp_listen, start } from "std/net";
+udp_listen(9090, "Pong!\n");
+start();
+
+import { udp_send, start } from "std/net";
+udp_send("127.0.0.1", 9090, "Ping!\n");
+start();
+```
+
+- `tcp_listen(port, response)` — TCP server: accepts connections, sends static response, closes
+- `tcp_connect(host, port, message)` — TCP client: connects, sends message, reads+prints response
+- `udp_listen(port, response)` — UDP server: receives datagrams, replies with static response
+- `udp_send(host, port, message)` — UDP client: sends datagram, reads+prints response
+- `start()` — emit the configured network binary (must be called exactly once)
+- Only one of `tcp_listen`/`tcp_connect`/`udp_listen`/`udp_send` per program
+- Port must be between 1 and 65535
+- Host must be an IPv4 dotted-decimal string (e.g. `"127.0.0.1"`)
+- Linux x86-64 only; macOS ARM64 produces an error
+
+**Net Functions (std/net):**
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `tcp_listen(port, response)` | `int, string -> void` | Configure TCP server |
+| `tcp_connect(host, port, message)` | `string, int, string -> void` | Configure TCP client |
+| `udp_listen(port, response)` | `int, string -> void` | Configure UDP server |
+| `udp_send(host, port, message)` | `string, int, string -> void` | Configure UDP client |
+| `start()` | `void -> void` | Emit the configured network binary |
 
 ### Classes
 
@@ -409,6 +604,53 @@ print(obj.method(args));           // in print
 - Methods can read and mutate the object's fields; mutations are propagated back to the object.
 - Calling an undefined method walks the inheritance chain and errors if not found.
 
+### Enums
+
+```
+enum <Name> {
+    <Variant>,
+    <Variant> = <int_value>,
+    ...
+}
+```
+
+- Enums define a named set of integer-backed variants.
+- Variants without explicit values auto-increment from the previous value (starting at 0).
+- Explicit `= <int>` resets the counter; subsequent implicit variants continue from that value + 1.
+- Negative integer values are supported.
+- Trailing comma after the last variant is optional.
+- No trailing `;` required after the closing `}`.
+
+**Accessing variants:**
+
+```
+const c = Color.Red;     // EnumName.Variant syntax
+print(c);                // prints the integer value
+```
+
+- Enum variants are accessed via `EnumName.Variant` dot notation.
+- Enum values are represented as `int` internally, so they support all int operations (comparison, arithmetic, etc.).
+
+**With match statements:**
+
+```
+match (status) {
+    HttpStatus.Ok => print("ok");
+    HttpStatus.NotFound => print("not found");
+    _ => print("unknown");
+}
+```
+
+- Enum variants work as match arm patterns (compared via `==` as int values).
+
+**With pub/import:**
+
+```
+pub enum Direction { North, South, East, West }
+```
+
+- `pub` makes an enum importable from other modules.
+
 ### Import and Pub
 
 ```
@@ -417,9 +659,10 @@ pub fn <name>(<params>) { ... }
 pub const <name> = <expr>;
 pub var <name> = <expr>;
 pub class <Name> { ... }
+pub enum <Name> { ... }
 ```
 
-- `import` brings named symbols (functions, classes, constants, variables) from another module into scope.
+- `import` brings named symbols (functions, classes, enums, constants, variables) from another module into scope.
 - The `.lingua` extension is automatically appended to the import path.
 - Paths starting with `./` are relative to the importing file's directory. Other paths are relative to the project root.
 - `pub` marks a declaration as publicly visible to importers. Only `pub` symbols can be imported; importing a non-public symbol is a compile error.
@@ -446,11 +689,11 @@ pub class <Name> { ... }
 
 ### Identifiers
 
-Identifiers start with a letter or `_`, followed by letters, digits, or `_`. The keywords `const`, `var`, `print`, `true`, `false`, `fn`, `return`, `and`, `or`, `for`, `if`, `else`, `match`, `class`, `new`, `extends`, `break`, `continue`, `import`, `from`, and `pub` are reserved.
+Identifiers start with a letter or `_`, followed by letters, digits, or `_`. The keywords `const`, `var`, `print`, `true`, `false`, `fn`, `return`, `and`, `or`, `for`, `if`, `else`, `match`, `class`, `new`, `extends`, `enum`, `break`, `continue`, `import`, `from`, `pub`, and `spawn` are reserved.
 
 ### Statements
 
-A program is a sequence of statements. Every statement ends with `;` (except function declarations, class declarations, for loops, if/else statements, match statements, and bare blocks). Statement forms: variable declaration, assignment, compound assignment, increment/decrement, field assignment, print, function declaration, class declaration, function call, method call, return, for loop, if/else, match, block, break, continue, and import.
+A program is a sequence of statements. Every statement ends with `;` (except function declarations, class declarations, enum declarations, for loops, if/else statements, match statements, and bare blocks). Statement forms: variable declaration, assignment, compound assignment, increment/decrement, field assignment, print, function declaration, class declaration, enum declaration, function call, method call, return, for loop, if/else, match, block, break, continue, import, and spawn.
 
 ## Memory Model
 
@@ -489,14 +732,19 @@ The compiler currently evaluates everything at compile time — variables don't 
 - Expressions use temporary registers (`rax, rcx, rdx` on x86-64 / `x0-x3` on ARM64)
 - Reserved: `rbp/rsp/r14/r15` (x86-64), `x29/sp/x30/x27/x28` (ARM64)
 
-### Implementation Phases (future)
+### Implementation Phases
 
-1. **IR layer** — introduce `IRInstr`/`IRProgram` between codegen and backends (transparent pass-through initially)
-2. **Stack frames + local variables** — variables exist at runtime as stack slots
-3. **Runtime comparisons + logical ops** — emit real `cmp`/`cset` instructions
-4. **Function calls** — real `call`/`ret` with argument passing per ABI
-5. **Arena allocator** — `mmap` at startup, bump pointer in `r14`/`x27`
-6. **Runtime int-to-string** — inline `itoa` for `print(int_var)` without libc
+Completed:
+1. ~~**IR layer** — introduce `IRInstr`/`IRProgram` between codegen and backends~~
+2. ~~**Stack frames + local variables** — `var int` and `var bool` exist at runtime as stack slots~~
+3. ~~**Runtime comparisons + logical ops** — emit real `cmp`/`setCC` instructions~~
+4. ~~**Runtime int-to-string** — inline `itoa` for `print(int_var)` without libc~~
+5. ~~**Runtime control flow** — `if`/`else` branching and `for` loops with `break`/`continue` when conditions involve runtime variables~~
+6. ~~**Runtime bool printing** — `IR_PRINT_BOOL` emits "true"/"false" via branch~~
+
+Future:
+7. **Function calls** — real `call`/`ret` with argument passing per ABI
+8. **Arena allocator** — `mmap` at startup, bump pointer in `r14`/`x27`
 
 ## Keeping CLAUDE.md Up-to-Date
 

@@ -19,6 +19,8 @@ typedef enum {
     NODE_BREAK,
     NODE_CONTINUE,
     NODE_IMPORT,
+    NODE_ENUM_DECL,
+    NODE_SPAWN,
 } NodeType;
 
 typedef enum {
@@ -28,6 +30,8 @@ typedef enum {
     VAL_BOOL,
     VAL_VOID,
     VAL_OBJECT,
+    VAL_ARRAY,
+    VAL_CHANNEL,
 } ValueType;
 
 typedef enum {
@@ -42,6 +46,8 @@ typedef enum {
     EXPR_INDEX,
     EXPR_SLICE,
     EXPR_FN_CALL,
+    EXPR_ARRAY_LIT,
+    EXPR_CHANNEL_LIT,
 } ExprKind;
 
 typedef enum {
@@ -89,6 +95,11 @@ typedef struct Expr {
             char **arg_names;   /* NULL entry = positional */
             int arg_count;
         } fn_call;
+        struct {
+            struct Expr **elements;
+            int count;
+        } array_lit;
+        struct { ValueType elem_type; } channel_lit;
     } as;
 } Expr;
 
@@ -96,6 +107,7 @@ typedef struct {
     char *name;
     ValueType type;
     char *class_type_name;
+    ValueType array_elem_type; /* element type when type == VAL_ARRAY */
     int has_default;
     char *default_value;
     int default_value_len;
@@ -112,6 +124,11 @@ typedef struct {
     int is_wildcard;
     struct ASTNode *body;
 } MatchArm;
+
+typedef struct {
+    char *name;
+    long value;
+} EnumVariant;
 
 typedef struct ASTNode {
     NodeType type;
@@ -167,13 +184,25 @@ typedef struct ASTNode {
     char *field_name;    /* for dotted assignment: obj.field = value */
     int is_new_expr;     /* for new ClassName(...) */
 
+    /* Enum declaration fields */
+    char *enum_name;
+    EnumVariant *enum_variants;
+    int enum_variant_count;
+
     /* Import fields */
     char *import_path;       /* module path string */
     char **import_names;     /* array of imported symbol names */
     int import_name_count;
 
+    /* Array type annotation fields */
+    ValueType var_array_elem_type;      /* element type for var decl Array<T> annotation */
+    ValueType return_array_elem_type;   /* element type for fn return Array<T> annotation */
+
     /* Pub visibility */
     int is_pub;
+
+    /* Spawn statement */
+    Expr *spawn_expr;  /* EXPR_FN_CALL for NODE_SPAWN */
 
     struct ASTNode *next;
 } ASTNode;
