@@ -1,0 +1,7 @@
+import { get, post, listen } from "std/http";
+
+get("/", "Hello from Lingua!");
+get("/about", "Lingua HTTP Server v0.1");
+post("/echo", "Echo!");
+
+listen(8080);

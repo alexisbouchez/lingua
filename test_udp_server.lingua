@@ -1,0 +1,3 @@
+import { udp_listen, start } from "std/net";
+udp_listen(9090, "Pong!\n");
+start();

@@ -1,0 +1,3 @@
+import { tcp_listen, start } from "std/net";
+tcp_listen(8080, "Welcome to Lingua!\n");
+start();

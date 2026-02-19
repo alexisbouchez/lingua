@@ -1,0 +1,3 @@
+import { tcp_connect, start } from "std/net";
+tcp_connect("127.0.0.1", 8080, "Hello server!\n");
+start();

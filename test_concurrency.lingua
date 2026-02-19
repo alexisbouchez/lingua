@@ -1,0 +1,42 @@
+import { send, receive } from "std/concurrency";
+
+// Basic channel usage
+const ch = channel<int>();
+send(ch, 42);
+send(ch, 100);
+print(receive(ch));
+print(receive(ch));
+
+// Channel with spawn
+const ch2 = channel<string>();
+
+fn greet(ch: Channel<string>) {
+    send(ch, "hello");
+    send(ch, "world");
+}
+
+spawn greet(ch2);
+print(receive(ch2));
+print(receive(ch2));
+
+// Multiple channels
+const req = channel<int>();
+const resp = channel<int>();
+
+fn double_it(inp: Channel<int>, out: Channel<int>) {
+    const val = receive(inp);
+    send(out, val * 2);
+}
+
+send(req, 21);
+spawn double_it(req, resp);
+print(receive(resp));
+
+// Channel identity comparison
+const a = channel<int>();
+const b = channel<int>();
+print(a == a);
+print(a == b);
+
+// Print channel
+print(ch);
